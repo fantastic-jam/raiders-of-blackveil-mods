@@ -1,0 +1,13 @@
+bin/
+obj/
+/packages/
+lib/*.dll
+*.iml
+*.user
+.idea
+UserPaths.props
+.claude/
+deploy.bat
+game-src/*
+dist
+deploy.log

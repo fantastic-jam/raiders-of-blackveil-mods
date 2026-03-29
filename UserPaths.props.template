@@ -1,0 +1,5 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <RaidersOfBlackveilRootPath>C:\Program Files (x86)\Steam\steamapps\common\Raiders of Blackveil</RaidersOfBlackveilRootPath>
+  </PropertyGroup>
+</Project>
