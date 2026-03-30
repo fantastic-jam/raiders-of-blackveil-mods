@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("DisableSkillsBar", "HandyPurse")]
+    [ValidateSet("DisableSkillsBar", "HandyPurse", "PerfectDodge")]
     [string]$ModName,
 
     [Parameter(Mandatory = $true)]

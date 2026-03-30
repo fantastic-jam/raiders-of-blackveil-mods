@@ -281,6 +281,10 @@ function Ensure-IlspyCmd {
     return $ilspyCmd
 }
 
+function Get-AssemblyHashFilePath {
+    return (Join-Path $scriptDir '.game-src-assembly.sha256')
+}
+
 function Decompile-AssemblyCSharpIfMissing {
     $assemblyPath = Join-Path $scriptDir 'lib\Assembly-CSharp.dll'
     if (-not (Test-Path $assemblyPath)) {
@@ -289,9 +293,22 @@ function Decompile-AssemblyCSharpIfMissing {
     }
 
     $gameSrcDir = Join-Path $scriptDir 'game-src'
+    $hashFilePath = Get-AssemblyHashFilePath
+    $currentAssemblyHash = (Get-FileHash -Path $assemblyPath -Algorithm SHA256).Hash
+    $storedAssemblyHash = $null
+
+    if (Test-Path $hashFilePath) {
+        $storedAssemblyHash = (Get-Content -Path $hashFilePath -Raw).Trim()
+    }
+
     if (Test-Path $gameSrcDir) {
-        Write-Output 'game-src already exists. Skipping decompile.'
-        return
+        if ($storedAssemblyHash -and $storedAssemblyHash -eq $currentAssemblyHash) {
+            Write-Output 'game-src is up to date for the current Assembly-CSharp.dll hash. Skipping decompile.'
+            return
+        }
+
+        Write-Output 'Assembly-CSharp.dll hash changed (or no stored hash found). Deleting game-src\ for a fresh decompile.'
+        Remove-Item -Path $gameSrcDir -Recurse -Force
     }
 
     $ilspyCmd = Ensure-IlspyCmd
@@ -302,6 +319,8 @@ function Decompile-AssemblyCSharpIfMissing {
     if ($LASTEXITCODE -ne 0) {
         throw 'ERROR: ilspycmd failed while decompiling Assembly-CSharp.dll.'
     }
+
+    Set-Content -Path $hashFilePath -Value $currentAssemblyHash -Encoding ASCII
 
     Write-Output 'Decompiled game code into game-src\.'
 }
