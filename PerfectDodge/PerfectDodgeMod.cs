@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -14,7 +14,7 @@ namespace PerfectDodge
     {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge";
         public const string Name = "PerfectDodge";
-        public const string Version = "0.0.0";
+        public const string Version = "0.1.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
@@ -51,3 +51,4 @@ namespace PerfectDodge
         }
     }
 }
+
