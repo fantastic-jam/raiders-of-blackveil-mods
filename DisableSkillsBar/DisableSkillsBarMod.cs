@@ -12,7 +12,7 @@ namespace DisableSkillsBar
     {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.disableskillsbar";
         public const string Name = "DisableSkillsBar";
-        public const string Version = "0.0.1";
+        public const string Version = "0.2.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
@@ -32,4 +32,5 @@ namespace DisableSkillsBar
         }
     }
 }
+
 
