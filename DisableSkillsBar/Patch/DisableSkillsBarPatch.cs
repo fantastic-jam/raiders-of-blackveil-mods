@@ -29,10 +29,57 @@ namespace DisableSkillsBar.Patch
                 DisableSkillsBarMod.PublicLogger.LogWarning($"Found {abilityBarType.FullName} but no CheckInput method to patch.");
                 return;
             }
+            harmony.Patch(checkInputMethod,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(CheckInputPrefix))));
 
-            var prefix = AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(CheckInputPrefix));
-            harmony.Patch(checkInputMethod, prefix: new HarmonyMethod(prefix));
-            DisableSkillsBarMod.PublicLogger.LogInfo($"Patched {abilityBarType.FullName}.CheckInput for Alt-gated skills bar interaction.");
+            // SetUpgradeIndex(int, bool mouseHover) sets UpgradeMode=true directly on hover,
+            // causing a flash + SFX before CheckInput can reset it. Block it unless Alt is held.
+            var setUpgradeIndexMethod = AccessTools.Method(abilityBarType, "SetUpgradeIndex",
+                new[] { typeof(int), typeof(bool) });
+            if (setUpgradeIndexMethod == null)
+            {
+                DisableSkillsBarMod.PublicLogger.LogWarning($"Found {abilityBarType.FullName} but no SetUpgradeIndex method to patch. Hover flash not suppressed.");
+            }
+            else
+            {
+                harmony.Patch(setUpgradeIndexMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(SetUpgradeIndexPrefix))));
+            }
+
+            // UpgradeAbility(int) is called directly from OnMouseClick with no UpgradeMode check,
+            // so a click upgrades an ability even when the bar appears closed. Block it unless Alt is
+            // held OR the bar is already intentionally open (UpgradeMode == true).
+            var upgradeAbilityMethod = AccessTools.Method(abilityBarType, "UpgradeAbility",
+                new[] { typeof(int) });
+            if (upgradeAbilityMethod == null)
+            {
+                DisableSkillsBarMod.PublicLogger.LogWarning($"Found {abilityBarType.FullName} but no UpgradeAbility(int) method to patch. Click gating disabled.");
+            }
+            else
+            {
+                harmony.Patch(upgradeAbilityMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(UpgradeAbilityPrefix))));
+            }
+
+            DisableSkillsBarMod.PublicLogger.LogInfo($"Patched {abilityBarType.FullName}: hover and click gated behind Alt.");
+        }
+
+        // Block hover from setting UpgradeMode=true unless Alt is held.
+        // Without this, SetUpgradeIndex(mouseHover: true) causes a flash + SFX before CheckInput resets it.
+        public static bool SetUpgradeIndexPrefix(bool mouseHover)
+        {
+            return !mouseHover || IsInteractionUnlocked();
+        }
+
+        // Block direct mouse-click upgrades unless Alt is held OR the bar is already open.
+        // OnMouseClick calls UpgradeAbility(int) directly, bypassing UpgradeMode entirely.
+        public static bool UpgradeAbilityPrefix(object __instance)
+        {
+            if (IsInteractionUnlocked())
+                return true;
+
+            var upgradeModeProp = __instance.GetType().GetProperty("UpgradeMode");
+            return upgradeModeProp?.GetValue(__instance) is true;
         }
 
         // Suppress hover-based skill bar activation unless Alt is held.
