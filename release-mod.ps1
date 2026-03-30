@@ -7,7 +7,8 @@ param(
     [string]$Version,
 
     [switch]$SkipPush,
-    [switch]$SkipRelease
+    [switch]$SkipRelease,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,8 +35,13 @@ if ($branch -ne "main") {
 }
 
 $trackedChanges = (git status --porcelain)
-if ($trackedChanges) {
+if ($trackedChanges -and -not $DryRun) {
     throw "Working tree is not clean. Commit or stash changes before running release-mod."
+}
+
+if ($DryRun) {
+    $SkipPush = $true
+    $SkipRelease = $true
 }
 
 if ($SkipPush -and -not $SkipRelease) {
@@ -55,6 +61,10 @@ if (-not (Test-Path $sourcePath)) {
     throw "Mod source file not found: $sourcePath"
 }
 
+# Find the most recent previous release tag for this mod (used for changelog range)
+$prevTagRaw = git tag -l "$ModName-v*" --sort=-version:refname 2>$null | Select-Object -First 1
+$prevTag = if ($prevTagRaw) { ($prevTagRaw -join "").Trim() } else { $null }
+
 $localTagRaw = git tag -l "$tag"
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to check local tags."
@@ -71,6 +81,45 @@ if ($LASTEXITCODE -ne 0) {
 $remoteTag = (($remoteTagRaw -join "`n")).Trim()
 if ($remoteTag) {
     throw "Tag already exists on origin: $tag"
+}
+
+$range = if ($prevTag) { "$prevTag..HEAD" } else { "HEAD" }
+$commitLines = git log $range --pretty=format:"- %s" --no-merges --grep="$ModName" -i
+$changelog = if ($commitLines) {
+    "## Changelog`n`n" + ($commitLines -join "`n")
+} else {
+    "No changes recorded."
+}
+
+if ($DryRun) {
+    $prevTagDisplay = if ($prevTag) { $prevTag } else { '(none - first release)' }
+    $summary = @"
+
+=== DRY RUN - nothing will be modified ===
+
+  Mod:        $ModName
+  Version:    $Version
+  Tag:        $tag
+  Branch:     $branch
+  Prev tag:   $prevTagDisplay
+  Asset:      $assetPath
+
+  Steps that would run:
+    1. Bump Version in $sourcePath
+    2. Build and package -> $assetPath
+    3. git commit -m "chore($ModName): release v$Version"
+    4. git tag -a $tag
+    5. git push origin $branch
+    6. git push origin $tag
+    7. gh release create $tag --title "$ModName v$Version"
+    8. gh release upload $tag $assetPath
+
+  Release notes:
+$changelog
+
+"@
+    Write-Host $summary
+    return
 }
 
 $source = Get-Content -LiteralPath $sourcePath -Raw
@@ -116,8 +165,14 @@ if (-not $SkipPush) {
 }
 
 if (-not $SkipRelease) {
-    gh release create "$tag" --title "$tag" --generate-notes
-    gh release upload "$tag" "$assetPath" --clobber
+    $notesFile = [System.IO.Path]::GetTempFileName()
+    try {
+        Set-Content -LiteralPath $notesFile -Value $changelog -Encoding utf8
+        gh release create "$tag" --title "$ModName v$Version" --notes-file $notesFile
+        gh release upload "$tag" "$assetPath" --clobber
+    } finally {
+        Remove-Item $notesFile -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host "Release completed for $tag"
