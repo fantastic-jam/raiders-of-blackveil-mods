@@ -27,7 +27,7 @@
     <ItemGroup>
         <Reference Include="System"/>
         <Reference Include="System.Core"/>
-        <Reference Include="System.Data"/>
+        <Reference Include="System.Runtime.Serialization"/>
         <Reference Include="System.Xml"/>
         <Reference Include="Fusion.Runtime">
             <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Runtime.dll</HintPath>
@@ -36,8 +36,14 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="PerfectDodgeMod.cs"/>
+        <Compile Include="Localization\PerfectDodgeLocalization.cs"/>
         <Compile Include="Patch\PerfectDodgePatch.cs"/>
         <Compile Include="Properties\AssemblyInfo.cs"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="Assets\Localization\*.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

@@ -14,6 +14,7 @@ $modDir = Join-Path $repoRoot $ModName
 $csprojPath = Join-Path $modDir "$ModName.csproj"
 $modSourcePath = Join-Path $modDir "${ModName}Mod.cs"
 $dllPath = Join-Path $modDir "bin/Release/$ModName.dll"
+$localizationDir = Join-Path $modDir "bin/Release/Assets/Localization"
 $configDir = Join-Path $modDir "Config"
 
 if (-not (Test-Path $csprojPath)) {
@@ -60,6 +61,17 @@ if (-not (Test-Path $dllPath)) {
 
 New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
 Copy-Item -LiteralPath $dllPath -Destination (Join-Path $pluginDir "$ModName.dll") -Force
+
+if (Test-Path $localizationDir) {
+    $localeFiles = Get-ChildItem -Path $localizationDir -Filter "*.json" -File
+    if ($localeFiles.Count -gt 0) {
+        $localizationOutDir = Join-Path $pluginDir "Assets/Localization"
+        New-Item -ItemType Directory -Force -Path $localizationOutDir | Out-Null
+        foreach ($localeFile in $localeFiles) {
+            Copy-Item -LiteralPath $localeFile.FullName -Destination (Join-Path $localizationOutDir $localeFile.Name) -Force
+        }
+    }
+}
 
 if (Test-Path $configDir) {
     $cfgFiles = Get-ChildItem -Path $configDir -Filter "*.cfg" -File

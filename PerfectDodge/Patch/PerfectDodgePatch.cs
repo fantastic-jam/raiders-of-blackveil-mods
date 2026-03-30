@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using PerfectDodge.Localization;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Damage;
@@ -122,7 +123,7 @@ namespace PerfectDodge.Patch
             if (_perfectDodgeFeedbackFiredThisDash.Add(actorId))
             {
                 var statsUI = _healthStatsUIField?.GetValue(__instance) as OverheadStatsUI;
-                statsUI?.SetStaticText("*dodged*", Color.cyan, 1.5f);
+                statsUI?.SetStaticText(PerfectDodgeLocalization.Get(PerfectDodgeLocalization.DodgedLabelKey), Color.cyan, 1.5f);
             }
 
             // Block the hit entirely — skip TakeBasicDamage
