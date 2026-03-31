@@ -74,3 +74,4 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 3. `[BepInPlugin]`-annotated class inheriting `BaseUnityPlugin`, with a `public const string Version`
 4. Harmony patches in `Patch/`
 5. Add `[ModName]` to the `-ValidateSet` in both `release-mod.ps1` and `package-mod.ps1`
+6. Create `[ModName]/metadata.json` — add `nexus_mod_id` and `nexus_file_group_id` to enable automatic Nexus publish on release (omit the file to skip Nexus publishing for that mod)

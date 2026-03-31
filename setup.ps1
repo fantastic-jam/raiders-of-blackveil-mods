@@ -395,6 +395,13 @@ try {
     Decompile-AssemblyCSharpIfMissing
     Print-PathHints -MSBuildPath $msbuildExe
 
+    Write-Output 'Configuring git hooks...'
+    git config core.hooksPath .github/hooks
+    if ($LASTEXITCODE -ne 0) {
+        throw 'ERROR: Failed to configure git hooks path.'
+    }
+    Write-Output 'Git hooks configured (.github/hooks).'
+
     Write-Output ''
     Write-Output 'Setup complete.'
     Write-Output 'Next:'

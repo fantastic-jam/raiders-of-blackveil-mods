@@ -1,0 +1,64 @@
+name: Publish to Nexus Mods
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  nexus-publish:
+    runs-on: ubuntu-latest
+    # Only run for mod release tags (e.g. PerfectDodge-v1.2.3)
+    if: contains(github.ref_name, '-v')
+
+    steps:
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${{ github.ref_name }}"
+          MOD_NAME="${TAG%-v*}"
+          VERSION="${TAG#*-v}"
+          echo "mod_name=$MOD_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"   >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - name: Read metadata
+        id: meta
+        run: |
+          MOD_META="${{ steps.parse.outputs.mod_name }}/metadata.json"
+          if [ ! -f "$MOD_META" ]; then
+            echo "::notice::Nexus publish skipped — no metadata.json found for ${{ steps.parse.outputs.mod_name }}"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          GAME_DOMAIN=$(jq -r '.nexus_game_domain' metadata.json)
+          FILE_GROUP_ID=$(jq -r '.nexus_file_group_id' "$MOD_META")
+          echo "game_domain=$GAME_DOMAIN"     >> "$GITHUB_OUTPUT"
+          echo "file_group_id=$FILE_GROUP_ID" >> "$GITHUB_OUTPUT"
+          echo "skip=false"                   >> "$GITHUB_OUTPUT"
+
+      - name: Download release asset
+        if: steps.meta.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "*.zip" \
+            --dir ./dist
+
+      - name: Resolve asset path
+        if: steps.meta.outputs.skip == 'false'
+        id: asset
+        run: |
+          echo "path=$(ls ./dist/*.zip | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Nexus Mods
+        if: steps.meta.outputs.skip == 'false'
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key:       ${{ secrets.NEXUS_API_KEY }}
+          file_group_id: ${{ steps.meta.outputs.file_group_id }}
+          filename:      ${{ steps.asset.outputs.path }}
+          version:       ${{ steps.parse.outputs.version }}
+          file_category: main

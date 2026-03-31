@@ -117,7 +117,11 @@ if ($remoteTag) {
 $range = if ($prevTag) { "$prevTag..HEAD" } else { "HEAD" }
 $rawLines = git log $range --pretty=format:"%s" --no-merges --grep="\($ModName\)" --grep="\(All\)" -i
 $commitLines = $rawLines | Where-Object { $_ -notmatch '^chore\([^)]+\):\s*release v' } | ForEach-Object {
-    "- " + ($_ -replace '^\w[\w-]*\([^)]+\):\s*', '')
+    if ($_ -match '^(fix|chore|new)\([^)]+\):\s*(.+)$') {
+        "*$($Matches[1])*: $($Matches[2])"
+    } else {
+        "- $_"
+    }
 }
 $changelog = if ($commitLines) {
     "## Changelog`n`n" + ($commitLines -join "`n")

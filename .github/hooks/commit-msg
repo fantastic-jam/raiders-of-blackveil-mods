@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Enforces commit message format: fix|chore|new(scope): message
+# Valid scopes: Repo, All, or any mod folder that contains a metadata.json
+
+COMMIT_MSG=$(cat "$1")
+
+# Skip merge, revert, fixup, squash commits
+if echo "$COMMIT_MSG" | grep -qE "^(Merge |Revert |fixup! |squash! )"; then
+  exit 0
+fi
+
+PATTERN='^(fix|chore|new)\(([^)]+)\): .+'
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "ERROR: Bad commit message format."
+  echo "  Expected : fix|chore|new(scope): message"
+  echo "  Got      : $COMMIT_MSG"
+  echo ""
+  echo "  Valid scopes: Repo, All, <ModName>  (mod folder must contain metadata.json)"
+  echo ""
+  exit 1
+fi
+
+SCOPE=$(echo "$COMMIT_MSG" | sed -E 's/^[^(]+\(([^)]+)\):.*/\1/')
+
+if [ "$SCOPE" = "Repo" ] || [ "$SCOPE" = "All" ]; then
+  exit 0
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+if [ ! -f "$REPO_ROOT/$SCOPE/metadata.json" ]; then
+  echo ""
+  echo "ERROR: Unknown scope '$SCOPE' — no metadata.json found at $SCOPE/metadata.json"
+  echo "  Valid mod scopes: $(find "$REPO_ROOT" -mindepth 2 -maxdepth 2 -name metadata.json | sed "s|$REPO_ROOT/||" | sed 's|/metadata.json||' | sort | tr '\n' ' ')"
+  echo ""
+  exit 1
+fi
+
+exit 0
