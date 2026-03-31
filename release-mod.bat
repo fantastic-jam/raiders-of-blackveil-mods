@@ -30,8 +30,10 @@ exit /b 1
 
 :usage
 echo Usage:
-echo   release-mod.bat -ModName ^<DisableSkillsBar^|HandyPurse^> -Version ^<SemVer^> [-SkipPush] [-SkipRelease]
+echo   release-mod.bat -ModName ^<name^> -Version ^<SemVer^> [-SkipPush] [-SkipRelease] [-DryRun]
+echo   release-mod.bat -ModName ^<name^> -Bump ^<major^|minor^|patch^> [-SkipPush] [-SkipRelease] [-DryRun]
 echo.
-echo Example:
+echo Examples:
 echo   release-mod.bat -ModName HandyPurse -Version 1.0.0
+echo   release-mod.bat -ModName HandyPurse -Bump patch
 exit /b 1

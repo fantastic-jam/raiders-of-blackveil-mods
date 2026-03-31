@@ -12,6 +12,7 @@ Always use the `.bat` wrappers — never invoke `.ps1` scripts directly.
 ./build.bat                                          # build all mods
 ./deploy.bat [ModName]                               # build + copy to local game
 ./release-mod.bat -ModName [ModName] -Version 1.2.3  # full release pipeline
+./release-mod.bat -ModName [ModName] -Bump patch     # auto-increment patch/minor/major
 ./release-mod.bat -ModName [ModName] -Version 1.2.3 -DryRun   # preview only
 ./release-mod.bat -ModName [ModName] -Version 1.2.3 -SkipPush -SkipRelease  # local only
 ```

@@ -3,8 +3,12 @@ param(
     [ValidateSet("DisableSkillsBar", "HandyPurse", "PerfectDodge")]
     [string]$ModName,
 
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$Version,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("major", "minor", "patch")]
+    [string]$Bump,
 
     [switch]$SkipPush,
     [switch]$SkipRelease,
@@ -15,6 +19,33 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
+
+if ($Version -and $Bump) {
+    throw "Cannot use both -Version and -Bump. Specify one or the other."
+}
+if (-not $Version -and -not $Bump) {
+    throw "Either -Version or -Bump must be specified."
+}
+
+if ($Bump) {
+    $sourcePath = Join-Path $repoRoot "$ModName/${ModName}Mod.cs"
+    $source = Get-Content -LiteralPath $sourcePath -Raw
+    $versionMatch = [regex]::Match($source, 'Version\s*=\s*"([^"]+)"')
+    if (-not $versionMatch.Success) {
+        throw "Could not find Version constant in $sourcePath"
+    }
+    $current = $versionMatch.Groups[1].Value
+    if ($current -notmatch '^([0-9]+)\.([0-9]+)\.([0-9]+)') {
+        throw "Current version '$current' is not a parseable SemVer."
+    }
+    $major = [int]$Matches[1]; $minor = [int]$Matches[2]; $patch = [int]$Matches[3]
+    switch ($Bump) {
+        "major" { $major++; $minor = 0; $patch = 0 }
+        "minor" { $minor++; $patch = 0 }
+        "patch" { $patch++ }
+    }
+    $Version = "$major.$minor.$patch"
+}
 
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid version '$Version'. Expected SemVer (example: 1.2.0 or 1.2.0-beta.1)."
@@ -84,7 +115,10 @@ if ($remoteTag) {
 }
 
 $range = if ($prevTag) { "$prevTag..HEAD" } else { "HEAD" }
-$commitLines = git log $range --pretty=format:"- %s" --no-merges --grep="$ModName" -i
+$rawLines = git log $range --pretty=format:"%s" --no-merges --grep="\($ModName\)" --grep="\(All\)" -i
+$commitLines = $rawLines | Where-Object { $_ -notmatch '^chore\([^)]+\):\s*release v' } | ForEach-Object {
+    "- " + ($_ -replace '^\w[\w-]*\([^)]+\):\s*', '')
+}
 $changelog = if ($commitLines) {
     "## Changelog`n`n" + ($commitLines -join "`n")
 } else {
