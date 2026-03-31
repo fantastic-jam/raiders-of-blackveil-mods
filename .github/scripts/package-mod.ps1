@@ -15,7 +15,6 @@ $csprojPath = Join-Path $modDir "$ModName.csproj"
 $modSourcePath = Join-Path $modDir "${ModName}Mod.cs"
 $dllPath = Join-Path $modDir "bin/Release/$ModName.dll"
 $localizationDir = Join-Path $modDir "bin/Release/Assets/Localization"
-$configDir = Join-Path $modDir "Config"
 
 if (-not (Test-Path $csprojPath)) {
     throw "Expected project file was not found: $csprojPath"
@@ -30,8 +29,7 @@ if (-not (Test-Path $buildScript)) {
 
 $distRoot = Join-Path $repoRoot "dist"
 $stagingRoot = Join-Path $distRoot "$ModName-staging"
-$pluginDir = Join-Path $stagingRoot "BepInEx/plugins/fantastic-jam-$ModName"
-$configOutDir = Join-Path $stagingRoot "BepInEx/config"
+$pluginDir = Join-Path $stagingRoot "plugins/fantastic-jam-$ModName"
 
 if (Test-Path $stagingRoot) {
     Remove-Item -Recurse -Force $stagingRoot
@@ -73,19 +71,10 @@ if (Test-Path $localizationDir) {
     }
 }
 
-if (Test-Path $configDir) {
-    $cfgFiles = Get-ChildItem -Path $configDir -Filter "*.cfg" -File
-    if ($cfgFiles.Count -gt 0) {
-        New-Item -ItemType Directory -Force -Path $configOutDir | Out-Null
-        foreach ($cfgFile in $cfgFiles) {
-            Copy-Item -LiteralPath $cfgFile.FullName -Destination (Join-Path $configOutDir $cfgFile.Name) -Force
-        }
-    }
-}
 
 $readmePath = Join-Path $modDir "README.md"
 if (Test-Path $readmePath) {
-    Copy-Item -LiteralPath $readmePath -Destination (Join-Path $stagingRoot "README.md") -Force
+    Copy-Item -LiteralPath $readmePath -Destination (Join-Path $pluginDir "README.md") -Force
 }
 
 if (-not (Test-Path $distRoot)) {

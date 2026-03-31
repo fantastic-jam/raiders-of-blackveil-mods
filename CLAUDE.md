@@ -62,7 +62,7 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 `release-mod.ps1` flow: bump `Version` constant → build → package ZIP → `git commit` + tag → push → GitHub release.
 
 - Tag format: `[ModName]-v[Version]`
-- ZIP structure: `BepInEx/plugins/fantastic-jam-[ModName]/`
+- ZIP structure: `plugins/fantastic-jam-[ModName]/`
 - Changelog is built from `git log --grep=[ModName]` since the previous mod tag — **commit messages must contain the mod name** for changelog filtering to work
 - Use `-DryRun` to preview the full plan including the generated changelog before touching anything
 
