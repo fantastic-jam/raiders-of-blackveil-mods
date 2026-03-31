@@ -13,7 +13,7 @@ namespace HandyPurse
     {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.handypurse";
         public const string Name = "HandyPurse";
-        public const string Version = "0.0.1";
+        public const string Version = "0.0.2";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
@@ -50,4 +50,5 @@ namespace HandyPurse
         }
     }
 }
+
 
