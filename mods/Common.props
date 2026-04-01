@@ -6,7 +6,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Reference Include="0Harmony">
-            <HintPath>$(RaidersOfBlackveilRootPath)\BepInEx\core\0Harmony.dll</HintPath>
+            <HintPath>$(MSBuildThisFileDirectory)..\bepinex\BepInEx\core\0Harmony.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="Assembly-CSharp">
@@ -17,12 +17,8 @@
             <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
             <Private>False</Private>
         </Reference>
-        <Reference Include="BepInEx.Core">
-            <HintPath>$(RaidersOfBlackveilRootPath)\BepInEx\core\BepInEx.Core.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="BepInEx.Unity.Mono">
-            <HintPath>$(RaidersOfBlackveilRootPath)\BepInEx\core\BepInEx.Unity.Mono.dll</HintPath>
+        <Reference Include="BepInEx">
+            <HintPath>$(MSBuildThisFileDirectory)..\bepinex\BepInEx\core\BepInEx.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="Unity.TextMeshPro">

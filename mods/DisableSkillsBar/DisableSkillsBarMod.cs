@@ -1,7 +1,6 @@
 ﻿using System;
 using BepInEx;
 using BepInEx.Logging;
-using BepInEx.Unity.Mono;
 using HarmonyLib;
 using DisableSkillsBar.Patch;
 

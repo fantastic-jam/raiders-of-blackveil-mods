@@ -2,7 +2,6 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
-using BepInEx.Unity.Mono;
 using HarmonyLib;
 using PerfectDodge.Localization;
 using PerfectDodge.Patch;
