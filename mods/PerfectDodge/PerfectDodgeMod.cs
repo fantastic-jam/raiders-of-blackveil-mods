@@ -7,11 +7,9 @@ using HarmonyLib;
 using PerfectDodge.Localization;
 using PerfectDodge.Patch;
 
-namespace PerfectDodge
-{
+namespace PerfectDodge {
     [BepInPlugin(Id, Name, Version)]
-    public class PerfectDodgeMod : BaseUnityPlugin
-    {
+    public class PerfectDodgeMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge";
         public const string Name = "PerfectDodge";
         public const string Version = "0.1.1";
@@ -24,8 +22,7 @@ namespace PerfectDodge
         /// </summary>
         public static ConfigEntry<float> PerfectDodgeWindowSeconds;
 
-        private void Awake()
-        {
+        private void Awake() {
             PublicLogger = Logger;
             PerfectDodgeLocalization.Initialize(Logger);
 
@@ -37,15 +34,13 @@ namespace PerfectDodge
                     "Perfect-dodge timing window in seconds after dash press.",
                     new AcceptableValueRange<float>(0.01f, 1f)));
 
-            try
-            {
+            try {
                 PerfectDodgePatch.Apply(new Harmony(Id));
                 PublicLogger.LogInfo(
                     $"{Name} by {Author} (version {Version}) loaded. " +
                     $"PerfectDodgeWindow={PerfectDodgeWindowSeconds.Value}s, DamageReduction=100%.");
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
         }
