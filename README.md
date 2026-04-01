@@ -1,45 +1,79 @@
 ## Raiders of Blackveil mods
 
-* [DisableSkillsBar](DisableSkillsBar/README.md)
-* [HandyPurse](HandyPurse/README.md)
+- [DisableSkillsBar](mods/DisableSkillsBar/README.md)
+- [HandyPurse](mods/HandyPurse/README.md)
+- [PerfectDodge](mods/PerfectDodge/README.md)
 
-## How to compile
+## Setup
 
-* Make sure that you have Raiders of Blackveil installed with [BepInEx](https://github.com/BepInEx/BepInEx/)
-* Copy the `UserPaths.props.template` file to `UserPaths.props`
-* Edit the `RaidersOfBlackveilRootPath` in `UserPaths.props`
+Requires Node.js 22+ and .NET SDK 9+.
 
-## Per-mod releases (local script)
+```bash
+pnpm install
+pnpm run setup        # auto-detects game path, installs BepInEx, copies game DLLs
+```
 
-Release one mod locally with:
+`setup` writes `mods/UserPaths.props` with your local game path. That file is gitignored.
 
-* `./release-mod.ps1 -ModName "HandyPurse" -Version "1.0.0"`
-* `release-mod.bat -ModName HandyPurse -Version 1.0.0`
+## Build
 
-Build package only with:
+```bash
+pnpm run build        # dotnet build — all mods, Release config
+```
 
-* `./.github/scripts/package-mod.ps1 -ModName "HandyPurse"`
-* `package-mod.bat -ModName HandyPurse`
+## Deploy (local game)
 
-`package-mod` builds and packages the selected mod using the current `Version` value already present in the mod source.
+```bash
+pnpm run deploy -- --mod DisableSkillsBar
+pnpm run deploy -- --mod HandyPurse
+pnpm run deploy -- --mod PerfectDodge
+```
 
-`release-mod` is a one-shot release command intended to run from a clean `main` branch checkout. It updates the mod source version, builds and packages from that updated source, commits the version bump if needed, creates the local git tag, pushes branch and tag, creates the GitHub release, and uploads the ZIP asset.
+Builds the solution and copies the DLL (and localization files, config templates) into the game's BepInEx plugin folder. Existing config files are preserved.
 
-Tag format:
+## Release
 
-* `<ModName>-v<Version>`
+```bash
+pnpm run release -- --mod PerfectDodge --bump patch       # auto-increment version
+pnpm run release -- --mod PerfectDodge --version 1.2.3    # explicit version
+pnpm run release -- --mod PerfectDodge --bump minor --dry-run   # preview only
+```
 
-Examples:
+Full pipeline: bumps `Version` constant in source → builds → packages ZIP → `git commit` + tag → push → GitHub release + asset upload (via `@octokit/rest`, requires `GITHUB_TOKEN`).
 
-* `HandyPurse-v1.0.0`
-* `DisableSkillsBar-v0.4.1`
+Package only (no git/release):
 
-The uploaded ZIP follows a game-root-ready structure used by many Nexus/BepInEx mods:
+```bash
+pnpm run package -- --mod PerfectDodge
+```
 
-* `BepInEx/plugins/fantastic-jam-<ModName>/<ModName>.dll`
-* `BepInEx/config/*.cfg` (included when the mod has tracked config files)
+## Tag format
 
-Version behavior:
+```
+<ModName>-v<Version>     e.g.  PerfectDodge-v0.1.2
+```
 
-* `package-mod` uses whatever version is already in the mod source for both compilation and ZIP naming.
-* `release-mod` writes the requested version into the mod source before building the package. If packaging fails, the source file is restored before the script exits.
+## ZIP structure
+
+```
+plugins/fantastic-jam-<ModName>/
+  <ModName>.dll
+  Assets/Localization/    (if present)
+  README.md               (if present)
+```
+
+## Commit message format
+
+Enforced by Husky commit-msg hook:
+
+```
+fix|chore|new(<scope>): message
+
+<scope>  →  Repo | All | <ModName>
+```
+
+Examples: `fix(PerfectDodge): handle null stats`, `chore(Repo): update deps`
+
+## Nexus Mods publishing
+
+Triggered automatically on GitHub release. Each mod's `mods/<ModName>/metadata.json` must contain `nexus_mod_id` and `nexus_file_group_id`. Omit the file to skip Nexus publishing for that mod.

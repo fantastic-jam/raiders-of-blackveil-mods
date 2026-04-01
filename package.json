@@ -25,6 +25,7 @@
     "@octokit/rest": "latest",
     "@types/archiver": "latest",
     "@types/fs-extra": "latest",
+    "@types/node": "^25.5.0",
     "@types/semver": "latest",
     "@typescript/native-preview": "latest",
     "archiver": "latest",
