@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-C# BepInEx 6 mods for the game **Raiders of Blackveil**. Each mod is a separate project in one solution under `mods/`. Target: `netstandard2.1`, C# 10, Release only — there is no Debug config, no tests.
+C# BepInEx 5 mods for the game **Raiders of Blackveil**. Each mod is a separate project in one solution under `mods/`. Target: `netstandard2.1`, C# 10, Release only — there is no Debug config, no tests.
 
 ## Commands
 

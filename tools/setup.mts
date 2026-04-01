@@ -1,54 +1,31 @@
 import { createHash } from 'node:crypto'
 import { execSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import { MODS_DIR, REPO_ROOT } from './lib/mod.mts'
+import { extractZip } from './lib/zip.mts'
 
 const DEFAULT_GAME_ROOT = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Raiders of Blackveil'
-const BEPINEX_BUILDS_URL = 'https://builds.bepinex.dev/projects/bepinex_be'
 
-function tryRun(cmd: string): string | null {
-  try {
-    return execSync(cmd, { encoding: 'utf8' }).trim()
-  } catch {
-    return null
-  }
-}
-
-function autoDetectGameRoot(): string | null {
-  if (process.platform !== 'win32') return null
-  const candidates = [
-    'HKCU:\\Software\\Valve\\Steam',
-    'HKLM:\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
-  ]
-  for (const key of candidates) {
-    const result = tryRun(
-      `powershell -NoProfile -Command "(Get-ItemProperty '${key}' -ErrorAction SilentlyContinue).SteamPath"`,
-    )
-    if (result) {
-      const gamePath = path.join(result, 'steamapps', 'common', 'Raiders of Blackveil')
-      if (fs.existsSync(path.join(gamePath, 'RoB.exe'))) return gamePath
-    }
-  }
-  return null
+function readStoredGameRoot(): string | null {
+  const propsPath = path.join(MODS_DIR, 'UserPaths.props')
+  if (!fs.existsSync(propsPath)) return null
+  const m = fs.readFileSync(propsPath, 'utf8').match(/<RaidersOfBlackveilRootPath>([^<]+)<\/RaidersOfBlackveilRootPath>/)
+  return m ? m[1].trim() : null
 }
 
 async function promptGameRoot(): Promise<string> {
-  const autoDetected = autoDetectGameRoot()
-  if (autoDetected) {
-    console.log(`Auto-detected game path: ${autoDetected}`)
-    return autoDetected
-  }
+  const stored = readStoredGameRoot()
+  const defaultPath = stored ?? DEFAULT_GAME_ROOT
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
   return new Promise((resolve) => {
-    rl.question(
-      `Enter game path (Enter for default: ${DEFAULT_GAME_ROOT}): `,
-      (answer: string) => {
-        rl.close()
-        resolve(answer.trim() || DEFAULT_GAME_ROOT)
-      },
-    )
+    const label = stored ? `Enter to keep: ${stored}` : `Enter for default: ${DEFAULT_GAME_ROOT}`
+    rl.question(`Enter game path (${label}): `, (answer: string) => {
+      rl.close()
+      resolve(answer.trim() || defaultPath)
+    })
   })
 }
 
@@ -76,30 +53,31 @@ function copyGameAssemblies(gameRoot: string): void {
   console.log('Copied Assembly-CSharp.dll to lib/')
 }
 
-function installBepInEx(gameRoot: string): void {
-  const coreDll = path.join(gameRoot, 'BepInEx', 'core', 'BepInEx.Core.dll')
+async function installBepInEx(): Promise<void> {
+  const bepinexDir = path.join(REPO_ROOT, 'bepinex')
+  const coreDll = path.join(bepinexDir, 'BepInEx', 'core', 'BepInEx.dll')
   if (fs.existsSync(coreDll)) {
-    console.log('BepInEx 6.x already present.')
+    console.log('BepInEx 5.x already present.')
     return
   }
-  if (!fs.existsSync(path.join(gameRoot, 'RoB.exe'))) {
-    console.warn(`WARNING: RoB.exe not found at ${gameRoot}. Skipping BepInEx install.`)
-    return
-  }
-  console.log('Installing BepInEx 6.0.0 BE...')
-  execSync(
-    `powershell -NoProfile -ExecutionPolicy Bypass -Command "
-      $html = (Invoke-WebRequest -UseBasicParsing -Uri '${BEPINEX_BUILDS_URL}').Content
-      $m = [regex]::Match($html, 'href=""(/projects/bepinex_be/\\d+/BepInEx-Unity\\.Mono-win-x64-6\\.0\\.0-be\\.[^""/]+\\.zip)""')
-      if (-not $m.Success) { throw 'Cannot find BepInEx artifact' }
-      $url = 'https://builds.bepinex.dev' + $m.Groups[1].Value
-      $zip = Join-Path $env:TEMP 'bepinex_rob.zip'
-      Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
-      Expand-Archive -Path $zip -DestinationPath '${gameRoot.replace(/\\/g, '\\\\')}' -Force
-      Remove-Item $zip -Force"`,
-    { stdio: 'inherit' },
-  )
-  console.log('BepInEx installed.')
+  fs.mkdirSync(bepinexDir, { recursive: true })
+  console.log('Downloading BepInEx 5 (latest stable)...')
+
+  const releasesRes = await fetch('https://api.github.com/repos/BepInEx/BepInEx/releases', {
+    headers: { 'User-Agent': 'setup-script' },
+  })
+  const releases = (await releasesRes.json()) as { tag_name: string; prerelease: boolean; assets: { name: string; browser_download_url: string }[] }[]
+  const rel = releases.find((r) => r.tag_name.startsWith('v5.') && !r.prerelease)
+  if (!rel) throw new Error('Cannot find BepInEx 5 release')
+  const asset = rel.assets.find((a) => /^BepInEx_win_x64_.*\.zip$/.test(a.name))
+  if (!asset) throw new Error('Cannot find BepInEx 5 win-x64 asset')
+
+  const zipPath = path.join(os.tmpdir(), 'bepinex_rob.zip')
+  const res = await fetch(asset.browser_download_url)
+  fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
+  await extractZip(zipPath, bepinexDir)
+  fs.unlinkSync(zipPath)
+  console.log('BepInEx 5 downloaded to bepinex/.')
 }
 
 function decompileIfNeeded(): void {
@@ -110,7 +88,7 @@ function decompileIfNeeded(): void {
   }
 
   const gameSrcDir = path.join(REPO_ROOT, 'game-src')
-  const hashFile = path.join(REPO_ROOT, '.game-src-assembly.sha256')
+  const hashFile = path.join(gameSrcDir, '.assembly.sha256')
   const currentHash = createHash('sha256').update(fs.readFileSync(assemblyPath)).digest('hex')
   const storedHash = fs.existsSync(hashFile) ? fs.readFileSync(hashFile, 'utf8').trim() : null
 
@@ -140,7 +118,7 @@ console.log('=== Raiders of Blackveil Modding Setup ===')
 const gameRoot = await promptGameRoot()
 console.log(`Game: ${gameRoot}`)
 writeUserPaths(gameRoot)
-installBepInEx(gameRoot)
+await installBepInEx()
 copyGameAssemblies(gameRoot)
 decompileIfNeeded()
 console.log('\nSetup complete. Next: pnpm run build')

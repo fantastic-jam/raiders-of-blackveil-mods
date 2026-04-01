@@ -8,6 +8,7 @@ lib/*.dll
 UserPaths.props
 .claude/
 node_modules/
+bepinex/
 game-src/*
 dist
 deploy.log
