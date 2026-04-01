@@ -135,13 +135,6 @@ if (dryRun) {
   Release notes:
 ${notes}
 `)
-
-  console.log('Building and packaging to validate (dry-run uses current version)...')
-  execSync(`node --experimental-strip-types tools/package.mts --mod ${modName}`, {
-    cwd: REPO_ROOT,
-    stdio: 'inherit',
-  })
-  console.log('\nBuild succeeded. No source files or git state were modified.')
   process.exit(0)
 }
 
