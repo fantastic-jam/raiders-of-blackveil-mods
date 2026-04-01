@@ -1,17 +1,7 @@
-import {
-  CommandLineFlagParameter,
-  CommandLineParser,
-  CommandLineStringParameter,
-} from '@rushstack/ts-command-line'
 import { execSync } from 'node:child_process'
+import path from 'node:path'
+import { parseArgs } from 'node:util'
 import semver from 'semver'
-import {
-  REPO_ROOT,
-  listMods,
-  modSourceFile,
-  readModVersion,
-  writeModVersion,
-} from './lib/mod.mts'
 import {
   changelog,
   commit,
@@ -25,127 +15,104 @@ import {
   tagExists,
 } from './lib/git.mts'
 import { createRelease } from './lib/github.mts'
+import { REPO_ROOT, listMods, modSourceFile, readModVersion, writeModVersion } from './lib/mod.mts'
 
-class ReleaseAction extends CommandLineParser {
-  private _modName!: CommandLineStringParameter
-  private _version!: CommandLineStringParameter
-  private _bump!: CommandLineStringParameter
-  private _skipPush!: CommandLineFlagParameter
-  private _skipRelease!: CommandLineFlagParameter
-  private _dryRun!: CommandLineFlagParameter
+const { values } = parseArgs({
+  args: process.argv.slice(2).filter((a) => a !== '--'),
+  options: {
+    mod: { type: 'string', short: 'm' },
+    version: { type: 'string', short: 'v' },
+    bump: { type: 'string', short: 'b' },
+    'skip-push': { type: 'boolean' },
+    'skip-release': { type: 'boolean' },
+    'dry-run': { type: 'boolean' },
+  },
+})
 
-  constructor() {
-    super({ toolFilename: 'release', toolDescription: 'Full release pipeline for a mod.' })
+const modName = values.mod
+if (!modName) {
+  console.error(
+    `Usage: release --mod <name> [--version 1.2.3 | --bump major|minor|patch] [--dry-run] [--skip-push] [--skip-release]\nValid mods: ${listMods().join(', ')}`,
+  )
+  process.exit(1)
+}
+if (!listMods().includes(modName)) {
+  console.error(`Unknown mod "${modName}". Valid: ${listMods().join(', ')}`)
+  process.exit(1)
+}
+
+const versionArg = values.version
+const bumpArg = values.bump
+const dryRun = values['dry-run'] ?? false
+let skipPush = values['skip-push'] ?? false
+let skipRelease = values['skip-release'] ?? false
+
+if (versionArg && bumpArg) {
+  console.error('Cannot use both --version and --bump.')
+  process.exit(1)
+}
+if (!versionArg && !bumpArg) {
+  console.error('Either --version or --bump must be specified.')
+  process.exit(1)
+}
+if (dryRun) {
+  skipPush = true
+  skipRelease = true
+}
+
+if (skipPush && !skipRelease) {
+  console.error('Cannot create a GitHub release when --skip-push is set.')
+  process.exit(1)
+}
+
+const branch = currentBranch()
+if (branch !== 'main') {
+  console.error(`Releases must be from main. Current branch: ${branch}`)
+  process.exit(1)
+}
+if (!dryRun && !isWorkingTreeClean()) {
+  console.error('Working tree is not clean. Commit or stash changes first.')
+  process.exit(1)
+}
+
+const currentVersion = readModVersion(modName)
+let version: string
+
+if (bumpArg) {
+  const bumped = semver.inc(currentVersion, bumpArg as semver.ReleaseType)
+  if (!bumped) {
+    console.error(`Could not bump version "${currentVersion}" by "${bumpArg}"`)
+    process.exit(1)
   }
+  version = bumped
+} else if (versionArg) {
+  version = versionArg
+} else {
+  throw new Error('--version or --bump is required') // unreachable
+}
 
-  protected onDefineParameters(): void {
-    this._modName = this.defineStringParameter({
-      parameterLongName: '--mod',
-      parameterShortName: '-m',
-      description: `Mod to release. Valid values: ${listMods().join(', ')}`,
-      argumentName: 'MOD_NAME',
-      required: true,
-    })
-    this._version = this.defineStringParameter({
-      parameterLongName: '--version',
-      description: 'Explicit version to release (e.g. 1.2.3)',
-      argumentName: 'VERSION',
-    })
-    this._bump = this.defineStringParameter({
-      parameterLongName: '--bump',
-      description: 'Auto-increment: major | minor | patch',
-      argumentName: 'BUMP',
-    })
-    this._skipPush = this.defineFlagParameter({
-      parameterLongName: '--skip-push',
-      description: 'Do not push to origin',
-    })
-    this._skipRelease = this.defineFlagParameter({
-      parameterLongName: '--skip-release',
-      description: 'Do not create GitHub release',
-    })
-    this._dryRun = this.defineFlagParameter({
-      parameterLongName: '--dry-run',
-      description: 'Preview only — do not modify anything',
-    })
-  }
+if (!semver.valid(version)) {
+  console.error(`Invalid version "${version}". Expected SemVer (e.g. 1.2.0).`)
+  process.exit(1)
+}
 
-  protected async onExecute(): Promise<void> {
-    const modName = this._modName.value!
-    const validMods = listMods()
-    if (!validMods.includes(modName)) {
-      console.error(`Unknown mod "${modName}". Valid: ${validMods.join(', ')}`)
-      process.exit(1)
-    }
+const tag = `${modName}-v${version}`
+const assetPath = path.join(REPO_ROOT, 'dist', `${modName}-${version}.zip`)
+const prevTag = latestModTag(modName)
 
-    const versionArg = this._version.value
-    const bumpArg = this._bump.value
-    const dryRun = this._dryRun.value
-    let skipPush = this._skipPush.value
-    const skipRelease = this._skipRelease.value
+if (tagExists(tag)) {
+  console.error(`Tag already exists locally: ${tag}`)
+  process.exit(1)
+}
+if (remoteTagExists(tag)) {
+  console.error(`Tag already exists on origin: ${tag}`)
+  process.exit(1)
+}
 
-    if (versionArg && bumpArg) {
-      console.error('Cannot use both --version and --bump.')
-      process.exit(1)
-    }
-    if (!versionArg && !bumpArg) {
-      console.error('Either --version or --bump must be specified.')
-      process.exit(1)
-    }
-    if (dryRun) skipPush = true
+const notes = changelog(modName, prevTag)
 
-    if (skipPush && !skipRelease) {
-      console.error('Cannot create a GitHub release when --skip-push is set.')
-      process.exit(1)
-    }
-
-    const branch = currentBranch()
-    if (branch !== 'main') {
-      console.error(`Releases must be from main. Current branch: ${branch}`)
-      process.exit(1)
-    }
-
-    if (!dryRun && !isWorkingTreeClean()) {
-      console.error('Working tree is not clean. Commit or stash changes first.')
-      process.exit(1)
-    }
-
-    const currentVersion = readModVersion(modName)
-    let version: string
-
-    if (bumpArg) {
-      const bumped = semver.inc(currentVersion, bumpArg as semver.ReleaseType)
-      if (!bumped) {
-        console.error(`Could not bump version "${currentVersion}" by "${bumpArg}"`)
-        process.exit(1)
-      }
-      version = bumped
-    } else {
-      version = versionArg!
-    }
-
-    if (!semver.valid(version)) {
-      console.error(`Invalid version "${version}". Expected SemVer (e.g. 1.2.0).`)
-      process.exit(1)
-    }
-
-    const tag = `${modName}-v${version}`
-    const assetPath = `dist/${modName}-${version}.zip`
-    const prevTag = latestModTag(modName)
-
-    if (tagExists(tag)) {
-      console.error(`Tag already exists locally: ${tag}`)
-      process.exit(1)
-    }
-    if (remoteTagExists(tag)) {
-      console.error(`Tag already exists on origin: ${tag}`)
-      process.exit(1)
-    }
-
-    const notes = changelog(modName, prevTag)
-
-    if (dryRun) {
-      console.log(`
+if (dryRun) {
+  console.log(`
 === DRY RUN - nothing will be modified ===
 
   Mod:        ${modName}
@@ -168,36 +135,30 @@ class ReleaseAction extends CommandLineParser {
   Release notes:
 ${notes}
 `)
-      return
-    }
-
-    writeModVersion(modName, version)
-
-    try {
-      console.log(`Packaging ${modName} ${version}...`)
-      execSync(
-        `node --experimental-strip-types tools/package.mts --mod ${modName}`,
-        { cwd: REPO_ROOT, stdio: 'inherit' },
-      )
-    } catch (err) {
-      writeModVersion(modName, currentVersion)
-      throw err
-    }
-
-    stageFile(modSourceFile(modName))
-    commit(`chore(${modName}): release v${version}`)
-    createTag(tag)
-
-    if (!skipPush) {
-      push(branch, tag)
-    }
-
-    if (!skipRelease) {
-      await createRelease(tag, `${modName} v${version}`, notes, assetPath)
-    }
-
-    console.log(`Release completed for ${tag}`)
-  }
+  process.exit(0)
 }
 
-await new ReleaseAction().executeAsync()
+writeModVersion(modName, version)
+
+try {
+  console.log(`Packaging ${modName} ${version}...`)
+  execSync(`node --experimental-strip-types tools/package.mts --mod ${modName}`, {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+  })
+} catch (err) {
+  writeModVersion(modName, currentVersion)
+  throw err
+}
+
+stageFile(modSourceFile(modName))
+commit(`chore(${modName}): release v${version}`)
+createTag(tag)
+
+if (!skipPush) push(branch, tag)
+
+if (!skipRelease) {
+  await createRelease(tag, `${modName} v${version}`, notes, assetPath)
+}
+
+console.log(`Release completed for ${tag}`)

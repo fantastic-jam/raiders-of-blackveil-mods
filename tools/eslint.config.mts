@@ -1,8 +1,15 @@
+import eslint from '@eslint/js'
+import { defineConfig } from 'eslint/config'
+import eslintConfigPrettier from 'eslint-config-prettier/flat'
 import tseslint from 'typescript-eslint'
-import eslintConfigPrettier from 'eslint-config-prettier'
 
-export default tseslint.config(tseslint.configs.strictTypeChecked, eslintConfigPrettier, {
-  languageOptions: {
-    parserOptions: { projectService: true },
+export default defineConfig(
+  eslint.configs.recommended,
+  tseslint.configs.strictTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: { projectService: true },
+    },
   },
-})
+  eslintConfigPrettier,
+)

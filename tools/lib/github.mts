@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
+import path from 'node:path'
 import { REPO_ROOT } from './mod.mts'
 
 function getOctokit(): Octokit {
@@ -42,7 +43,7 @@ export async function createRelease(
   })
 
   const assetData = fs.readFileSync(assetPath)
-  const assetName = assetPath.split(/[/\\]/).pop()!
+  const assetName = path.basename(assetPath)
 
   await octokit.repos.uploadReleaseAsset({
     owner,

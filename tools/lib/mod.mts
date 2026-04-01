@@ -20,7 +20,7 @@ export function modSourceFile(modName: string): string {
 }
 
 export function modDllPath(modName: string): string {
-  return path.join(modDir(modName), 'bin', 'Release', `${modName}.dll`)
+  return path.join(modDir(modName), 'bin', 'Release', 'netstandard2.1', `${modName}.dll`)
 }
 
 export function readModVersion(modName: string): string {

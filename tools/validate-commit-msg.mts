@@ -24,7 +24,8 @@ ERROR: Bad commit message format.
 }
 
 const scopeMatch = msg.match(/^[^(]+\(([^)]+)\):/)
-const scope = scopeMatch![1]
+if (!scopeMatch) throw new Error(`Unexpected: scope regex did not match validated message: ${msg}`)
+const scope = scopeMatch[1]
 
 if (scope === 'Repo' || scope === 'All') process.exit(0)
 
