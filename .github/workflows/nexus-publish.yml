@@ -25,13 +25,13 @@ jobs:
       - name: Read metadata
         id: meta
         run: |
-          MOD_META="${{ steps.parse.outputs.mod_name }}/metadata.json"
+          MOD_META="mods/${{ steps.parse.outputs.mod_name }}/metadata.json"
           if [ ! -f "$MOD_META" ]; then
             echo "::notice::Nexus publish skipped — no metadata.json found for ${{ steps.parse.outputs.mod_name }}"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          GAME_DOMAIN=$(jq -r '.nexus_game_domain' metadata.json)
+          GAME_DOMAIN=$(jq -r '.nexus_game_domain' mods/metadata.json)
           FILE_GROUP_ID=$(jq -r '.nexus_file_group_id' "$MOD_META")
           echo "game_domain=$GAME_DOMAIN"     >> "$GITHUB_OUTPUT"
           echo "file_group_id=$FILE_GROUP_ID" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,27 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+charset = utf-8-bom
+
+# require explicit access modifiers
+dotnet_style_require_accessibility_modifiers = always:warning
+
+# prefer var when type is apparent
+csharp_style_var_when_type_is_apparent = true:suggestion
+
+# expression-bodied members
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+
+# braces always
+csharp_prefer_braces = true:warning
+
+[*.{mts,ts,json}]
+indent_style = space
+indent_size = 2
