@@ -56,11 +56,14 @@ tools/                  # Node/TypeScript build tooling
 mods/[ModName]/
 ├── [ModName]Mod.cs          # BepInEx plugin — holds Id, Name, Version constant, Awake()
 ├── Patch/[ModName]Patch.cs  # Harmony patches
-├── Assets/Localization/     # Translation files: [ModName].[lang].json
+├── Assets/                  # Copied verbatim to the plugin folder on deploy/release
+│   └── Localization/        # Translation files: [ModName].[lang].json
 ├── Config/                  # Optional .cfg templates (not overwritten on deploy)
 ├── metadata.json            # nexus_mod_id + nexus_file_group_id
 └── [ModName].csproj         # SDK-style, imports Common.props + UserPaths.props
 ```
+
+`Assets/` — any files under `Assets/` are declared as `Content` in the csproj and copied to the build output. The tooling copies the entire `Assets/` folder to the plugin directory on deploy and release. Use it for any runtime files (localization, sprites, data files, etc.).
 
 `Common.props` — all shared assembly references. Add mod-specific refs directly in the mod's `.csproj`.
 

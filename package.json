@@ -25,12 +25,12 @@
     "@octokit/rest": "latest",
     "@types/archiver": "latest",
     "@types/fs-extra": "latest",
-    "@types/unzipper": "latest",
     "@types/node": "^25.5.0",
     "@types/semver": "latest",
+    "@types/unzipper": "latest",
     "@typescript/native-preview": "latest",
     "archiver": "latest",
-    "unzipper": "latest",
+    "dotenv": "^17.4.0",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "latest",
     "fs-extra": "latest",
@@ -39,6 +39,7 @@
     "jiti": "^2.6.1",
     "prettier": "latest",
     "semver": "latest",
-    "typescript-eslint": "latest"
+    "typescript-eslint": "latest",
+    "unzipper": "latest"
   }
 }

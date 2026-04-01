@@ -1,8 +1,9 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
+import fsExtra from 'fs-extra'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { REPO_ROOT, listMods, modDir, modDllPath, readModVersion } from './lib/mod.mts'
+import { REPO_ROOT, listMods, modDir, modDllPath, modOutputDir, readModVersion } from './lib/mod.mts'
 import { createZip } from './lib/zip.mts'
 
 const { values } = parseArgs({
@@ -29,7 +30,9 @@ const stagingRoot = path.join(distRoot, `${modName}-staging`)
 const pluginDir = path.join(stagingRoot, 'plugins', `fantastic-jam-${modName}`)
 
 if (fs.existsSync(stagingRoot)) fs.rmSync(stagingRoot, { recursive: true })
-if (fs.existsSync(dllPath)) fs.rmSync(dllPath)
+
+const outputDir = modOutputDir(modName)
+if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true })
 
 console.log(`Building ${modName} v${version}...`)
 const sln = path.join(REPO_ROOT, 'mods', 'raiders-of-blackveil-mods.sln')
@@ -40,15 +43,8 @@ if (!fs.existsSync(dllPath)) throw new Error(`Expected build output not found: $
 fs.mkdirSync(pluginDir, { recursive: true })
 fs.copyFileSync(dllPath, path.join(pluginDir, `${modName}.dll`))
 
-const locDir = path.join(modDir(modName), 'bin', 'Release', 'netstandard2.1', 'Assets', 'Localization')
-if (fs.existsSync(locDir)) {
-  const jsonFiles = fs.readdirSync(locDir).filter((f) => f.endsWith('.json'))
-  if (jsonFiles.length > 0) {
-    const locOut = path.join(pluginDir, 'Assets', 'Localization')
-    fs.mkdirSync(locOut, { recursive: true })
-    for (const f of jsonFiles) fs.copyFileSync(path.join(locDir, f), path.join(locOut, f))
-  }
-}
+const assetsDir = path.join(modOutputDir(modName), 'Assets')
+if (fs.existsSync(assetsDir)) fsExtra.copySync(assetsDir, path.join(pluginDir, 'Assets'))
 
 const readmePath = path.join(modDir(modName), 'README.md')
 if (fs.existsSync(readmePath)) fs.copyFileSync(readmePath, path.join(pluginDir, 'README.md'))
