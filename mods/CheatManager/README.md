@@ -2,7 +2,7 @@
 
 Enables the game's built-in developer cheat hotkeys in release builds.
 
-The game ships with a full set of cheat hotkeys that are hardlocked off in release builds. This mod unlocks them.
+The game ships with a full set of cheat hotkeys that are hardlocked off in release builds. This mod unlocks them. Hold **Alt** in-game to display a hotkey reference overlay.
 
 | Key | Action |
 |-----|--------|

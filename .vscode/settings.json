@@ -1,4 +1,5 @@
 {
+    "dotnet.defaultSolution": "mods/raiders-of-blackveil-mods.sln",
     "chat.tools.terminal.autoApprove": {
         "./build.bat": true,
         "dotnet tool": true

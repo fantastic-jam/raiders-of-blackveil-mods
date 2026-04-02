@@ -13,3 +13,4 @@ bepinex/
 game-src/*
 dist
 deploy.log
+plans/*

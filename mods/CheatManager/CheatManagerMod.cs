@@ -1,8 +1,8 @@
 using System;
 using BepInEx;
 using BepInEx.Logging;
-using HarmonyLib;
 using CheatManager.Patch;
+using HarmonyLib;
 
 namespace CheatManager {
     [BepInPlugin(Id, Name, Version)]
@@ -14,9 +14,8 @@ namespace CheatManager {
 
         public static ManualLogSource PublicLogger;
 
-        private void Awake() {
+        public void Awake() {
             PublicLogger = Logger;
-
             try {
                 CheatManagerPatch.Apply(new Harmony(Id));
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
