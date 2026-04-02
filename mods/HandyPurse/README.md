@@ -15,7 +15,7 @@ All caps are configurable.
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
-- [BepInEx 6](https://builds.bepinex.dev/projects/bepinex_be) (bleeding edge, Unity Mono build)
+- [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
 
 ---
 
@@ -25,7 +25,7 @@ All caps are configurable.
 
 Skip this step if BepInEx is already installed.
 
-1. Download **BepInEx 6** (bleeding edge) from the [BepInEx releases page](https://builds.bepinex.dev/projects/bepinex_be) — pick the `BepInEx_UnityMono_x64` build.
+1. Download **BepInEx 5** from the [BepInEx releases page](https://github.com/BepInEx/BepInEx/releases) — pick the `BepInEx_win_x64` build.
 2. Extract the contents into your game folder (the one containing `RoB.exe`).
 3. Launch the game once and close it — BepInEx will initialize its folder structure.
 
