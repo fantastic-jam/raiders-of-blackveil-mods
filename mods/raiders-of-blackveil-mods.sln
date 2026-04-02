@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HandyPurse", "HandyPurse\Ha
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerfectDodge", "PerfectDodge\PerfectDodge.csproj", "{B4E7D391-5C2A-4F8B-A1E6-3D0C9F7E2B54}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CheatManager", "CheatManager\CheatManager.csproj", "{E3A9B5D2-7F61-4C8E-A2D4-0B6C3E9F1A47}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Any CPU = Release|Any CPU
@@ -17,6 +19,8 @@ Global
 		{C7DB50AF-7F1B-46D4-A35E-2A925A0B5D11}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B4E7D391-5C2A-4F8B-A1E6-3D0C9F7E2B54}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B4E7D391-5C2A-4F8B-A1E6-3D0C9F7E2B54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3A9B5D2-7F61-4C8E-A2D4-0B6C3E9F1A47}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3A9B5D2-7F61-4C8E-A2D4-0B6C3E9F1A47}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

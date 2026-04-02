@@ -1,0 +1,42 @@
+[size=5]CheatManager[/size]
+
+Enables the game's built-in developer cheat hotkeys in release builds.
+
+The game ships with a full set of cheat hotkeys (heal, kill enemies, add currency, XP, etc.) that are locked out in release builds. This mod unlocks them.
+
+[heading]Hotkeys[/heading]
+[list]
+[*][b]H[/b] — +25% health[/*]
+[*][b]U[/b] — Heal all players to full[/*]
+[*][b]L[/b] — Kill all enemies[/*]
+[*][b]Shift+L[/b] — Trigger level exit[/*]
+[*][b]Shift+K[/b] — Restart same level[/*]
+[*][b]M[/b] — +200 Black Coins[/*]
+[*][b]Shift+M[/b] — +2500 Scrap[/*]
+[*][b]N[/b] — +50 XP for all players[/*]
+[*][b]9[/b] — Set all-players-dead flag[/*]
+[*][b]Shift+B[/b] — Force vending machine[/*]
+[*][b]F4 / F11 / F12[/b] — Damage player slots 0 / 1 / 2[/*]
+[/list]
+
+Hotkeys are only active when no UI windows are open.
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+1. Install BepInEx (Skip this step if BepInEx is already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe).[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download.[/*]
+[*]Extract the ZIP directly into your game folder.[/*]
+[*]Launch the game.[/*]
+[/list]
