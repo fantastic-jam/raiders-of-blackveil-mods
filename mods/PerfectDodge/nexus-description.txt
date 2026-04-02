@@ -1,0 +1,45 @@
+[size=5]PerfectDodge[/size]
+
+Adds a [b]just-dodge[/b] mechanic: if you get hit within a short window right after pressing dash, the hit is fully blocked and your dash charge is instantly refunded. A [i]dodged[/i] label appears overhead to confirm it.
+The timing window is configurable.
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+
+1. Install BepInEx (Skip this step if BepInEx is already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe).[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download.[/*]
+[*]Extract the ZIP directly into your game folder.[/*]
+[*]Launch the game.[/*]
+[/list]
+[line]
+[heading]Configuration[/heading]
+After the first launch, a config file is created at:
+[code]BepInEx/config/io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge.cfg[/code]
+
+[list]
+[*][b]PerfectDodgeWindowSeconds[/b] — Default: [b]0.3[/b] | Range: 0.01 – 1.0 | How many seconds after pressing dash the just-dodge window stays open.[/*]
+[/list]
+
+Restart the game after saving.
+[line]
+[heading]Translations[/heading]
+The [i]dodged[/i] label is translated automatically based on your in-game language. To add or override a translation, create a file named [i]PerfectDodge.<lang>.json[/i] in:
+
+[code]BepInEx/plugins/PerfectDodge/Assets/Localization/[/code]
+
+Where [i]<lang>[/i] is your language code (e.g. [i]de[/i], [i]es[/i], [i]pt-br[/i]). Example content:
+[code]{
+  "perfect_dodge.dodged_label": "*esquivé*"
+}[/code]
