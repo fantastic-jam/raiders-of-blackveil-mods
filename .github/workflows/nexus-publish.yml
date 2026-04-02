@@ -60,5 +60,6 @@ jobs:
           api_key:       ${{ secrets.NEXUS_API_KEY }}
           file_group_id: ${{ steps.meta.outputs.file_group_id }}
           filename:      ${{ steps.asset.outputs.path }}
+          display_name:  ${{ steps.parse.outputs.mod_name }}
           version:       ${{ steps.parse.outputs.version }}
           file_category: main
