@@ -80,7 +80,7 @@ async function installBepInEx(): Promise<void> {
   console.log('BepInEx 5 downloaded to bepinex/.')
 }
 
-function decompileIfNeeded(): void {
+function decompileIfNeeded(gameRoot: string): void {
   const assemblyPath = path.join(REPO_ROOT, 'lib', 'Assembly-CSharp.dll')
   if (!fs.existsSync(assemblyPath)) {
     console.warn('lib/Assembly-CSharp.dll not found. Skipping decompile.')
@@ -107,9 +107,10 @@ function decompileIfNeeded(): void {
     stdio: 'inherit',
   })
 
+  const managedDir = path.join(gameRoot, 'RoB_Data', 'Managed')
   console.log('Decompiling Assembly-CSharp.dll into game-src/...')
   fs.mkdirSync(gameSrcDir, { recursive: true })
-  execSync(`ilspycmd -p -o "${gameSrcDir}" "${assemblyPath}"`, { stdio: 'inherit' })
+  execSync(`ilspycmd -p -o "${gameSrcDir}" -r "${managedDir}" "${assemblyPath}"`, { stdio: 'inherit' })
   fs.writeFileSync(hashFile, currentHash, 'ascii')
   console.log('Decompiled game code into game-src/')
 }
@@ -120,5 +121,5 @@ console.log(`Game: ${gameRoot}`)
 writeUserPaths(gameRoot)
 await installBepInEx()
 copyGameAssemblies(gameRoot)
-decompileIfNeeded()
+decompileIfNeeded(gameRoot)
 console.log('\nSetup complete. Next: pnpm run build')
