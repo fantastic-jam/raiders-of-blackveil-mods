@@ -1,0 +1,25 @@
+[size=5]BeginnersWelcome[/size]
+
+Got a friend who just picked up the game? Bring them along. This mod lets the host dial in a handicap per player so the seasoned raider and the complete newcomer can share the same run without it being a disaster for one of them.
+
+Press [b]F3[/b] in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+1. Install BepInEx (Skip this step if BepInEx is already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe).[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download.[/*]
+[*]Extract the ZIP directly into your game folder.[/*]
+[*]Launch the game.[/*]
+[/list]
