@@ -55,11 +55,15 @@ namespace BeginnersWelcome.UI {
         }
 
         public void Toggle() {
-            if (NetworkManager.Instance?.NetworkRunner?.IsSinglePlayer ?? false)
+            if (NetworkManager.Instance?.NetworkRunner?.IsSinglePlayer ?? false) {
                 return;
+            }
+
             _visible = !_visible;
-            if (_visible)
+            if (_visible) {
                 Refresh();
+            }
+
             _panel.VisibleDisplay(visible: _visible);
         }
 
@@ -70,7 +74,10 @@ namespace BeginnersWelcome.UI {
 
         private static bool IsSessionHost() {
             var runner = NetworkManager.Instance?.NetworkRunner;
-            if (runner == null) return true;
+            if (runner == null) {
+                return true;
+            }
+
             return runner.IsSharedModeMasterClient || runner.IsServer || runner.IsSinglePlayer;
         }
 
@@ -88,29 +95,32 @@ namespace BeginnersWelcome.UI {
             bool readOnly = !_isLobby || !IsSessionHost();
 
             foreach (var player in players) {
-                int slot = player.SlotIndex;
-                _rows.Add(readOnly ? BuildReadOnlyRow(player.UserName, slot) : BuildSliderRow(player.UserName, slot));
+                string uuid = player.ProfileUUID.ToString();
+                _rows.Add(readOnly ? BuildReadOnlyRow(player.UserName, uuid) : BuildSliderRow(player.UserName, uuid));
             }
         }
 
-        private VisualElement BuildSliderRow(string userName, int slot) {
-            var row = new VisualElement();
-            row.pickingMode = PickingMode.Position;
+        private static VisualElement BuildSliderRow(string userName, string uuid) {
+            var row = new VisualElement {
+                pickingMode = PickingMode.Position,
+            };
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
             row.style.marginBottom = 6;
 
-            var nameLabel = new Label(userName);
-            nameLabel.style.color = Color.white;
-            nameLabel.style.width = 140;
-            nameLabel.style.flexShrink = 0;
+            var nameLabel = new Label(userName) {
+                style = { color = Color.white, width = 140, flexShrink = 0 },
+            };
 
             var slider = new SliderInt(-10, 10);
             slider.pickingMode = PickingMode.Position;
             slider.style.width = 180;
             slider.style.flexShrink = 0;
-            slider.value = HandicapState.Values.TryGetValue(slot, out var stored) ? stored : 0;
-            slider.RegisterValueChangedCallback(evt => HandicapState.Values[slot] = evt.newValue);
+            slider.value = HandicapState.Values.TryGetValue(uuid, out var stored) ? stored : 0;
+            slider.RegisterValueChangedCallback(evt => {
+                HandicapState.Values[uuid] = evt.newValue;
+                HandicapSave.Save();
+            });
 
             var valueLabel = new Label(slider.value.ToString("+0;-0;0"));
             valueLabel.style.color = new Color(0.75f, 0.75f, 0.75f, 1f);
@@ -125,7 +135,7 @@ namespace BeginnersWelcome.UI {
             return row;
         }
 
-        private VisualElement BuildReadOnlyRow(string userName, int slot) {
+        private VisualElement BuildReadOnlyRow(string userName, string uuid) {
             var row = new VisualElement();
             row.style.flexDirection = FlexDirection.Row;
             row.style.alignItems = Align.Center;
@@ -136,7 +146,7 @@ namespace BeginnersWelcome.UI {
             nameLabel.style.width = 180;
             nameLabel.style.flexShrink = 0;
 
-            int handicap = HandicapState.Values.TryGetValue(slot, out var v) ? v : 0;
+            int handicap = HandicapState.Values.TryGetValue(uuid, out var v) ? v : 0;
             var valueLabel = new Label(handicap.ToString("+0;-0;0"));
             valueLabel.style.color = handicap > 0
                 ? new Color(0.4f, 0.9f, 0.4f, 1f)
