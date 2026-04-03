@@ -37,9 +37,9 @@ export function readModVersion(modName: string): string {
 export function writeModVersion(modName: string, version: string): void {
   const filePath = modSourceFile(modName)
   const src = fs.readFileSync(filePath, 'utf8')
+  if (!/Version\s*=\s*"[^"]*"/.test(src)) throw new Error(`Could not find Version constant in ${filePath}`)
   const updated = src.replace(/Version\s*=\s*"[^"]*"/, `Version = "${version}"`)
-  if (updated === src) throw new Error(`Could not update Version constant in ${filePath}`)
-  fs.writeFileSync(filePath, updated, 'utf8')
+  if (updated !== src) fs.writeFileSync(filePath, updated, 'utf8')
 }
 
 export function readUserPaths(): string {
