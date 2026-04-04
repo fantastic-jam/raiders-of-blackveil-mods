@@ -4,6 +4,7 @@
 - [CheatManager](mods/CheatManager/README.md)
 - [DisableSkillsBar](mods/DisableSkillsBar/README.md)
 - [HandyPurse](mods/HandyPurse/README.md)
+- [ModManager](mods/ModManager/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
 
 ## Libraries
