@@ -58,5 +58,9 @@
             <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="Fusion.Runtime">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Runtime.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 </Project>

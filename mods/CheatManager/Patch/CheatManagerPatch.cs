@@ -1,15 +1,22 @@
-using CheatManager.UI;
+﻿using CheatManager.UI;
 using HarmonyLib;
+using RR;
 using RR.Config;
 using RR.UI.Pages;
 
 namespace CheatManager.Patch {
     public static class CheatManagerPatch {
+        private static bool IsAuthorized() {
+            var runner = NetworkManager.Instance?.NetworkRunner;
+            return runner != null && runner.IsServer;
+        }
+
         public static void Apply(Harmony harmony) {
             var getter = AccessTools.PropertyGetter(typeof(PlayerSettings), nameof(PlayerSettings.Dev_EnableCheatHotkeys));
             if (getter == null) {
                 CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find PlayerSettings.Dev_EnableCheatHotkeys getter — patch inactive.");
-            } else {
+            }
+            else {
                 harmony.Patch(getter, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(EnableCheatHotkeysPostfix))));
             }
 
@@ -17,7 +24,8 @@ namespace CheatManager.Patch {
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
             if (onInit == null || onUpdate == null) {
                 CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find BaseHUDPage.OnInit/OnUpdate — hotkeys display patch inactive.");
-            } else {
+            }
+            else {
                 harmony.Patch(onInit, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDInitPostfix))));
                 harmony.Patch(onUpdate, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDUpdatePostfix))));
             }
@@ -25,8 +33,17 @@ namespace CheatManager.Patch {
             CheatManagerMod.PublicLogger.LogInfo("CheatManager patch applied.");
         }
 
-        private static void EnableCheatHotkeysPostfix(ref bool __result) => __result = true;
-        private static void OnHUDInitPostfix(BaseHUDPage __instance) => HotkeyDisplay.OnPageInit(__instance);
+        private static void EnableCheatHotkeysPostfix(ref bool __result) {
+            if (IsAuthorized()) {
+                __result = true;
+            }
+        }
+
+        private static void OnHUDInitPostfix(BaseHUDPage __instance) {
+            if (IsAuthorized()) {
+                HotkeyDisplay.OnPageInit(__instance);
+            }
+        }
         private static void OnHUDUpdatePostfix(BaseHUDPage __instance) => HotkeyDisplay.OnPageUpdate(__instance);
     }
 }
