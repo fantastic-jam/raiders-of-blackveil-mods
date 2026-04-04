@@ -1,10 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
+using RR.Game;
 using RR.Game.Items;
+using RR.Utility;
 using UnityEngine;
 
 namespace HandyPurse.Patch {
     public static class HandyPursePatch {
+        private static FieldInfo _itemsArrayField;
+
         public static void Apply(Harmony harmony) {
             var amountMaximumGetter = AccessTools.PropertyGetter(typeof(GenericItemDescriptor), nameof(GenericItemDescriptor.AmountMaximum));
             var amountMaximumPostfix = AccessTools.Method(typeof(HandyPursePatch), nameof(AmountMaximumPostfix));
@@ -14,6 +20,15 @@ namespace HandyPurse.Patch {
             var createItemPrefix = AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPrefix));
             var createItemPostfix = AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPostfix));
             harmony.Patch(createItemMethod, prefix: new HarmonyMethod(createItemPrefix), postfix: new HarmonyMethod(createItemPostfix));
+
+            _itemsArrayField = AccessTools.Field(typeof(InventorySyncedItems), "_itemsArray");
+            if (_itemsArrayField == null) {
+                HandyPurseMod.PublicLogger.LogWarning("Could not find InventorySyncedItems._itemsArray — auto-pickup merge will use vanilla stack caps.");
+            } else {
+                var mergeToInventoryMethod = AccessTools.Method(typeof(InventorySyncedItems), nameof(InventorySyncedItems.MergeToInventory));
+                var mergeToInventoryPrefix = AccessTools.Method(typeof(HandyPursePatch), nameof(MergeToInventoryPrefix));
+                harmony.Patch(mergeToInventoryMethod, prefix: new HarmonyMethod(mergeToInventoryPrefix));
+            }
 
             HandyPurseMod.PublicLogger.LogInfo("Patched item stack limits for HandyPurse.");
         }
@@ -65,6 +80,48 @@ namespace HandyPurse.Patch {
             }
             descriptor.StackMaximum = cap;
             __result = descriptor;
+        }
+
+        // Replace merge logic for managed item types so it respects the HandyPurse cap
+        // instead of the vanilla asset.StackMaximum field.
+        public static bool MergeToInventoryPrefix(object __instance, int assetID, ChampionType champion, int amount, InventoryItemChanges changes, ref int __result) {
+            var asset = ItemDatabase.Instance?.GetAsset(assetID);
+            if (asset == null) {
+                __result = 0;
+                return false;
+            }
+
+            var cap = ResolveCap(asset.ItemType);
+            if (cap <= 0) {
+                return true; // not managed — let the original run
+            }
+
+            if (cap <= 1) {
+                __result = 0;
+                return false;
+            }
+
+            if (_itemsArrayField.GetValue(__instance) is not List<GenericItemDescriptor> itemsArray) {
+                return true; // fallback to original
+            }
+
+            int merged = 0;
+            foreach (var item in itemsArray) {
+                if (item.AssetID != assetID || !item.IsInInventoryOf(champion)) {
+                    continue;
+                }
+                int space = cap - item.Amount;
+                if (space > 0) {
+                    int toAdd = Math.Min(amount, space);
+                    item.Amount += toAdd;
+                    changes.AddChanges(item);
+                    merged += toAdd;
+                    amount -= toAdd;
+                    if (amount <= 0) { break; }
+                }
+            }
+            __result = merged;
+            return false; // skip original
         }
 
         private static int ResolveCap(ItemType itemType) {
