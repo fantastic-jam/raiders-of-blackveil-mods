@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
-using PerfectDodge.Localization;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Damage;
+using RR.Game.Perk;
 using RR.Game.Stats;
 using UnityEngine;
 
@@ -16,13 +16,9 @@ namespace PerfectDodge.Patch {
         // actorIDs waiting for a dash charge refund once the dash animation finishes
         private static readonly HashSet<int> _pendingRefunds = new HashSet<int>();
 
-        // actorIDs that have already fired VFX/SFX feedback for a perfect dodge (to prevent duplicates on multiple hits)
-        private static readonly HashSet<int> _perfectDodgeFeedbackFiredThisDash = new HashSet<int>();
-
         // Cached reflection handles (resolved once in Apply)
         private static FieldInfo _resetAllCooldownField;
         private static FieldInfo _healthStatsField;
-        private static FieldInfo _healthStatsUIField;
 
         public static void Apply(Harmony harmony) {
             _resetAllCooldownField = AccessTools.Field(typeof(ChampionAbilityWithCooldown), "_resetAllCooldown");
@@ -31,7 +27,6 @@ namespace PerfectDodge.Patch {
             }
 
             _healthStatsField = AccessTools.Field(typeof(Health), "_stats");
-            _healthStatsUIField = AccessTools.Field(typeof(Health), "_statsUI");
             if (_healthStatsField == null) {
                 PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find Health._stats — patch inactive.");
                 return;
@@ -74,7 +69,6 @@ namespace PerfectDodge.Patch {
                 && current == ChampionAbility.MainStateValues.Cast) {
                 // Open a short timing window from dash press, independent of dash windup duration.
                 _dodgeWindowEndTime[actorId] = Time.time + PerfectDodgeMod.PerfectDodgeWindowSeconds.Value;
-                _perfectDodgeFeedbackFiredThisDash.Remove(actorId);
             }
             else if (prevState == ChampionAbility.MainStateValues.InAction) {
                 // Dash movement ended — if a perfect dodge happened, refund the charge.
@@ -89,7 +83,7 @@ namespace PerfectDodge.Patch {
         /// If the target champion is inside an active perfect-dodge window, the hit is intercepted:
         ///   - Damage is fully blocked.
         ///   - The game's OnDodge event fires (reuses existing SFX/VFX).
-        ///   - "*dodged*" label and VFX/SFX fire immediately (once per dash, even if multiple hits occur).
+        ///   - A dodge entry is written to the networked damage array so all clients display "Dodge!".
         ///   - The dash charge is queued for refund.
         /// </summary>
         public static bool TakeBasicDamagePrefix(
@@ -114,11 +108,8 @@ namespace PerfectDodge.Patch {
             // Fire the game's own OnDodge event (tied to existing SFX/VFX in perks/animations)
             stats.Events.TriggerEvent(CharacterEvent.OnDodge, new TriggerParams(attacker));
 
-            // Fire "*dodged*" feedback once per dash (even if multiple hits occur during the window)
-            if (_perfectDodgeFeedbackFiredThisDash.Add(actorId)) {
-                var statsUI = _healthStatsUIField?.GetValue(__instance) as OverheadStatsUI;
-                statsUI?.SetStaticText(PerfectDodgeLocalization.Get(PerfectDodgeLocalization.DodgedLabelKey), Color.cyan, 1.5f);
-            }
+            // Write a dodge entry (value=0) into the networked damage array so all clients display "Dodge!"
+            __instance.AddDamageData(0f, StatusEffect.BasicDamage, attacker != null ? attacker.ActorID : StatsManager.InvalidActorID);
 
             // Block the hit entirely — skip TakeBasicDamage
             __result = false;

@@ -3,7 +3,6 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using PerfectDodge.Localization;
 using PerfectDodge.Patch;
 
 namespace PerfectDodge {
@@ -23,7 +22,6 @@ namespace PerfectDodge {
 
         private void Awake() {
             PublicLogger = Logger;
-            PerfectDodgeLocalization.Initialize(Logger);
 
             PerfectDodgeWindowSeconds = Config.Bind(
                 "PerfectDodge",
