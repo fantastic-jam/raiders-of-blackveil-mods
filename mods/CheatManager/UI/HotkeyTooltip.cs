@@ -1,4 +1,4 @@
-using RR.Scripts.UI.Extensions;
+﻿using RR.Scripts.UI.Extensions;
 using UnityEngine;
 using UnityEngine.UIElements;
 

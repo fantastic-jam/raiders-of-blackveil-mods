@@ -69,8 +69,7 @@ namespace PerfectDodge.Patch {
                 && current == ChampionAbility.MainStateValues.Cast) {
                 // Open a short timing window from dash press, independent of dash windup duration.
                 _dodgeWindowEndTime[actorId] = Time.time + PerfectDodgeMod.PerfectDodgeWindowSeconds.Value;
-            }
-            else if (prevState == ChampionAbility.MainStateValues.InAction) {
+            } else if (prevState == ChampionAbility.MainStateValues.InAction) {
                 // Dash movement ended — if a perfect dodge happened, refund the charge.
                 if (_pendingRefunds.Remove(actorId) && _resetAllCooldownField != null) {
                     _resetAllCooldownField.SetValue(__instance, true);

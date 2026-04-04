@@ -1,4 +1,4 @@
-using BeginnersWelcome.UI;
+﻿using BeginnersWelcome.UI;
 using HarmonyLib;
 using RR.Game.Damage;
 using RR.Game.Stats;

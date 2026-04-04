@@ -15,8 +15,7 @@ namespace CheatManager.Patch {
             var getter = AccessTools.PropertyGetter(typeof(PlayerSettings), nameof(PlayerSettings.Dev_EnableCheatHotkeys));
             if (getter == null) {
                 CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find PlayerSettings.Dev_EnableCheatHotkeys getter — patch inactive.");
-            }
-            else {
+            } else {
                 harmony.Patch(getter, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(EnableCheatHotkeysPostfix))));
             }
 
@@ -24,8 +23,7 @@ namespace CheatManager.Patch {
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
             if (onInit == null || onUpdate == null) {
                 CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find BaseHUDPage.OnInit/OnUpdate — hotkeys display patch inactive.");
-            }
-            else {
+            } else {
                 harmony.Patch(onInit, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDInitPostfix))));
                 harmony.Patch(onUpdate, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDUpdatePostfix))));
             }

@@ -12,7 +12,9 @@ const DEFAULT_GAME_ROOT = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Ra
 function readStoredGameRoot(): string | null {
   const propsPath = path.join(MODS_DIR, 'UserPaths.props')
   if (!fs.existsSync(propsPath)) return null
-  const m = fs.readFileSync(propsPath, 'utf8').match(/<RaidersOfBlackveilRootPath>([^<]+)<\/RaidersOfBlackveilRootPath>/)
+  const m = fs
+    .readFileSync(propsPath, 'utf8')
+    .match(/<RaidersOfBlackveilRootPath>([^<]+)<\/RaidersOfBlackveilRootPath>/)
   return m ? m[1].trim() : null
 }
 
@@ -66,7 +68,11 @@ async function installBepInEx(): Promise<void> {
   const releasesRes = await fetch('https://api.github.com/repos/BepInEx/BepInEx/releases', {
     headers: { 'User-Agent': 'setup-script' },
   })
-  const releases = (await releasesRes.json()) as { tag_name: string; prerelease: boolean; assets: { name: string; browser_download_url: string }[] }[]
+  const releases = (await releasesRes.json()) as {
+    tag_name: string
+    prerelease: boolean
+    assets: { name: string; browser_download_url: string }[]
+  }[]
   const rel = releases.find((r) => r.tag_name.startsWith('v5.') && !r.prerelease)
   if (!rel) throw new Error('Cannot find BepInEx 5 release')
   const asset = rel.assets.find((a) => /^BepInEx_win_x64_.*\.zip$/.test(a.name))
@@ -110,7 +116,9 @@ function decompileIfNeeded(gameRoot: string): void {
   const managedDir = path.join(gameRoot, 'RoB_Data', 'Managed')
   console.log('Decompiling Assembly-CSharp.dll into game-src/...')
   fs.mkdirSync(gameSrcDir, { recursive: true })
-  execSync(`ilspycmd -p -o "${gameSrcDir}" -r "${managedDir}" "${assemblyPath}"`, { stdio: 'inherit' })
+  execSync(`ilspycmd -p -o "${gameSrcDir}" -r "${managedDir}" "${assemblyPath}"`, {
+    stdio: 'inherit',
+  })
   fs.writeFileSync(hashFile, currentHash, 'ascii')
   console.log('Decompiled game code into game-src/')
 }

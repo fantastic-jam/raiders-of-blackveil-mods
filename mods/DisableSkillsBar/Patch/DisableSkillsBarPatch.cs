@@ -33,8 +33,7 @@ namespace DisableSkillsBar.Patch {
                 new[] { typeof(int), typeof(bool) });
             if (setUpgradeIndexMethod == null) {
                 DisableSkillsBarMod.PublicLogger.LogWarning($"Found {abilityBarType.FullName} but no SetUpgradeIndex method to patch. Hover flash not suppressed.");
-            }
-            else {
+            } else {
                 harmony.Patch(setUpgradeIndexMethod,
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(SetUpgradeIndexPrefix))));
             }
@@ -46,8 +45,7 @@ namespace DisableSkillsBar.Patch {
                 new[] { typeof(int) });
             if (upgradeAbilityMethod == null) {
                 DisableSkillsBarMod.PublicLogger.LogWarning($"Found {abilityBarType.FullName} but no UpgradeAbility(int) method to patch. Click gating disabled.");
-            }
-            else {
+            } else {
                 harmony.Patch(upgradeAbilityMethod,
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(DisableSkillsBarPatch), nameof(UpgradeAbilityPrefix))));
             }

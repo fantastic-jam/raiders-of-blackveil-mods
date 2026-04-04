@@ -3,7 +3,14 @@ import fs from 'node:fs'
 import fsExtra from 'fs-extra'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { REPO_ROOT, listMods, modDir, modDllPath, modOutputDir, readModVersion } from './lib/mod.mts'
+import {
+  REPO_ROOT,
+  listMods,
+  modDir,
+  modDllPath,
+  modOutputDir,
+  readModVersion,
+} from './lib/mod.mts'
 import { createZip } from './lib/zip.mts'
 
 const { values } = parseArgs({

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using BepInEx;
 using BepInEx.Logging;
 using BeginnersWelcome.Patch;

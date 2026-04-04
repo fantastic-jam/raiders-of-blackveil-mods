@@ -22,6 +22,7 @@ csharp_style_expression_bodied_methods = when_on_single_line:suggestion
 # braces always, opening brace on same line (K&R style)
 csharp_prefer_braces = true:warning
 csharp_new_line_before_open_brace = none
+csharp_new_line_before_else = false
 
 [*.{mts,ts,json}]
 indent_style = space

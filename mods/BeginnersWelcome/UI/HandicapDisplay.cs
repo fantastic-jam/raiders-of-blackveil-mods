@@ -1,4 +1,4 @@
-using RR.UI.Pages;
+﻿using RR.UI.Pages;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
 
@@ -16,8 +16,7 @@ namespace BeginnersWelcome.UI {
 
             if (page is LobbyHUDPage) {
                 _panels[page] = new HandicapPanel(container, isLobby: true);
-            }
-            else if (page is GameHUDPage) {
+            } else if (page is GameHUDPage) {
                 _panels[page] = new HandicapPanel(container, isLobby: false);
             }
         }
