@@ -41,7 +41,9 @@ mods/
     [ModName].csproj
     ...
 game-src/               # ILSpy-decompiled game source (gitignored)
-lib/                    # shared game DLLs (gitignored)
+game-lib/               # shared game DLLs (gitignored)
+libs/                   # shared C# libraries (not mods — no BepInEx plugin class)
+  ModRegistry/          # IModRegistrant interface + ModType enum
 tools/                  # Node/TypeScript build tooling
   build.mts / deploy.mts / package.mts / release.mts / setup.mts
   validate-commit-msg.mts

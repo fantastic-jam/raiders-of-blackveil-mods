@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import path from 'node:path'
 import { REPO_ROOT } from './lib/mod.mts'
 
 function getStagedFiles(): string[] {
@@ -23,5 +24,6 @@ if (tsFiles.length > 0) {
 
 const csFiles = staged.filter((f) => f.endsWith('.cs'))
 if (csFiles.length > 0) {
-  run('dotnet', ['format', 'mods/', '--verify-no-changes', '--include', ...csFiles])
+  const sln = path.join(REPO_ROOT, 'mods', 'raiders-of-blackveil-mods.sln')
+  run('dotnet', ['format', sln, '--verify-no-changes', '--include', ...csFiles])
 }

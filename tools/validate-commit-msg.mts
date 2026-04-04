@@ -18,7 +18,7 @@ ERROR: Bad commit message format.
   Expected : fix|chore|new|tidy(scope): message
   Got      : ${msg}
 
-  Valid scopes: Repo, All, <ModName>  (any subfolder of mods/)
+  Valid scopes: Repo, All, <ModName>, <LibName>
 `)
   process.exit(1)
 }
@@ -29,17 +29,23 @@ const scope = scopeMatch[1]
 
 if (scope === 'Repo' || scope === 'All') process.exit(0)
 
-const modsDir = path.resolve(import.meta.dirname, '../mods')
-const validMods = fs
-  .readdirSync(modsDir)
-  .filter((f) => fs.statSync(path.join(modsDir, f)).isDirectory())
-  .filter((f) => !f.startsWith('.'))
+const repoRoot = path.resolve(import.meta.dirname, '..')
 
-if (!validMods.includes(scope)) {
+const validScopes = [
+  ...fs
+    .readdirSync(path.join(repoRoot, 'mods'))
+    .filter((f) => fs.statSync(path.join(repoRoot, 'mods', f)).isDirectory())
+    .filter((f) => !f.startsWith('.')),
+  ...fs
+    .readdirSync(path.join(repoRoot, 'libs'))
+    .filter((f) => fs.statSync(path.join(repoRoot, 'libs', f)).isDirectory())
+    .filter((f) => !f.startsWith('.')),
+]
+
+if (!validScopes.includes(scope)) {
   console.error(`
 ERROR: Unknown scope "${scope}".
-  Valid mod scopes: ${validMods.join(', ')}
-  Valid fixed scopes: Repo, All
+  Valid scopes: ${validScopes.join(', ')}, Repo, All
 `)
   process.exit(1)
 }

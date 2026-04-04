@@ -3,7 +3,15 @@ import fs from 'node:fs'
 import fsExtra from 'fs-extra'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import { REPO_ROOT, listMods, modDir, modDllPath, modOutputDir, readUserPaths } from './lib/mod.mts'
+import {
+  REPO_ROOT,
+  listMods,
+  modDir,
+  modDllPath,
+  modOutputDir,
+  readModMetadata,
+  readUserPaths,
+} from './lib/mod.mts'
 
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== '--'),
@@ -51,6 +59,18 @@ for (const mod of mods) {
   fs.mkdirSync(pluginDir, { recursive: true })
   fs.copyFileSync(dllPath, path.join(pluginDir, `${mod}.dll`))
   console.log(`Deployed ${mod} to: ${pluginDir}`)
+
+  const meta = readModMetadata(mod)
+  if (meta.patchers?.length) {
+    const patcherDir = path.join(gameRoot, 'BepInEx', 'patchers', `fantastic-jam-${mod}`)
+    fs.mkdirSync(patcherDir, { recursive: true })
+    for (const dll of meta.patchers) {
+      const src = path.join(modOutputDir(mod), dll)
+      if (!fs.existsSync(src)) throw new Error(`Patcher DLL not found: ${src}`)
+      fs.copyFileSync(src, path.join(patcherDir, dll))
+      console.log(`Deployed patcher ${dll} to: ${patcherDir}`)
+    }
+  }
 
   const pdbPath = dllPath.replace(/\.dll$/, '.pdb')
   if (fs.existsSync(pdbPath)) fs.copyFileSync(pdbPath, path.join(pluginDir, `${mod}.pdb`))

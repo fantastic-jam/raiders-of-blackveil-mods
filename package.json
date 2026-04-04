@@ -10,6 +10,7 @@
     "package": "node --experimental-strip-types tools/package.mts",
     "release": "node --experimental-strip-types tools/release.mts",
     "setup": "node --experimental-strip-types tools/setup.mts",
+    "start": "node --experimental-strip-types tools/start.mts",
     "typecheck": "tsgo --project tools/tsconfig.json --noEmit",
     "lint": "eslint --config tools/eslint.config.mts tools/",
     "lint:fix": "eslint --config tools/eslint.config.mts tools/ --fix",

@@ -49,10 +49,10 @@ function copyGameAssemblies(gameRoot: string): void {
     console.warn(`WARNING: ${src} not found. Skipping lib copy.`)
     return
   }
-  const libDir = path.join(REPO_ROOT, 'lib')
+  const libDir = path.join(REPO_ROOT, 'game-lib')
   fs.mkdirSync(libDir, { recursive: true })
   fs.copyFileSync(src, path.join(libDir, 'Assembly-CSharp.dll'))
-  console.log('Copied Assembly-CSharp.dll to lib/')
+  console.log('Copied Assembly-CSharp.dll to game-lib/')
 }
 
 async function installBepInEx(): Promise<void> {
@@ -87,9 +87,9 @@ async function installBepInEx(): Promise<void> {
 }
 
 function decompileIfNeeded(gameRoot: string): void {
-  const assemblyPath = path.join(REPO_ROOT, 'lib', 'Assembly-CSharp.dll')
+  const assemblyPath = path.join(REPO_ROOT, 'game-lib', 'Assembly-CSharp.dll')
   if (!fs.existsSync(assemblyPath)) {
-    console.warn('lib/Assembly-CSharp.dll not found. Skipping decompile.')
+    console.warn('game-lib/Assembly-CSharp.dll not found. Skipping decompile.')
     return
   }
 
