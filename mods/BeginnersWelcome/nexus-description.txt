@@ -20,6 +20,6 @@ Press [b]F3[/b] in the lobby to open the handicap panel. Only the host can chang
 2. Install the mod
 [list]
 [*]Download.[/*]
-[*]Extract the ZIP directly into your game folder.[/*]
+[*]Extract the ZIP into your game's BepInEx folder.[/*]
 [*]Launch the game.[/*]
 [/list]

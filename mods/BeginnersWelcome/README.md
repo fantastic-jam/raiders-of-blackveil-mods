@@ -26,5 +26,5 @@ Skip this step if BepInEx is already installed.
 ### 2. Install the mod
 
 1. Download `BeginnersWelcome-x.x.x.zip` from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=BeginnersWelcome).
-2. Extract the ZIP directly into your game folder.
+2. Extract the ZIP into your game's `BepInEx` folder.
 3. Launch the game.

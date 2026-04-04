@@ -94,8 +94,4 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 
 ## Adding a mod
 
-1. Create `mods/[ModName]/[ModName].csproj` (SDK-style, importing `../Common.props` and `../UserPaths.props`)
-2. Add to `mods/raiders-of-blackveil-mods.sln`
-3. `[BepInPlugin]`-annotated class inheriting `BaseUnityPlugin`, with a `public const string Version`
-4. Harmony patches in `Patch/`
-5. Create `mods/[ModName]/metadata.json` — add `nexus_mod_id` and `nexus_file_group_id` to enable automatic Nexus publish on release (omit to skip Nexus publishing for that mod)
+Look at create_mod.md in docs folder

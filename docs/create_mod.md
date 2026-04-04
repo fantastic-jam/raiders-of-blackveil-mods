@@ -145,18 +145,24 @@ using [ModName];
 
 ## 7. Create metadata.json
 
-`mods/[ModName]/metadata.json` — omit the Nexus fields to skip publishing:
+`mods/[ModName]/metadata.json` — fill in the Nexus IDs when you have them, or leave them null to skip publishing:
 
 ```json
 {
-  "nexus_mod_id": 123,
-  "nexus_file_group_id": 456
+  "nexus_mod_id": null,
+  "nexus_file_group_id": null
 }
 ```
 
-Or just `{}` if you don't have a Nexus page yet.
+## 8. Update the root README
 
-## 8. Create the README
+Add a link to the new mod in the mods list at the top of `README.md` (keep alphabetical order):
+
+```markdown
+- [ModName](mods/[ModName]/README.md)
+```
+
+## 9. Create the README
 
 `mods/[ModName]/README.md` — user-facing documentation (GitHub). Template:
 
@@ -187,15 +193,15 @@ Skip this step if BepInEx is already installed.
 ### 2. Install the mod
 
 1. Download `[ModName]-x.x.x.zip` from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=[ModName]).
-2. Extract the ZIP directly into your game folder.
+2. Extract the ZIP into your game's `BepInEx` folder.
 3. Launch the game.
 ```
 
-## 9. Create the Nexus description
+## 10. Create the Nexus description
 
 `mods/[ModName]/nexus-description.txt` — BB-code formatted for the Nexus Mods page. Mirror the README content in BB-code syntax. See existing mods for the standard structure (title, description, requirements, installation).
 
-## 10. Optional: Assets
+## 11. Optional: Assets
 
 Runtime files (localization, sprites, data) go under `mods/[ModName]/Assets/`. Declare them as `Content` in the csproj:
 
@@ -209,7 +215,7 @@ Runtime files (localization, sprites, data) go under `mods/[ModName]/Assets/`. D
 
 The deploy/release tooling copies the entire `Assets/` folder to the plugin directory verbatim.
 
-## 11. Build and deploy
+## 12. Build and deploy
 
 ```bash
 pnpm run deploy -- --mod [ModName]   # build + copy to local game for testing

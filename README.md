@@ -1,5 +1,7 @@
 ## Raiders of Blackveil mods
 
+- [BeginnersWelcome](mods/BeginnersWelcome/README.md)
+- [CheatManager](mods/CheatManager/README.md)
 - [DisableSkillsBar](mods/DisableSkillsBar/README.md)
 - [HandyPurse](mods/HandyPurse/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
