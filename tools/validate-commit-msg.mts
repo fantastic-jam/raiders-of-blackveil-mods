@@ -12,10 +12,10 @@ const msg = fs.readFileSync(msgFile, 'utf8').trim()
 // Skip merge, revert, fixup, squash commits
 if (/^(Merge |Revert |fixup! |squash! )/.test(msg)) process.exit(0)
 
-if (!/^(fix|chore|new)\([^)]+\): .+/.test(msg)) {
+if (!/^(fix|chore|new|tidy)\([^)]+\): .+/.test(msg)) {
   console.error(`
 ERROR: Bad commit message format.
-  Expected : fix|chore|new(scope): message
+  Expected : fix|chore|new|tidy(scope): message
   Got      : ${msg}
 
   Valid scopes: Repo, All, <ModName>  (any subfolder of mods/)

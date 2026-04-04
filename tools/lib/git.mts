@@ -44,6 +44,7 @@ export function changelog(modName: string, prevTag: string | null): string {
     .split('\n')
     .filter(Boolean)
     .filter((l) => !/^chore\([^)]+\):\s*release v/.test(l))
+    .filter((l) => !/^tidy\([^)]+\):/.test(l))
     .map((l) => {
       const m = l.match(/^(fix|chore|new)\([^)]+\):\s*(.+)$/)
       return m ? `*${m[1]}*: ${m[2]}` : `- ${l}`
