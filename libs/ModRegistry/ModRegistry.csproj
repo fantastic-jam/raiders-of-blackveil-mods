@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\mods\UserPaths.props" Condition="Exists('..\..\mods\UserPaths.props')" />
+  <Import Project="..\..\mods\Common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>ModRegistry</AssemblyName>
+    <RootNamespace>ModRegistry</RootNamespace>
+    <LangVersion>10</LangVersion>
+    <Optimize>true</Optimize>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+</Project>

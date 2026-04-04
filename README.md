@@ -6,6 +6,10 @@
 - [HandyPurse](mods/HandyPurse/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
 
+## Libraries
+
+- [ModRegistry](libs/ModRegistry/README.md) — optional `IModRegistrant` interface + `ModType` enum for ModManager integration
+
 ## Setup
 
 Requires Node.js 22+ and .NET SDK 9+.
