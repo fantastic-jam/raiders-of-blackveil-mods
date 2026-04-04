@@ -1,0 +1,25 @@
+[size=5]PlayerNameFix[/size]
+
+If your Steam profile is private, the game cannot read your display name during account creation and permanently stores [b]<N/A>[/b] on its backend. This mod overrides that with your actual Steam persona name — fixing both your in-game name seen by other players and the default party name in the host screen.
+
+No configuration required.
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+1. Install BepInEx (Skip this step if BepInEx is already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your [b]<game path>\BepInEx[/b] folder.[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download.[/*]
+[*]Extract the ZIP into your game's BepInEx folder.[/*]
+[*]Launch the game.[/*]
+[/list]

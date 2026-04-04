@@ -6,6 +6,7 @@
 - [HandyPurse](mods/HandyPurse/README.md)
 - [ModManager](mods/ModManager/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
+- [PlayerNameFix](mods/PlayerNameFix/README.md)
 
 ## Libraries
 
