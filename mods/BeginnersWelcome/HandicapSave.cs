@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,17 +13,24 @@ namespace BeginnersWelcome {
             new DataContractJsonSerializer(typeof(Dictionary<string, int>), SerializerSettings);
 
         public static void Load() {
-            if (!File.Exists(SavePath))
+            if (!File.Exists(SavePath)) {
                 return;
+            }
+
 
             try {
                 using var stream = File.OpenRead(SavePath);
                 var data = Serializer.ReadObject(stream) as Dictionary<string, int>;
-                if (data == null)
+                if (data == null) {
                     return;
+                }
+
+
                 HandicapState.Values.Clear();
-                foreach (var kv in data)
+                foreach (var kv in data) {
                     HandicapState.Values[kv.Key] = kv.Value;
+                }
+
             }
             catch (Exception ex) {
                 BeginnersWelcomeMod.PublicLogger.LogWarning($"BeginnersWelcome: Failed to load save: {ex.Message}");

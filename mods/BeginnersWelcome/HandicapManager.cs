@@ -55,7 +55,9 @@ namespace BeginnersWelcome {
 
         private static Player FindPlayerForHealth(Health health) {
             var stats = _healthStatsField?.GetValue(health) as StatsManager;
-            if (stats == null || !stats.IsChampion) return null;
+            if (stats == null || !stats.IsChampion) {
+                return null;
+            }
 
             var players = PlayerManager.Instance?.GetPlayers();
             if (players == null) {
