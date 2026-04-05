@@ -10,6 +10,9 @@ using UnityEngine;
 
 namespace PerfectDodge.Patch {
     public static class PerfectDodgePatch {
+        internal static bool Disabled { get; private set; }
+        internal static void SetDisabled() => Disabled = true;
+
         // actorID -> absolute Time.time when the perfect-dodge window expires
         private static readonly Dictionary<int, float> _dodgeWindowEndTime = new Dictionary<int, float>();
 
@@ -57,10 +60,9 @@ namespace PerfectDodge.Patch {
         /// Fires VFX/SFX and refunds the charge when the dash action ends (InAction → any), if a perfect dodge was achieved.
         /// </summary>
         public static void MainStateChangedPostfix(DashAbility __instance, ChampionAbility.MainStateValues prevState) {
+            if (Disabled) { return; }
             var stats = __instance.Stats;
-            if (stats == null || !stats.IsChampion) {
-                return;
-            }
+            if (stats == null || !stats.IsChampion) { return; }
 
             int actorId = stats.ActorID;
             var current = __instance.MainState;
@@ -90,10 +92,9 @@ namespace PerfectDodge.Patch {
             ref DamageDescriptor dmgDesc,
             StatsManager attacker,
             ref bool __result) {
+            if (Disabled) { return true; }
             var stats = _healthStatsField.GetValue(__instance) as StatsManager;
-            if (stats == null || !stats.IsChampion) {
-                return true;
-            }
+            if (stats == null || !stats.IsChampion) { return true; }
 
             int actorId = stats.ActorID;
             if (!_dodgeWindowEndTime.TryGetValue(actorId, out float endTime) || Time.time > endTime) {
