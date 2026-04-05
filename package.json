@@ -11,6 +11,7 @@
     "release": "node --experimental-strip-types tools/release.mts",
     "setup": "node --experimental-strip-types tools/setup.mts",
     "start": "node --experimental-strip-types tools/start.mts",
+    "unreleased": "node --experimental-strip-types tools/unreleased.mts",
     "typecheck": "tsgo --project tools/tsconfig.json --noEmit",
     "lint": "eslint --config tools/eslint.config.mts tools/",
     "lint:fix": "eslint --config tools/eslint.config.mts tools/ --fix",
