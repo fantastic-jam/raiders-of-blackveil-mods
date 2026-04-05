@@ -158,14 +158,20 @@ namespace ModManager.Patch {
                 $"allowCheats={allowCheats} (stepper={((_allowCheatsStepper == null) ? "null" : _allowCheatsStepper.Index.ToString())})"
             );
 
-            if (!allowCheats) {
-                foreach (var mod in ModManagerRegistrants.Cheats) {
+            foreach (var mod in ModManagerRegistrants.Cheats) {
+                if (allowCheats) {
+                    ModManagerMod.PublicLogger.LogInfo($"ModManager: enabling cheat — {mod.Name}");
+                    mod.Enable();
+                } else {
                     ModManagerMod.PublicLogger.LogInfo($"ModManager: disabling cheat — {mod.Name}");
                     mod.Disable();
                 }
             }
-            if (!allowMods) {
-                foreach (var mod in ModManagerRegistrants.Mods) {
+            foreach (var mod in ModManagerRegistrants.Mods) {
+                if (allowMods) {
+                    ModManagerMod.PublicLogger.LogInfo($"ModManager: enabling mod — {mod.Name}");
+                    mod.Enable();
+                } else {
                     ModManagerMod.PublicLogger.LogInfo($"ModManager: disabling mod — {mod.Name}");
                     mod.Disable();
                 }

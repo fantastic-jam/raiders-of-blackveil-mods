@@ -59,7 +59,7 @@ namespace ModManager {
             var name = r.GetModName();
             if (string.IsNullOrEmpty(name)) { name = info.Metadata.Name; }
 
-            return new RegisteredMod(modType, name, r.GetModDescription() ?? "", r.Disable);
+            return new RegisteredMod(modType, name, r.GetModDescription() ?? "", r.Disable, r.Enable);
         }
 
         private static RegisteredMod TryBuildFromDuckTyping(BaseUnityPlugin instance, PluginInfo info) {
@@ -73,13 +73,16 @@ namespace ModManager {
 
             var getModName = type.GetMethod("GetModName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
             var getModDesc = type.GetMethod("GetModDescription", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+            var enable = type.GetMethod("Enable", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
 
             var name = getModName?.Invoke(instance, null)?.ToString();
             if (string.IsNullOrEmpty(name)) { name = info.Metadata.Name; }
 
             var description = getModDesc?.Invoke(instance, null)?.ToString() ?? "";
 
-            return new RegisteredMod(modType, name, description, () => disable.Invoke(instance, null));
+            return new RegisteredMod(modType, name, description,
+                () => disable.Invoke(instance, null),
+                enable != null ? () => enable.Invoke(instance, null) : null);
         }
 
         private static bool TryParseModType(string raw, out ModType result) =>

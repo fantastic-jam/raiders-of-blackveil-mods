@@ -8,20 +8,27 @@ namespace ModManager {
         internal string Description { get; }
 
         private readonly Action _disable;
+        private readonly Action _enable;
 
         internal bool Disabled { get; private set; }
 
-        internal RegisteredMod(ModType type, string name, string description, Action disable) {
+        internal RegisteredMod(ModType type, string name, string description, Action disable, Action enable = null) {
             Type = type;
             Name = name;
             Description = description;
             _disable = disable;
+            _enable = enable ?? (() => { });
         }
 
         internal void Disable() {
             if (Disabled) { return; }
             Disabled = true;
             _disable();
+        }
+
+        internal void Enable() {
+            Disabled = false;
+            _enable();
         }
     }
 }
