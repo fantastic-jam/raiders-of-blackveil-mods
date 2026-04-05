@@ -6,6 +6,9 @@ using RR.UI.Pages;
 
 namespace BeginnersWelcome.Patch {
     public static class BeginnersWelcomePatch {
+        internal static bool Disabled { get; private set; }
+        internal static void SetDisabled() => Disabled = true;
+
         public static void Apply(Harmony harmony) {
             var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
@@ -37,14 +40,29 @@ namespace BeginnersWelcome.Patch {
             BeginnersWelcomeMod.PublicLogger.LogInfo("BeginnersWelcome patch applied.");
         }
 
-        private static void OnHUDInitPostfix(BaseHUDPage __instance) => HandicapDisplay.OnPageInit(__instance);
-        private static void OnHUDUpdatePostfix(BaseHUDPage __instance) => HandicapDisplay.OnPageUpdate(__instance);
-        private static void OnHUDDeactivatePostfix(BaseHUDPage __instance) => HandicapDisplay.OnPageDeactivate(__instance);
+        private static void OnHUDInitPostfix(BaseHUDPage __instance) {
+            if (Disabled) { return; }
+            HandicapDisplay.OnPageInit(__instance);
+        }
 
-        private static bool TakeBasicDamagePrefix(Health __instance, ref DamageDescriptor dmgDesc)
-            => HandicapManager.OnTakeBasicDamage(__instance, ref dmgDesc);
+        private static void OnHUDUpdatePostfix(BaseHUDPage __instance) {
+            if (Disabled) { return; }
+            HandicapDisplay.OnPageUpdate(__instance);
+        }
 
-        private static bool TakeDOTDamagePrefix(Health __instance, ref float damage)
-            => HandicapManager.OnTakeDOTDamage(__instance, ref damage);
+        private static void OnHUDDeactivatePostfix(BaseHUDPage __instance) {
+            if (Disabled) { return; }
+            HandicapDisplay.OnPageDeactivate(__instance);
+        }
+
+        private static bool TakeBasicDamagePrefix(Health __instance, ref DamageDescriptor dmgDesc) {
+            if (Disabled) { return true; }
+            return HandicapManager.OnTakeBasicDamage(__instance, ref dmgDesc);
+        }
+
+        private static bool TakeDOTDamagePrefix(Health __instance, ref float damage) {
+            if (Disabled) { return true; }
+            return HandicapManager.OnTakeDOTDamage(__instance, ref damage);
+        }
     }
 }
