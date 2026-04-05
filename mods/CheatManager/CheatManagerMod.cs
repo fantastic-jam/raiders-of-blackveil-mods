@@ -3,10 +3,11 @@ using BepInEx;
 using BepInEx.Logging;
 using CheatManager.Patch;
 using HarmonyLib;
+using ModRegistry;
 
 namespace CheatManager {
     [BepInPlugin(Id, Name, Version)]
-    public class CheatManagerMod : BaseUnityPlugin {
+    public class CheatManagerMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.cheatmanager";
         public const string Name = "CheatManager";
         public const string Version = "0.1.0";
@@ -14,10 +15,21 @@ namespace CheatManager {
 
         public static ManualLogSource PublicLogger;
 
+        private Harmony _harmony;
+
+        public string GetModType() => nameof(ModType.Cheat);
+        public string GetModName() => Name;
+        public bool Disabled => CheatManagerPatch.Disabled;
+        public void Disable() {
+            PublicLogger.LogInfo($"{Name}: disabled.");
+            CheatManagerPatch.SetDisabled();
+        }
+
         public void Awake() {
             PublicLogger = Logger;
             try {
-                CheatManagerPatch.Apply(new Harmony(Id));
+                _harmony = new Harmony(Id);
+                CheatManagerPatch.Apply(_harmony);
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
             }
             catch (Exception ex) {

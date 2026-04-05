@@ -21,6 +21,11 @@ The game ships with a full set of cheat hotkeys (heal, kill enemies, add currenc
 
 Hotkeys are only active when no UI windows are open.
 [line]
+[heading]ModManager[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Cheat[/b]. When ModManager is installed, an [b]Allow Cheats[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], CheatManager is disabled for that session and the session name will show a [b](cheats)[/b] suffix when it's active.
+
+ModManager is optional — CheatManager works on its own without it.
+[line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]

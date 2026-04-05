@@ -24,6 +24,14 @@ No configuration required.
 
 ---
 
+## ModManager
+
+This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Cheat**. When ModManager is installed, an **Allow Cheats** toggle appears in the host setup screen. If the host sets it to **No**, CheatManager is disabled for that session and the session name will show a **(cheats)** suffix when it's active.
+
+ModManager is optional — CheatManager works on its own without it.
+
+---
+
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
