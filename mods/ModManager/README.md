@@ -1,6 +1,6 @@
 # ModManager
 
-Gives the host control over which mods are active for a session. When hosting, two extra toggles appear in the host setup screen — **Allow Mods** and **Allow Cheats** — each showing the list of active mods in that category on hover. Setting either to **No** disables those mods before the session starts.
+Gives the host control over which mod types are active for a session. When hosting, two extra toggles appear in the host setup screen — **Allow Mods** and **Allow Cheats** — each showing the list of active mods in that category on hover. Setting either to **No** disables those mods before the session starts.
 
 The session name is automatically suffixed with **(cheats)** or **(modded)** so other players can see at a glance what kind of run they're joining.
 
