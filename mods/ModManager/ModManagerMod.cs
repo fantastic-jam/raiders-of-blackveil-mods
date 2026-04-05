@@ -10,7 +10,7 @@ namespace ModManager {
     public class ModManagerMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.modmanager";
         public const string Name = "ModManager";
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
