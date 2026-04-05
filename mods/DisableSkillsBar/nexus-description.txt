@@ -6,6 +6,9 @@ By default, mousing over the skills bar while fighting unlocks your cursor and d
 
 No configuration required.
 [line]
+[heading]ModManager[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as [b]Cosmetics[/b]. Cosmetics mods are always active regardless of host settings — they are not exposed in the Allow Mods / Allow Cheats toggles and cannot be disabled through ModManager.
+[line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]

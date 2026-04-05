@@ -4,6 +4,9 @@ using System.Reflection;
 
 namespace DisableSkillsBar.Patch {
     public static class DisableSkillsBarPatch {
+        internal static bool Disabled { get; private set; }
+        internal static void SetDisabled() => Disabled = true;
+
         private static bool _loggedLegacyInputUnavailable;
         private static bool _inputSystemInitAttempted;
         private static bool _inputSystemAvailable;
@@ -56,16 +59,15 @@ namespace DisableSkillsBar.Patch {
         // Block hover from setting UpgradeMode=true unless Alt is held.
         // Without this, SetUpgradeIndex(mouseHover: true) causes a flash + SFX before CheckInput resets it.
         public static bool SetUpgradeIndexPrefix(bool mouseHover) {
+            if (Disabled) { return true; }
             return !mouseHover || IsInteractionUnlocked();
         }
 
         // Block direct mouse-click upgrades unless Alt is held OR the bar is already open.
         // OnMouseClick calls UpgradeAbility(int) directly, bypassing UpgradeMode entirely.
         public static bool UpgradeAbilityPrefix(object __instance) {
-            if (IsInteractionUnlocked()) {
-                return true;
-            }
-
+            if (Disabled) { return true; }
+            if (IsInteractionUnlocked()) { return true; }
             var upgradeModeProp = __instance.GetType().GetProperty("UpgradeMode");
             return upgradeModeProp?.GetValue(__instance) is true;
         }
@@ -74,9 +76,8 @@ namespace DisableSkillsBar.Patch {
         // Setting allowOpening=false causes AbilityBar.CheckInput to run UpgradeMode=false,
         // which prevents the DisableAttack input mode and cursor unlock triggered by hover.
         public static void CheckInputPrefix(ref bool allowOpening) {
-            if (!IsInteractionUnlocked()) {
-                allowOpening = false;
-            }
+            if (Disabled) { return; }
+            if (!IsInteractionUnlocked()) { allowOpening = false; }
         }
 
         private static bool IsInteractionUnlocked() {

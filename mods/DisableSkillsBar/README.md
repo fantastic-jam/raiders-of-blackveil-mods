@@ -8,6 +8,12 @@ No configuration required.
 
 ---
 
+## ModManager
+
+This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as **Cosmetics**. Cosmetics mods are always active regardless of host settings — they are not exposed in the Allow Mods / Allow Cheats toggles and cannot be disabled through ModManager.
+
+---
+
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)

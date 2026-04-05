@@ -12,4 +12,8 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\ModRegistry\ModRegistry.csproj" />
+  </ItemGroup>
+
 </Project>
