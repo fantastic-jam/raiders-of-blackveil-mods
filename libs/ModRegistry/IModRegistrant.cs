@@ -5,8 +5,7 @@
     /// referencing this DLL — ModManager discovers them via duck typing.
     ///
     /// Only <see cref="GetModType"/> and <see cref="Disable"/> are required.
-    /// <see cref="GetModName"/> and <see cref="GetModDescription"/> are optional:
-    /// if absent or empty, ModManager falls back to the BepInEx plugin name / empty string.
+    /// <see cref="Enable"/>, <see cref="GetModName"/>, and <see cref="GetModDescription"/> are optional.
     /// </summary>
     public interface IModRegistrant {
         /// <summary>Returns "Mod", "Cheat", or "Cosmetics".</summary>
@@ -15,12 +14,20 @@
         /// <summary>
         /// Undo this mod's effects using the noop pattern: set a static <c>Disabled</c> flag
         /// on the patch class so all postfix/prefix methods short-circuit.
-        /// Called at most once per game session, just before <c>BeginPlaySession</c>.
+        /// Called just before <c>BeginPlaySession</c> when the host disallows this mod type.
         /// </summary>
         public void Disable();
 
         /// <summary>
-        /// Returns <c>true</c> after <see cref="Disable"/> has been called.
+        /// Re-enable this mod after a previous <see cref="Disable"/> call.
+        /// Implement by clearing the static <c>Disabled</c> flag on the patch class.
+        /// Called just before <c>BeginPlaySession</c> when the host allows this mod type.
+        /// Default: no-op (safe for mods that are never disabled mid-session).
+        /// </summary>
+        public void Enable() { }
+
+        /// <summary>
+        /// Returns <c>true</c> after <see cref="Disable"/> has been called (and <c>false</c> after <see cref="Enable"/>).
         /// Implement by forwarding to a static <c>Disabled</c> property on the patch class.
         /// </summary>
         public bool Disabled { get; }
