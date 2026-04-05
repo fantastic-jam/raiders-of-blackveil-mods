@@ -12,6 +12,14 @@ All caps are configurable.
 
 ---
 
+## ModManager
+
+This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, HandyPurse is disabled for that session and the session name will show a **(modded)** suffix when it's active.
+
+ModManager is optional — HandyPurse works on its own without it.
+
+---
+
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)

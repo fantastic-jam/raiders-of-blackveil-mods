@@ -2,12 +2,13 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
-using HarmonyLib;
 using HandyPurse.Patch;
+using HarmonyLib;
+using ModRegistry;
 
 namespace HandyPurse {
     [BepInPlugin(Id, Name, Version)]
-    public class HandyPurseMod : BaseUnityPlugin {
+    public class HandyPurseMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.handypurse";
         public const string Name = "HandyPurse";
         public const string Version = "0.1.0";
@@ -23,11 +24,22 @@ namespace HandyPurse {
         public static int BlackCoinCap => Math.Max(1, _blackCoinCap?.Value ?? 999);
         public static int CrystalCap => Math.Max(1, _crystalCap?.Value ?? 999);
 
+        private Harmony _harmony;
+
+        public string GetModType() => nameof(ModType.Mod);
+        public string GetModName() => Name;
+        public bool Disabled => HandyPursePatch.Disabled;
+        public void Disable() {
+            PublicLogger.LogInfo($"{Name}: disabled.");
+            HandyPursePatch.SetDisabled();
+        }
+
         private void Awake() {
             PublicLogger = Logger;
             try {
                 BindConfig();
-                HandyPursePatch.Apply(new Harmony(Id));
+                _harmony = new Harmony(Id);
+                HandyPursePatch.Apply(_harmony);
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
                 PublicLogger.LogInfo($"Caps: Scrap={ScrapCap}, BlackCoin={BlackCoinCap}, Crystal={CrystalCap}");
             }
@@ -43,5 +55,3 @@ namespace HandyPurse {
         }
     }
 }
-
-

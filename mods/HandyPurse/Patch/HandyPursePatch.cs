@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace HandyPurse.Patch {
     public static class HandyPursePatch {
+        internal static bool Disabled { get; private set; }
+        internal static void SetDisabled() => Disabled = true;
+
         private static FieldInfo _itemsArrayField;
 
         public static void Apply(Harmony harmony) {
@@ -35,14 +38,14 @@ namespace HandyPurse.Patch {
 
         // Keep inventory merge/split logic aware of custom currency limits.
         public static void AmountMaximumPostfix(GenericItemDescriptor __instance, ref int __result) {
+            if (Disabled) { return; }
             var cap = ResolveCap(__instance?.ItemType ?? ItemType.Unknown);
-            if (cap > __result) {
-                __result = cap;
-            }
+            if (cap > __result) { __result = cap; }
         }
 
         // Replace the asset stack clamp used when creating network item descriptors.
         public static void CreateItemPrefix(int assetID, ref int amount, bool useStackLimit = true) {
+            if (Disabled) { return; }
             if (!useStackLimit) {
                 return;
             }
@@ -65,6 +68,7 @@ namespace HandyPurse.Patch {
 
         // Ensure the created descriptor advertises the same custom stack maximum.
         public static void CreateItemPostfix(ref NetworkItemDescriptor? __result) {
+            if (Disabled) { return; }
             if (!__result.HasValue) {
                 return;
             }
@@ -85,6 +89,7 @@ namespace HandyPurse.Patch {
         // Replace merge logic for managed item types so it respects the HandyPurse cap
         // instead of the vanilla asset.StackMaximum field.
         public static bool MergeToInventoryPrefix(object __instance, int assetID, ChampionType champion, int amount, InventoryItemChanges changes, ref int __result) {
+            if (Disabled) { return true; }
             var asset = ItemDatabase.Instance?.GetAsset(assetID);
             if (asset == null) {
                 __result = 0;
