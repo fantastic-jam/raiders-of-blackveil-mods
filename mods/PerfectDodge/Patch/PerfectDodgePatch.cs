@@ -12,6 +12,7 @@ namespace PerfectDodge.Patch {
     public static class PerfectDodgePatch {
         internal static bool Disabled { get; private set; }
         internal static void SetDisabled() => Disabled = true;
+        internal static void SetEnabled() => Disabled = false;
 
         // actorID -> absolute Time.time when the perfect-dodge window expires
         private static readonly Dictionary<int, float> _dodgeWindowEndTime = new Dictionary<int, float>();

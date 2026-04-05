@@ -30,6 +30,10 @@ namespace PerfectDodge {
             PublicLogger.LogInfo($"{Name}: disabled.");
             PerfectDodgePatch.SetDisabled();
         }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            PerfectDodgePatch.SetEnabled();
+        }
 
         private void Awake() {
             PublicLogger = Logger;
