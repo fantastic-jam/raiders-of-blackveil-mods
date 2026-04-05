@@ -6,6 +6,7 @@ namespace DisableSkillsBar.Patch {
     public static class DisableSkillsBarPatch {
         internal static bool Disabled { get; private set; }
         internal static void SetDisabled() => Disabled = true;
+        internal static void SetEnabled() => Disabled = false;
 
         private static bool _loggedLegacyInputUnavailable;
         private static bool _inputSystemInitAttempted;

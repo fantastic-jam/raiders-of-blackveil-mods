@@ -24,6 +24,10 @@ namespace DisableSkillsBar {
             PublicLogger.LogInfo($"{Name}: disabled.");
             DisableSkillsBarPatch.SetDisabled();
         }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            DisableSkillsBarPatch.SetEnabled();
+        }
 
         private void Awake() {
             PublicLogger = Logger;
