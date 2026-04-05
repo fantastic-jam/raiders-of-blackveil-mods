@@ -16,6 +16,7 @@ namespace CheatManager.Patch {
             Disabled = true;
             _debugButtons?.VisibleDisplay(visible: false);
         }
+        internal static void SetEnabled() => Disabled = false;
 
         private static bool IsAuthorized() {
             var nm = NetworkManager.Instance;

@@ -24,6 +24,10 @@ namespace CheatManager {
             PublicLogger.LogInfo($"{Name}: disabled.");
             CheatManagerPatch.SetDisabled();
         }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            CheatManagerPatch.SetEnabled();
+        }
 
         public void Awake() {
             PublicLogger = Logger;
