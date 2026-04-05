@@ -10,7 +10,7 @@ namespace DisableSkillsBar {
     public class DisableSkillsBarMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.disableskillsbar";
         public const string Name = "DisableSkillsBar";
-        public const string Version = "0.4.0";
+        public const string Version = "0.5.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
