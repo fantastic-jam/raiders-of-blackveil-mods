@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using RR.Backend;
 using RR.Backend.Integration;
 using Steamworks;
@@ -18,16 +18,19 @@ namespace PlayerNameFix.Patch {
             PlayerNameFixMod.PublicLogger.LogInfo("PlayerNameFix patch applied.");
         }
 
-        static void InitializeFromPostfix(WomboPlayer __instance) {
-            if (__instance.PlayerProfile?.Name != "<N/A>")
+        private static void InitializeFromPostfix(WomboPlayer __instance) {
+            if (__instance.PlayerProfile?.Name != "<N/A>") {
                 return;
+            }
 
-            if (!SteamController.Initialized)
+            if (!SteamController.Initialized) {
                 return;
+            }
 
             string steamName = SteamFriends.GetPersonaName();
-            if (string.IsNullOrEmpty(steamName))
+            if (string.IsNullOrEmpty(steamName)) {
                 return;
+            }
 
             __instance.PlayerProfile.Name = steamName;
             PlayerNameFixMod.PublicLogger.LogInfo($"PlayerNameFix: replaced <N/A> with Steam persona name \"{steamName}\".");
