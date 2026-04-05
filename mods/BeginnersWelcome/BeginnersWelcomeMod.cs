@@ -24,6 +24,10 @@ namespace BeginnersWelcome {
             PublicLogger.LogInfo($"{Name}: disabled.");
             BeginnersWelcomePatch.SetDisabled();
         }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            BeginnersWelcomePatch.SetEnabled();
+        }
 
         public void Awake() {
             PublicLogger = Logger;

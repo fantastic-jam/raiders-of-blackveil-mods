@@ -8,6 +8,7 @@ namespace BeginnersWelcome.Patch {
     public static class BeginnersWelcomePatch {
         internal static bool Disabled { get; private set; }
         internal static void SetDisabled() => Disabled = true;
+        internal static void SetEnabled() => Disabled = false;
 
         public static void Apply(Harmony harmony) {
             var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
