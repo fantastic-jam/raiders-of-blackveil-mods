@@ -3,11 +3,10 @@ using BepInEx;
 using BepInEx.Logging;
 using DisableSkillsBar.Patch;
 using HarmonyLib;
-using ModRegistry;
 
 namespace DisableSkillsBar {
     [BepInPlugin(Id, Name, Version)]
-    public class DisableSkillsBarMod : BaseUnityPlugin, IModRegistrant {
+    public class DisableSkillsBarMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.disableskillsbar";
         public const string Name = "DisableSkillsBar";
         public const string Version = "0.5.0";
@@ -17,7 +16,7 @@ namespace DisableSkillsBar {
 
         private Harmony _harmony;
 
-        public string GetModType() => nameof(ModType.Cosmetics);
+        public string GetModType() => "Cosmetics";
         public string GetModName() => Name;
         public bool Disabled => DisableSkillsBarPatch.Disabled;
         public void Disable() {
