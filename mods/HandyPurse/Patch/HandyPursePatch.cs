@@ -11,6 +11,7 @@ namespace HandyPurse.Patch {
     public static class HandyPursePatch {
         internal static bool Disabled { get; private set; }
         internal static void SetDisabled() => Disabled = true;
+        internal static void SetEnabled() => Disabled = false;
 
         private static FieldInfo _itemsArrayField;
 
@@ -38,7 +39,15 @@ namespace HandyPurse.Patch {
 
         // Keep inventory merge/split logic aware of custom currency limits.
         public static void AmountMaximumPostfix(GenericItemDescriptor __instance, ref int __result) {
-            if (Disabled) { return; }
+            if (Disabled) {
+                // Protect existing stacks: don't advertise a max lower than the current amount,
+                // otherwise the game clamps them down (InventorySyncedItems lines ~77 and ~156).
+                // MergeToInventory uses asset.StackMaximum directly, so merges still use vanilla defaults.
+                if (__instance != null && __instance.Amount > __result) {
+                    __result = __instance.Amount;
+                }
+                return;
+            }
             var cap = ResolveCap(__instance?.ItemType ?? ItemType.Unknown);
             if (cap > __result) { __result = cap; }
         }

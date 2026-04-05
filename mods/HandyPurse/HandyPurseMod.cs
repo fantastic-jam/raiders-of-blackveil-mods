@@ -33,6 +33,10 @@ namespace HandyPurse {
             PublicLogger.LogInfo($"{Name}: disabled.");
             HandyPursePatch.SetDisabled();
         }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            HandyPursePatch.SetEnabled();
+        }
 
         private void Awake() {
             PublicLogger = Logger;
