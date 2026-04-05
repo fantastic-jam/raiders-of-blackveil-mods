@@ -141,11 +141,8 @@ namespace OfflineMode.Patch {
                     OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: '{btnName}' clicked.");
                     try {
                         await LoginManager.EnsureLoggedIn();
-                        OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Login done, awaiting save validation.");
-                        await PlayerManager.ValidatePlayerGameState();
-                        OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Save validation done — returning to main menu and submitting '{btnName}'.");
-                        UIManager.Instance.ChangePage("MenuStartPage", TransitionAnimation.Fade, crossFade: false);
-                        __instance.RootElement.Q<ButtonGeneric3>(btnName)?.Submit();
+                        OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Ready — invoking '{btnName}'.");
+                        original?.Invoke(btn);
                     }
                     catch (Exception ex) {
                         OfflineModeMod.PublicLogger.LogError($"OfflineMode: Login failed — {ex.Message}");

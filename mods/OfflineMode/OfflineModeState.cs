@@ -1,5 +1,14 @@
 ﻿namespace OfflineMode {
     public static class OfflineModeState {
-        public static bool IsOffline { get; internal set; }
+        private static bool _isOffline;
+        public static bool IsOffline {
+            get => _isOffline;
+            internal set {
+                _isOffline = value;
+                if (value) {
+                    LoginManager.InvalidateValidation();
+                }
+            }
+        }
     }
 }

@@ -13,26 +13,44 @@ namespace OfflineMode {
         private static MethodInfo _validateReleaseMethod;
 
         public static bool IsLoggedIn { get; private set; }
+        private static bool _validated;
 
         internal static void Init() {
             _validateReleaseMethod = AccessTools.Method(typeof(BackendManager), "StartAsyncValidateGameRelease");
         }
 
-        // No-op if already logged in; otherwise shows login screens and awaits completion.
-        public static Task EnsureLoggedIn() {
-            if (IsLoggedIn) {
-                return Task.CompletedTask;
+        // Called when the user enters offline mode — next online attempt must re-validate saves.
+        internal static void InvalidateValidation() => _validated = false;
+
+        // Ensures the user is logged in and save state is validated.
+        // - No-op if already logged in and validated.
+        // - Validates only if logged in but not yet validated (e.g. after an offline session).
+        // - Full login flow if not logged in: shows login page, awaits, navigates back to MenuStartPage.
+        public static async Task EnsureLoggedIn() {
+            if (IsLoggedIn && _validated) {
+                return;
             }
 
-            if (_loginTcs != null) {
-                OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Deferred login already in progress.");
-                return _loginTcs.Task;
+            if (!IsLoggedIn) {
+                if (_loginTcs != null) {
+                    OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Deferred login already in progress — waiting.");
+                    await _loginTcs.Task;
+                } else {
+                    OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Starting deferred login — showing login page.");
+                    _loginTcs = new TaskCompletionSource<bool>();
+                    UIManager.Instance.ChangePage("MenuValidateReleaseLoginPage", TransitionAnimation.Fade, crossFade: false);
+                    _validateReleaseMethod?.Invoke(BackendManager.Instance, null);
+                    await _loginTcs.Task;
+                }
             }
-            OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Starting deferred login — showing login page.");
-            _loginTcs = new TaskCompletionSource<bool>();
-            UIManager.Instance.ChangePage("MenuValidateReleaseLoginPage", TransitionAnimation.Fade, crossFade: false);
-            _validateReleaseMethod?.Invoke(BackendManager.Instance, null);
-            return _loginTcs.Task;
+
+            // ValidatePlayerGameState calls ClosePage() internally — mirrors the game's own flow
+            // (AppManager: validate → ChangePage MenuStartPage). Always validate before navigating.
+            OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Validating save state.");
+            await PlayerManager.ValidatePlayerGameState();
+            _validated = true;
+            OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Save validation complete — navigating to MenuStartPage.");
+            UIManager.Instance.ChangePage("MenuStartPage", TransitionAnimation.Fade, crossFade: false);
         }
 
         // Called by the StartAsyncValidateGameRelease patch.
