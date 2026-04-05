@@ -50,9 +50,29 @@ namespace OfflineMode.Patch {
                 prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(EndPlaySessionPrefix)));
 
             Patch(
+                AccessTools.Method(typeof(BackendManager), "PlaySessionBeginLevel"),
+                "OfflineMode: Could not find BackendManager.PlaySessionBeginLevel.",
+                prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(PlaySessionBeginLevelPrefix)));
+
+            Patch(
                 AccessTools.Method(typeof(BackendManager), "PlaySessionEndLevel"),
                 "OfflineMode: Could not find BackendManager.PlaySessionEndLevel.",
                 prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(PlaySessionEndLevelPrefix)));
+
+            Patch(
+                AccessTools.Method(typeof(BackendManager), "PlaySessionBeginRun"),
+                "OfflineMode: Could not find BackendManager.PlaySessionBeginRun.",
+                prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(PlaySessionBeginRunPrefix)));
+
+            Patch(
+                AccessTools.Method(typeof(BackendManager), "PlaySessionEndRun"),
+                "OfflineMode: Could not find BackendManager.PlaySessionEndRun.",
+                prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(PlaySessionEndRunPrefix)));
+
+            Patch(
+                AccessTools.Method(typeof(BackendManager), "SendPlaySessionupdateEvent"),
+                "OfflineMode: Could not find BackendManager.SendPlaySessionupdateEvent.",
+                prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(SendPlaySessionUpdateEventPrefix)));
 
             Patch(
                 AccessTools.Method(typeof(BackendManager), "SavePlayerGameStates"),
@@ -77,36 +97,21 @@ namespace OfflineMode.Patch {
                 prefix: new HarmonyMethod(typeof(OfflineBackendPatch), nameof(RpcSavePlayerGameStateLocallyPrefix)));
         }
 
-        private static bool _validationDeferred;
-
-        // Block the startup call from BackendManager.Init(); let the next call (user-triggered) through.
-        private static bool StartAsyncValidateGameReleasePrefix() {
-            if (!_validationDeferred) {
-                _validationDeferred = true;
-                return false;
-            }
-            return true;
-        }
+        private static bool StartAsyncValidateGameReleasePrefix() => LoginManager.ShouldAllowValidateRelease();
 
         private static bool StartPlaySessionPrefix(BackendManager __instance, Action<bool> callback) {
             if (!OfflineModeState.IsOffline) { return true; }
 
             // Restore WomboPlayer so Player.ProfileUUID gets the correct UUID on spawn.
-            var savedPlayer = OfflineSaveManager.LoadWomboPlayer();
-            if (savedPlayer == null) {
+            var player = LoginManager.GetWomboPlayer();
+            if (player == null) {
                 OfflineModeMod.PublicLogger.LogWarning("OfflineMode: No WomboPlayer data found — profile UUID will be empty.");
             } else {
-                __instance.LoggedInWomboPlayer = savedPlayer;
-                OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Restored WomboPlayer UUID={savedPlayer.WomboPlayerId}.");
+                __instance.LoggedInWomboPlayer = player;
+                OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Restored WomboPlayer UUID={player.WomboPlayerId}.");
             }
 
-            // Force connection state so all guarded in-session methods (BeginLevel, EndLevel,
-            // BeginRun, EndRun, SendUpdateEvent) take their local ErrorBackendUnreachable fallback
-            // path and call callback(true, emptyResponse) without making any HTTP requests.
-            __instance.CurrentBackendState.connection = BackendManager.BackendNetworkCondition.ErrorBackendUnreachable;
-
-            // Set State = ActiveGameSession so EventBeginLevel's state guard passes and routes
-            // through PlaySessionBeginLevel, which then hits the fallback path above.
+            // Set State = ActiveGameSession so EventBeginLevel's state guard passes.
             _stateSetter?.Invoke(__instance, new object[] { BackendManager.BackendManagerState.ActiveGameSession });
 
             var config = (BackendManager.WomboBackendConfiguration)_configField.GetValue(__instance);
@@ -118,19 +123,18 @@ namespace OfflineMode.Patch {
             return false;
         }
 
-        private static bool EndPlaySessionPrefix(BackendManager __instance, Action<bool> callback) {
+        private static bool EndPlaySessionPrefix(Action<bool> callback) {
             if (!OfflineModeState.IsOffline) { return true; }
-            OfflineModeState.IsOffline = false;
-            // Reset stale state so IsLoggedIn() returns false and the next play button click
-            // correctly triggers the deferred login flow instead of attempting an unauthed session.
-            _stateSetter?.Invoke(__instance, new object[] { BackendManager.BackendManagerState.Initialized });
-            __instance.CurrentBackendState.connection = BackendManager.BackendNetworkCondition.NotInitialized;
             callback?.Invoke(true);
             return false;
         }
 
-        // The game's ErrorBackendUnreachable fallback for PlaySessionEndLevel calls callback(true, null),
-        // which causes a NullReferenceException in MetricsManager.SendCurrentLevelReport.
+        private static bool PlaySessionBeginLevelPrefix(Action<bool, IngressResponsePlaySessionBeginLevel> callback) {
+            if (!OfflineModeState.IsOffline) { return true; }
+            callback?.Invoke(true, new IngressResponsePlaySessionBeginLevel());
+            return false;
+        }
+
         private static bool PlaySessionEndLevelPrefix(
             IngressMessagePlaySessionEndLevel requestEndLevel,
             Action<bool, IngressResponsePlaySessionEndLevel> callback) {
@@ -138,6 +142,20 @@ namespace OfflineMode.Patch {
             callback?.Invoke(true, new IngressResponsePlaySessionEndLevel());
             return false;
         }
+
+        private static bool PlaySessionBeginRunPrefix(Action<bool, IngressResponsePlaySessionBeginRun> callback) {
+            if (!OfflineModeState.IsOffline) { return true; }
+            callback?.Invoke(true, null);
+            return false;
+        }
+
+        private static bool PlaySessionEndRunPrefix(Action<bool, IngressResponsePlaySessionEndRun> callback) {
+            if (!OfflineModeState.IsOffline) { return true; }
+            callback?.Invoke(true, new IngressResponsePlaySessionEndRun());
+            return false;
+        }
+
+        private static bool SendPlaySessionUpdateEventPrefix() => !OfflineModeState.IsOffline;
 
         private static bool SavePlayerGameStatesPrefix(
             Action backendRequestCompleted,
@@ -160,11 +178,7 @@ namespace OfflineMode.Patch {
                 return false;
             }
 
-            // Online: keep WomboPlayer data current for future offline use.
-            OfflineSaveManager.SaveWomboPlayer(BackendManager.Instance?.LoggedInWomboPlayer);
-
-            // If the local save timestamp matches the backend state, the user played
-            // offline since last sync — back up the backend state before the game overwrites it.
+            // If the user played offline since last sync, back up the backend state before the game overwrites it.
             var localState = OfflineSaveManager.LoadGameLocalSave(playerUUID);
             if (localState == null) { return true; }
 

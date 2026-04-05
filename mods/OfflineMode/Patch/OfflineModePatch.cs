@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using System.Threading.Tasks;
 using HarmonyLib;
 using RR;
 using RR.UI.Components;
@@ -13,10 +12,8 @@ using UnityEngine.UIElements;
 
 namespace OfflineMode.Patch {
     public static class OfflineModePatch {
-        private static TaskCompletionSource<bool> _loginTcs;
         private static bool _startupBypassed;
         private static MethodInfo _startApplicationMethod;
-        private static MethodInfo _validateReleaseMethod;
         private static FieldInfo _cursorField;
         private static MethodInfo _startClickMethod;
 
@@ -31,7 +28,7 @@ namespace OfflineMode.Patch {
                 OfflineModeMod.PublicLogger.LogWarning("OfflineMode: Could not find SettingsHandler.StartApplication.");
             }
 
-            _validateReleaseMethod = AccessTools.Method(typeof(BackendManager), "StartAsyncValidateGameRelease");
+            LoginManager.Init();
 
             _cursorField = AccessTools.Field(typeof(MenuStartPage), "_cursor");
             if (_cursorField == null) {
@@ -55,7 +52,7 @@ namespace OfflineMode.Patch {
                 postfix: new HarmonyMethod(typeof(OfflineModePatch), nameof(MenuStartPageOnInitPostfix)));
 
             // Intercept DisclaimerManager constructor — fires right after login completes.
-            // During deferred login: skip screens, resolve promise, caller unhides the menu.
+            // During deferred login: LoginManager resolves the promise and skips disclaimer screens.
             // During startup bypass: screens run normally; StartMainMenuOrTutorial is intercepted.
             Patch(
                 AccessTools.Constructor(typeof(DisclaimerManager)),
@@ -99,29 +96,7 @@ namespace OfflineMode.Patch {
         }
 
         // Fires right after login completes (game creates DisclaimerManager at that point).
-        // If a deferred login is pending: resolve the promise and skip the disclaimer screens —
-        // we are already on MenuStartPage, the caller will just unhide it.
-        private static bool DisclaimerManagerCtorPrefix() {
-            if (_loginTcs == null) { return true; } // normal startup flow — run as usual
-            OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Login complete (DisclaimerManager intercepted) — resolving login promise.");
-            _loginTcs.TrySetResult(true);
-            _loginTcs = null;
-            return false; // skip disclaimer screens and StartMainMenuOrTutorial
-        }
-
-        private static Task<bool> DeferredLoginAndValidation() {
-            if (_loginTcs != null) {
-                OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Deferred login already in progress.");
-                return _loginTcs.Task;
-            }
-            OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Starting deferred login — showing login page.");
-            _loginTcs = new TaskCompletionSource<bool>();
-            // Show the login page — it handles validation events and calls login on its own.
-            // DisclaimerManagerCtorPrefix will intercept once login is complete.
-            UIManager.Instance.ChangePage("MenuValidateReleaseLoginPage", TransitionAnimation.Fade, crossFade: false);
-            _validateReleaseMethod?.Invoke(BackendManager.Instance, null);
-            return _loginTcs.Task;
-        }
+        private static bool DisclaimerManagerCtorPrefix() => LoginManager.OnDisclaimerManagerCreated();
 
         private static void MenuStartPageOnInitPostfix(MenuStartPage __instance) {
             // Inject the Offline Mode button above Exit.
@@ -150,7 +125,7 @@ namespace OfflineMode.Patch {
                 }
             }
 
-            // Wrap play buttons: if not logged in, run the silent login flow first.
+            // Wrap play buttons: clear IsOffline, trigger login if not yet logged in.
             foreach (var btnName in new[] {
                 "NewSinglePlayerGameButton",
                 "TutorialButton",
@@ -162,24 +137,18 @@ namespace OfflineMode.Patch {
 
                 var original = playBtn.OnClick;
                 playBtn.OnClick = async btn => {
-                    if (OfflineModeState.IsOffline || OfflineModeState.IsLoggedIn()) {
-                        original?.Invoke(btn);
-                        return;
-                    }
-                    OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: '{btnName}' clicked — login required, starting silent login.");
+                    OfflineModeState.IsOffline = false;
+                    OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: '{btnName}' clicked.");
                     try {
-                        __instance.RootElement.style.display = DisplayStyle.None;
-                        await DeferredLoginAndValidation();
-                        // Run the game's built-in local vs backend save conflict check,
-                        // which may show a popup letting the user pick which save to keep.
+                        await LoginManager.EnsureLoggedIn();
+                        OfflineModeMod.PublicLogger.LogInfo("OfflineMode: Login done, awaiting save validation.");
                         await PlayerManager.ValidatePlayerGameState();
-                        OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Login and save validation done — unhiding menu and submitting '{btnName}'.");
-                        __instance.RootElement.style.display = DisplayStyle.Flex;
+                        OfflineModeMod.PublicLogger.LogInfo($"OfflineMode: Save validation done — returning to main menu and submitting '{btnName}'.");
+                        UIManager.Instance.ChangePage("MenuStartPage", TransitionAnimation.Fade, crossFade: false);
                         __instance.RootElement.Q<ButtonGeneric3>(btnName)?.Submit();
                     }
                     catch (Exception ex) {
-                        OfflineModeMod.PublicLogger.LogError($"OfflineMode: Deferred login failed — {ex.Message}");
-                        __instance.RootElement.style.display = DisplayStyle.Flex;
+                        OfflineModeMod.PublicLogger.LogError($"OfflineMode: Login failed — {ex.Message}");
                     }
                 };
             }
