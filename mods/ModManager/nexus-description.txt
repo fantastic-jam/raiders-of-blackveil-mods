@@ -27,4 +27,58 @@ Mods opt in by implementing the [url=https://github.com/fantastic-jam/raiders-of
 [/list]
 [line]
 [heading]For mod authors[/heading]
-Implement [b]IModRegistrant[/b] on your plugin class (or expose [b]GetModType()[/b] and [b]Disable()[/b] by convention — no DLL reference required). See the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/tree/main/libs/ModRegistry]ModRegistry README[/url] for details.
+ModManager scans all loaded BepInEx plugins at startup. Implement [b]IModRegistrant[/b] on your plugin class, or expose the same members by name (duck typing — no DLL reference required).
+
+[heading]Quick example[/heading]
+[code]
+using ModRegistry;
+
+[BepInPlugin(Id, Name, Version)]
+public class MyMod : BaseUnityPlugin, IModRegistrant {
+    public string GetModType() => nameof(ModType.Mod);
+    public string GetModName() => "My Mod";
+    public string GetModDescription() => "Does something useful.";
+    public bool Disabled { get; private set; }
+
+    public void Disable() {
+        Disabled = true;
+        _harmony?.UnpatchSelf();
+    }
+
+    public void Enable() {
+        Disabled = false;
+        _harmony?.PatchAll();
+    }
+}
+[/code]
+
+[heading]Method reference[/heading]
+
+[b]string GetModType()[/b] — [i]required[/i]
+Returns one of the following strings (case-insensitive). Controls which toggle manages your mod.
+[list]
+[*][b]"Mod"[/b] — shown under the Allow Mods toggle[/*]
+[*][b]"Cheat"[/b] — shown under the Allow Cheats toggle[/*]
+[*][b]"Cosmetics"[/b] — tracked but not surfaced in toggles (future feature)[/*]
+[*][b]"Utility"[/b] — tracked but not surfaced in toggles (future feature)[/*]
+[/list]
+
+[b]void Disable()[/b] — [i]required[/i]
+Called before the session starts when the host disallows your mod's category. Must make the mod completely inert. Recommended: set a flag [i]and[/i] call [font=Courier New]_harmony?.UnpatchSelf()[/font]. If removing patches mid-session is unsafe, set only the flag and check it at the top of every patch method.
+
+[b]bool Disabled { get; }[/b] — [i]required[/i]
+Must reflect current state: [font=Courier New]true[/font] after [font=Courier New]Disable()[/font], [font=Courier New]false[/font] after [font=Courier New]Enable()[/font].
+
+[b]void Enable()[/b] — [i]optional[/i]
+Called when the host re-enables a previously disabled mod type (e.g. back in the lobby). Implement by clearing the flag and re-patching. If omitted, the mod stays disabled for the entire session.
+
+[b]string GetModName()[/b] — [i]optional[/i]
+Display name shown in the ModManager UI. Falls back to the BepInEx plugin name if absent or empty.
+
+[b]string GetModDescription()[/b] — [i]optional[/i]
+Short description shown on hover. Can be empty.
+
+[heading]Duck typing (no DLL)[/heading]
+If you prefer not to reference [font=Courier New]ModRegistry.dll[/font], expose the same members as plain public methods/properties with the exact signatures above — ModManager will find them via reflection. The required members are [b]GetModType()[/b], [b]Disable()[/b], and [b]Disabled[/b].
+
+Download [font=Courier New]ModRegistry.dll[/font] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager]releases page[/url] if you want the interface for compile-time safety.

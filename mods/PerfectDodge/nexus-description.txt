@@ -6,12 +6,12 @@ The timing window is configurable.
 [heading]ModManager[/heading]
 This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], PerfectDodge is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
 
-ModManager is optional — PerfectDodge works on its own without it.
 [line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
 [*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]ModManager[/url][/*]
 [/list]
 [line]
 [heading]Installation[/heading]
@@ -38,13 +38,3 @@ After the first launch, a config file is created at:
 [/list]
 
 Restart the game after saving.
-[line]
-[heading]Translations[/heading]
-The [i]dodged[/i] label is translated automatically based on your in-game language. To add or override a translation, create a file named [i]PerfectDodge.<lang>.json[/i] in:
-
-[code]BepInEx/plugins/PerfectDodge/Assets/Localization/[/code]
-
-Where [i]<lang>[/i] is your language code (e.g. [i]de[/i], [i]es[/i], [i]pt-br[/i]). Example content:
-[code]{
-  "perfect_dodge.dodged_label": "*esquivé*"
-}[/code]

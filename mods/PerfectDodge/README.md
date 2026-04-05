@@ -10,14 +10,13 @@ The timing window is configurable.
 
 This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, PerfectDodge is disabled for that session and the session name will show a **(modded)** suffix when it's active.
 
-ModManager is optional — PerfectDodge works on its own without it.
-
 ---
 
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
 - [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
+- [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager)
 
 ---
 
@@ -52,21 +51,3 @@ BepInEx/config/io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge.cfg
 | `PerfectDodgeWindowSeconds` | `0.3` | 0.01 – 1.0 | How many seconds after pressing dash the just-dodge window stays open. |
 
 Restart the game after saving.
-
----
-
-## Translations
-
-The *dodged* label is translated automatically based on your in-game language. To add or override a translation, create a file named `PerfectDodge.<lang>.json` in:
-
-```
-BepInEx/plugins/PerfectDodge/Assets/Localization/
-```
-
-Where `<lang>` is your language code (e.g. `de`, `es`, `pt-br`). Example content:
-
-```json
-{
-  "perfect_dodge.dodged_label": "*esquivé*"
-}
-```
