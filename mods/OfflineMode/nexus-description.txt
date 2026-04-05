@@ -1,0 +1,36 @@
+[size=5]OfflineMode[/size]
+
+Allows you to play Raiders of Blackveil without an internet connection. Your game state is saved locally, and up to 20 backups are kept in case something goes wrong.
+
+When you return online, the game will prompt you to choose between your cloud save and your local save.
+
+[b]Note:[/b] you must have played the game at least once before Offline Mode becomes available.
+
+[line]
+
+[heading]Requirements[/heading]
+
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[/list]
+
+[line]
+
+[heading]Installation[/heading]
+
+[b]1. Install BepInEx[/b] (skip if already installed)
+
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the [b]BepInEx_win_x64[/b] build.
+[*]Extract the contents into your game folder (the one containing [b]RoB.exe[/b]).
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.
+[/list]
+
+[b]2. Install the mod[/b]
+
+[list]
+[*]Download [b]OfflineMode-x.x.x.zip[/b] from the releases page.
+[*]Extract the ZIP into your game's [b]BepInEx[/b] folder.
+[*]Launch the game.
+[/list]
