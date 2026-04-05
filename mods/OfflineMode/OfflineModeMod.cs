@@ -9,7 +9,7 @@ namespace OfflineMode {
     public class OfflineModeMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.offlinemode";
         public const string Name = "OfflineMode";
-        public const string Version = "0.2.0";
+        public const string Version = "0.2.1";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
