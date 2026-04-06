@@ -13,6 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\libs\ModRegistry\ModRegistry.csproj" />
   </ItemGroup>
 

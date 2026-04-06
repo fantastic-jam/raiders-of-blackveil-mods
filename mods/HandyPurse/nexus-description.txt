@@ -11,6 +11,18 @@ Raises the stack limits for all currencies so you stop hitting the cap mid-run.
 All caps are configurable.
 
 [line]
+[heading]Before uninstalling[/heading]
+Use the [b]Prepare for Uninstall[/b] button in the in-game pause menu ([b]Pause → Mods → HandyPurse[/b]) before removing the mod.
+
+It drops every currency above the vanilla limit as vanilla-sized pickups at your feet, then disables HandyPurse automatically. Pick the stacks back up — they will merge normally within vanilla limits. You can then safely uninstall.
+
+Vanilla limits: Scrap 999 · Black Coin 99 · Crystals 99
+
+Requires solo play or being the session host.
+
+[i]If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.[/i]
+
+[line]
 [heading]ModManager[/heading]
 This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], HandyPurse is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
 

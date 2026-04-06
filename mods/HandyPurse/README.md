@@ -12,6 +12,20 @@ All caps are configurable.
 
 ---
 
+## Before uninstalling
+
+Use the **Prepare for Uninstall** button in the in-game pause menu (Mods › HandyPurse) before removing the mod.
+
+It drops every currency above the vanilla limit as vanilla-sized pickups at your feet, then disables HandyPurse automatically. Pick the stacks back up — they will merge normally within vanilla limits. You can then safely uninstall.
+
+Vanilla limits: Scrap 999 · Black Coin 99 · Crystals 99
+
+> Must be solo or session host. The button is in **Pause → Mods → HandyPurse**.
+
+If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.
+
+---
+
 ## ModManager
 
 This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, HandyPurse is disabled for that session and the session name will show a **(modded)** suffix when it's active.

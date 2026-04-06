@@ -4,6 +4,9 @@ using System.Reflection;
 using HarmonyLib;
 using RR.Game;
 using RR.Game.Items;
+using RR.UI.Pages;
+using RR.UI.Popups;
+using RR.UI.UISystem;
 using RR.Utility;
 using UnityEngine;
 
@@ -13,28 +16,67 @@ namespace HandyPurse.Patch {
         internal static void SetDisabled() => Disabled = true;
         internal static void SetEnabled() => Disabled = false;
 
+        // Set when Apply() fails; cleared after the popup fires once.
+        internal static bool PendingBreakingChangePopup { get; set; }
+
         private static FieldInfo _itemsArrayField;
 
-        public static void Apply(Harmony harmony) {
+        // Always register the main menu hook so the breaking-change popup fires even on failure.
+        public static void ApplyMenuHook(Harmony harmony) {
+            var menuActivateMethod = AccessTools.Method(typeof(MenuStartPage), "OnActivate");
+            if (menuActivateMethod != null) {
+                harmony.Patch(menuActivateMethod,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(MenuStartPageOnActivatePostfix))));
+            }
+        }
+
+        // Returns false if a critical patch could not be applied.
+        public static bool Apply(Harmony harmony) {
             var amountMaximumGetter = AccessTools.PropertyGetter(typeof(GenericItemDescriptor), nameof(GenericItemDescriptor.AmountMaximum));
-            var amountMaximumPostfix = AccessTools.Method(typeof(HandyPursePatch), nameof(AmountMaximumPostfix));
-            harmony.Patch(amountMaximumGetter, postfix: new HarmonyMethod(amountMaximumPostfix));
+            if (amountMaximumGetter == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find GenericItemDescriptor.AmountMaximum — stack protection unavailable.");
+                return false;
+            }
+            harmony.Patch(amountMaximumGetter,
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(AmountMaximumPostfix))));
 
             var createItemMethod = AccessTools.Method(typeof(ItemDatabase), nameof(ItemDatabase.CreateItem));
-            var createItemPrefix = AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPrefix));
-            var createItemPostfix = AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPostfix));
-            harmony.Patch(createItemMethod, prefix: new HarmonyMethod(createItemPrefix), postfix: new HarmonyMethod(createItemPostfix));
+            if (createItemMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find ItemDatabase.CreateItem — stack protection unavailable.");
+                return false;
+            }
+            harmony.Patch(createItemMethod,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(CreateItemPostfix))));
 
+            // Optional — only affects auto-pickup merge; vanilla fallback is safe.
             _itemsArrayField = AccessTools.Field(typeof(InventorySyncedItems), "_itemsArray");
             if (_itemsArrayField == null) {
-                HandyPurseMod.PublicLogger.LogWarning("Could not find InventorySyncedItems._itemsArray — auto-pickup merge will use vanilla stack caps.");
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find InventorySyncedItems._itemsArray — auto-pickup merge will use vanilla stack caps.");
             } else {
                 var mergeToInventoryMethod = AccessTools.Method(typeof(InventorySyncedItems), nameof(InventorySyncedItems.MergeToInventory));
-                var mergeToInventoryPrefix = AccessTools.Method(typeof(HandyPursePatch), nameof(MergeToInventoryPrefix));
-                harmony.Patch(mergeToInventoryMethod, prefix: new HarmonyMethod(mergeToInventoryPrefix));
+                harmony.Patch(mergeToInventoryMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(MergeToInventoryPrefix))));
             }
 
-            HandyPurseMod.PublicLogger.LogInfo("Patched item stack limits for HandyPurse.");
+            HandyPurseMod.PublicLogger.LogInfo("HandyPurse patches applied.");
+            return true;
+        }
+
+        private static void MenuStartPageOnActivatePostfix() {
+            if (!PendingBreakingChangePopup) {
+                return;
+            }
+
+            PendingBreakingChangePopup = false;
+
+            UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
+                Title = "HandyPurse — Breaking Change",
+                Text = $"Stack limits are NOT active (v{HandyPurseMod.Version}).\n\n" +
+                       $"Currencies above vanilla caps WILL be clamped on the next save.\n\n" +
+                       $"Do NOT uninstall until your stacks are within vanilla limits.\n\n" +
+                       $"Update the mod or report a bug — include your BepInEx log."
+            });
         }
 
         // Keep inventory merge/split logic aware of custom currency limits.
