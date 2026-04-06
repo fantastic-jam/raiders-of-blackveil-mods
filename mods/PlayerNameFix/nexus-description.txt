@@ -4,6 +4,9 @@ If your Steam profile is private, the game cannot read your display name during 
 
 No configuration required.
 [line]
+[heading]ModManager[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Utility[/b]. When ModManager is installed it appears in the Mods list and can be toggled on or off without restarting the game.
+[line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]

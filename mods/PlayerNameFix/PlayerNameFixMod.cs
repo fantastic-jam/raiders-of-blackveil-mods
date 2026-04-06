@@ -14,11 +14,28 @@ namespace PlayerNameFix {
 
         public static ManualLogSource PublicLogger;
 
+        private Harmony _harmony;
+
+        // Duck typing — ModManager discovers these without a ModRegistry.dll reference
+        public string GetModType() => "Utility";
+        public string GetModName() => Name;
+        public string GetModDescription() => "Fixes the <N/A> display name shown when your Steam profile is private.";
+        public bool Disabled => PlayerNameFixPatch.Disabled;
+        public void Disable() {
+            PublicLogger.LogInfo($"{Name}: disabled.");
+            PlayerNameFixPatch.SetDisabled();
+        }
+        public void Enable() {
+            PublicLogger.LogInfo($"{Name}: enabled.");
+            PlayerNameFixPatch.SetEnabled();
+        }
+
         private void Awake() {
             PublicLogger = Logger;
 
             try {
-                PlayerNameFixPatch.Apply(new Harmony(Id));
+                _harmony = new Harmony(Id);
+                PlayerNameFixPatch.Apply(_harmony);
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
             }
             catch (Exception ex) {

@@ -4,6 +4,12 @@ Fixes the `<N/A>` display name shown when your Steam profile is private. At logi
 
 ---
 
+## ModManager
+
+This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Utility**. When ModManager is installed it appears in the Mods list and can be toggled on or off without restarting the game.
+
+---
+
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
