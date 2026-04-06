@@ -1,10 +1,14 @@
 # ModManager
 
-Gives the host control over which mod types are active for a session. When hosting, two extra toggles appear in the host setup screen — **Allow Mods** and **Allow Cheats** — each showing the list of active mods in that category on hover. Setting either to **No** disables those mods before the session starts.
+Manage and control your mods from inside the game.
 
-The session name is automatically suffixed with **(cheats)** or **(modded)** so other players can see at a glance what kind of run they're joining.
+A **Mods** button is added to the main menu and the in-game pause menu. Opening it shows all installed BepInEx plugins. Mods that support enable/disable (via `IModRegistrant` or duck typing) have a working toggle — turn them off permanently or bring them back on. Mods without enable/disable support are listed as well but cannot be toggled.
 
-Mods opt in by implementing the `IModRegistrant` interface (or the equivalent duck-typed convention) from the [ModRegistry](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModRegistry) library.
+The Mods menu has two panels: a left bar for navigation and a right side that shows either the toggle list or a mod's own settings page. Mods that implement `IModMenuProvider` (or expose the same members via duck typing) get their own named entry in the left bar. Toggle changes are only available from the main menu — the in-game Mods button shows current state but disables editing.
+
+The enabled/disabled state is saved to a config file and applied at startup. New mods are added automatically; uninstalled mods are cleaned up.
+
+When hosting, the **Allow Mods** and **Allow Cheats** toggles on the host setup screen only apply to mods that are enabled in config. The session name is suffixed with **(cheats)** or **(modded)** so other players know what they're joining.
 
 ---
 
@@ -35,7 +39,7 @@ Skip this step if BepInEx is already installed.
 
 ## For mod authors
 
-To make your mod appear in ModManager, implement `IModRegistrant` on your plugin class. ModManager scans all loaded BepInEx plugins on startup and discovers any that match the contract below.
+ModManager lists every loaded BepInEx plugin. To make your mod's toggle interactive, implement `IModRegistrant` on your plugin class. ModManager scans all loaded plugins when the main menu initializes and discovers any that match the contract below.
 
 ### Quick example
 
@@ -65,14 +69,14 @@ public class MyMod : BaseUnityPlugin, IModRegistrant {
 
 #### `string GetModType()` — **required**
 
-Returns one of the `ModType` names as a plain string (case-insensitive). ModManager uses this to decide which toggle controls your mod.
+Returns one of the `ModType` names as a plain string (case-insensitive). ModManager uses this to decide which host toggle controls your mod.
 
 | Return value | Effect |
 |---|---|
-| `"Mod"` | Shown under the **Allow Mods** toggle |
-| `"Cheat"` | Shown under the **Allow Cheats** toggle |
-| `"Cosmetics"` | Tracked but not surfaced in session checkboxes (future feature) |
-| `"Utility"` | Tracked but not surfaced in session checkboxes (future feature) |
+| `"Mod"` | Shown under the **Allow Mods** host toggle |
+| `"Cheat"` | Shown under the **Allow Cheats** host toggle |
+| `"Cosmetics"` | Listed in the Mods page; not surfaced in host toggles |
+| `"Utility"` | Listed in the Mods page; not surfaced in host toggles |
 
 Use `nameof(ModType.Mod)` etc. to get compile-time safety when referencing `ModRegistry.dll`.
 
@@ -80,7 +84,7 @@ Use `nameof(ModType.Mod)` etc. to get compile-time safety when referencing `ModR
 
 #### `void Disable()` — **required**
 
-Called by ModManager just before the play session begins, when the host has toggled off this mod's category. Must make the mod inert — no further game-state changes.
+Called at startup when the mod is disabled in config, and just before a play session begins when the host has toggled off this mod's category. Must make the mod inert — no further game-state changes.
 
 The recommended pattern is a static flag that all Harmony patches check at the top of their prefix/postfix:
 
@@ -128,7 +132,7 @@ public void Enable() {
 
 #### `string GetModName()` — **optional**
 
-Human-readable display name shown in the ModManager UI. If absent or returns an empty string, ModManager falls back to the BepInEx plugin `Name` constant.
+Human-readable display name shown in the Mods page. If absent or returns an empty string, ModManager falls back to the BepInEx plugin `Name` constant.
 
 ```csharp
 public string GetModName() => "My Mod";
@@ -138,11 +142,43 @@ public string GetModName() => "My Mod";
 
 #### `string GetModDescription()` — **optional**
 
-Short description shown on hover in the ModManager UI. Can be empty.
+Short description. Can be empty.
 
 ```csharp
 public string GetModDescription() => "Increases gold drop rate.";
 ```
+
+---
+
+---
+
+#### `string MenuName { get; }` — **optional**
+
+Returning a non-null string from this property opts your mod into the Mods menu left bar. ModManager will call `OpenMenu` / `CloseMenu` when the player selects your entry.
+
+Implement `IModMenuProvider` alongside `IModRegistrant` to get compile-time safety:
+
+```csharp
+using ModRegistry;
+using UnityEngine.UIElements;
+
+public class MyMod : BaseUnityPlugin, IModRegistrant, IModMenuProvider {
+    // ... IModRegistrant members ...
+
+    public string MenuName => "My Mod";
+
+    public void OpenMenu(VisualElement container, bool isInGameMenu) {
+        // Build your settings UI and add it to container.
+        // isInGameMenu is true when opened from the pause menu.
+    }
+
+    public void CloseMenu() {
+        // Persist or tear down settings state.
+    }
+}
+```
+
+`isInGameMenu` lets you disable editing controls that are unsafe to change mid-session. ModManager owns the container's lifetime — do not hold a reference to it past `CloseMenu`.
 
 ---
 
@@ -158,6 +194,9 @@ Referencing `ModRegistry.dll` is optional. ModManager also discovers mods by mat
 | `public void Enable()` | No |
 | `public string GetModName()` | No |
 | `public string GetModDescription()` | No |
+| `public string MenuName { get; }` | No |
+| `public void OpenMenu(VisualElement, bool)` | No (required if MenuName is set) |
+| `public void CloseMenu()` | No (required if MenuName is set) |
 
 The interface approach is preferred because it gives you compile-time checks and IDE auto-complete. Duck typing is useful when you can't or don't want to ship an extra DLL alongside your mod.
 

@@ -1,10 +1,14 @@
 [size=5]ModManager[/size]
 
-Gives the host control over which mod types are active for a session.
+Manage and control your mods from inside the game.
 
-When hosting, two extra toggles appear in the host setup screen — [b]Allow Mods[/b] and [b]Allow Cheats[/b] — each showing the list of active mods in that category on hover. Setting either to [b]No[/b] disables those mods before the session starts. The session name is automatically suffixed with [b](cheats)[/b] or [b](modded)[/b] so other players can see at a glance what kind of run they're joining.
+A [b]Mods[/b] button is added to the main menu and the in-game pause menu. Opening it shows all installed BepInEx plugins. Mods that support enable/disable (via [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModRegistry]ModRegistry[/url] or duck typing) have a working toggle — turn them off permanently or bring them back on. Mods without enable/disable support are listed as well but cannot be toggled.
 
-Mods opt in by implementing the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModRegistry]ModRegistry[/url] interface (or the equivalent duck-typed convention — no DLL reference required).
+The Mods menu has two panels: a left bar for navigation and a right side that shows either the toggle list or a mod's own settings page. Mods can expose a custom settings panel by implementing [b]IModMenuProvider[/b] — they get their own named entry in the left bar. Toggle changes are only available from the main menu; the in-game Mods button shows current state but disables editing.
+
+The enabled/disabled state is saved to a config file and applied at startup. New mods are added automatically; uninstalled mods are cleaned up.
+
+When hosting, the [b]Allow Mods[/b] and [b]Allow Cheats[/b] toggles on the host setup screen only apply to mods that are enabled in config. The session name is suffixed with [b](cheats)[/b] or [b](modded)[/b] so other players know what they're joining.
 [line]
 [heading]Requirements[/heading]
 [list]
@@ -27,7 +31,7 @@ Mods opt in by implementing the [url=https://github.com/fantastic-jam/raiders-of
 [/list]
 [line]
 [heading]For mod authors[/heading]
-ModManager scans all loaded BepInEx plugins at startup. Implement [b]IModRegistrant[/b] on your plugin class, or expose the same members by name (duck typing — no DLL reference required).
+ModManager lists every loaded BepInEx plugin. To make your mod's toggle interactive, implement [b]IModRegistrant[/b] on your plugin class (or use the duck-typed convention — no DLL reference required).
 
 [heading]Quick example[/heading]
 [code]
@@ -55,16 +59,16 @@ public class MyMod : BaseUnityPlugin, IModRegistrant {
 [heading]Method reference[/heading]
 
 [b]string GetModType()[/b] — [i]required[/i]
-Returns one of the following strings (case-insensitive). Controls which toggle manages your mod.
+Returns one of the following strings (case-insensitive). Controls which host toggle manages your mod.
 [list]
 [*][b]"Mod"[/b] — shown under the Allow Mods toggle[/*]
 [*][b]"Cheat"[/b] — shown under the Allow Cheats toggle[/*]
-[*][b]"Cosmetics"[/b] — tracked but not surfaced in toggles (future feature)[/*]
-[*][b]"Utility"[/b] — tracked but not surfaced in toggles (future feature)[/*]
+[*][b]"Cosmetics"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
+[*][b]"Utility"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
 [/list]
 
 [b]void Disable()[/b] — [i]required[/i]
-Called before the session starts when the host disallows your mod's category. Must make the mod completely inert. Recommended: set a flag [i]and[/i] call [font=Courier New]_harmony?.UnpatchSelf()[/font]. If removing patches mid-session is unsafe, set only the flag and check it at the top of every patch method.
+Called at startup when the mod is disabled in config, and before a session starts when the host disallows your mod's category. Must make the mod completely inert. Recommended: set a flag [i]and[/i] call [font=Courier New]_harmony?.UnpatchSelf()[/font].
 
 [b]bool Disabled { get; }[/b] — [i]required[/i]
 Must reflect current state: [font=Courier New]true[/font] after [font=Courier New]Disable()[/font], [font=Courier New]false[/font] after [font=Courier New]Enable()[/font].
@@ -73,10 +77,13 @@ Must reflect current state: [font=Courier New]true[/font] after [font=Courier Ne
 Called when the host re-enables a previously disabled mod type (e.g. back in the lobby). Implement by clearing the flag and re-patching. If omitted, the mod stays disabled for the entire session.
 
 [b]string GetModName()[/b] — [i]optional[/i]
-Display name shown in the ModManager UI. Falls back to the BepInEx plugin name if absent or empty.
+Display name shown in the Mods page. Falls back to the BepInEx plugin name if absent or empty.
 
 [b]string GetModDescription()[/b] — [i]optional[/i]
-Short description shown on hover. Can be empty.
+Short description. Can be empty.
+
+[b]string MenuName { get; }[/b] — [i]optional[/i]
+Returning a non-null string opts your mod into the left bar of the Mods menu. When selected, ModManager calls [font=Courier New]OpenMenu(container, isInGameMenu)[/font] to let you build a settings panel. Implement [b]IModMenuProvider[/b] alongside [b]IModRegistrant[/b], or expose [font=Courier New]MenuName[/font], [font=Courier New]OpenMenu(VisualElement, bool)[/font], and [font=Courier New]CloseMenu()[/font] as plain public members (duck typing). [font=Courier New]isInGameMenu[/font] is true when opened from the pause menu — use it to disable controls that are unsafe to change mid-session.
 
 [heading]Duck typing (no DLL)[/heading]
 If you prefer not to reference [font=Courier New]ModRegistry.dll[/font], expose the same members as plain public methods/properties with the exact signatures above — ModManager will find them via reflection. The required members are [b]GetModType()[/b], [b]Disable()[/b], and [b]Disabled[/b].

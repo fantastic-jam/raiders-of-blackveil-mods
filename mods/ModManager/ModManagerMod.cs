@@ -8,7 +8,7 @@ using ModRegistry;
 namespace ModManager {
     [BepInPlugin(Id, Name, Version)]
     public class ModManagerMod : BaseUnityPlugin, IModRegistrant {
-        private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.modmanager";
+        internal const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.modmanager";
         public const string Name = "ModManager";
         public const string Version = "0.2.0";
         public const string Author = "christphe";
@@ -30,7 +30,10 @@ namespace ModManager {
             PublicLogger = Logger;
             try {
                 _harmony = new Harmony(Id);
+                ModManagerConfig.Init(Config);
                 ModManagerPatch.Apply(_harmony);
+                MenuStartPagePatch.Apply(_harmony);
+                MenuPausePagePatch.Apply(_harmony);
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
             }
             catch (Exception ex) {

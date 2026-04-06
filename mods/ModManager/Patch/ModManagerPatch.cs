@@ -58,8 +58,12 @@ namespace ModManager.Patch {
                 return;
             }
 
-            bool hasMods = ModManagerRegistrants.Mods.Count > 0;
-            bool hasCheats = ModManagerRegistrants.Cheats.Count > 0;
+            // Only show steppers for config-enabled mods
+            var enabledMods = ModManagerRegistrants.Mods.Where(m => ModManagerConfig.IsEnabled(m.Guid)).ToList();
+            var enabledCheats = ModManagerRegistrants.Cheats.Where(m => ModManagerConfig.IsEnabled(m.Guid)).ToList();
+
+            bool hasMods = enabledMods.Count > 0;
+            bool hasCheats = enabledCheats.Count > 0;
             if (!hasMods && !hasCheats) { return; }
 
             var cursorField = AccessTools.Field(typeof(MenuStartHostPage), "_cursor");
@@ -86,7 +90,7 @@ namespace ModManager.Patch {
             BuildTooltip(__instance.RootElement);
 
             if (hasMods) {
-                var names = ModManagerRegistrants.Mods.Select(m => m.Name).ToList();
+                var names = enabledMods.Select(m => m.Name).ToList();
                 _allowModsStepper = CreateStepper("ALLOW MODS");
                 RegisterTooltip(_allowModsStepper, string.Join("\n", names));
                 container.Insert(insertIndex++, _allowModsStepper);
@@ -95,7 +99,7 @@ namespace ModManager.Patch {
             }
 
             if (hasCheats) {
-                var names = ModManagerRegistrants.Cheats.Select(m => m.Name).ToList();
+                var names = enabledCheats.Select(m => m.Name).ToList();
                 _allowCheatsStepper = CreateStepper("ALLOW CHEATS");
                 RegisterTooltip(_allowCheatsStepper, string.Join("\n", names));
                 container.Insert(insertIndex++, _allowCheatsStepper);
@@ -133,9 +137,9 @@ namespace ModManager.Patch {
             if (_finalNameLabel == null) { return; }
 
             bool cheatsActive = (_allowCheatsStepper == null || _allowCheatsStepper.Index == 0)
-                                && ModManagerRegistrants.Cheats.Count > 0;
+                                && ModManagerRegistrants.Cheats.Any(m => ModManagerConfig.IsEnabled(m.Guid));
             bool modsActive = (_allowModsStepper == null || _allowModsStepper.Index == 0)
-                              && ModManagerRegistrants.Mods.Count > 0;
+                              && ModManagerRegistrants.Mods.Any(m => ModManagerConfig.IsEnabled(m.Guid));
 
             string suffix = cheatsActive ? " (cheats)" : modsActive ? " (modded)" : "";
             if (string.IsNullOrEmpty(suffix)) {
@@ -154,11 +158,10 @@ namespace ModManager.Patch {
             bool allowCheats = _allowCheatsStepper == null || _allowCheatsStepper.Index == 0;
 
             ModManagerMod.PublicLogger.LogInfo(
-                $"ModManager: BeginPlaySession — allowMods={allowMods} (stepper={((_allowModsStepper == null) ? "null" : _allowModsStepper.Index.ToString())}), " +
-                $"allowCheats={allowCheats} (stepper={((_allowCheatsStepper == null) ? "null" : _allowCheatsStepper.Index.ToString())})"
+                $"ModManager: BeginPlaySession — allowMods={allowMods}, allowCheats={allowCheats}"
             );
 
-            foreach (var mod in ModManagerRegistrants.Cheats) {
+            foreach (var mod in ModManagerRegistrants.Cheats.Where(m => ModManagerConfig.IsEnabled(m.Guid))) {
                 if (allowCheats) {
                     ModManagerMod.PublicLogger.LogInfo($"ModManager: enabling cheat — {mod.Name}");
                     mod.Enable();
@@ -167,7 +170,7 @@ namespace ModManager.Patch {
                     mod.Disable();
                 }
             }
-            foreach (var mod in ModManagerRegistrants.Mods) {
+            foreach (var mod in ModManagerRegistrants.Mods.Where(m => ModManagerConfig.IsEnabled(m.Guid))) {
                 if (allowMods) {
                     ModManagerMod.PublicLogger.LogInfo($"ModManager: enabling mod — {mod.Name}");
                     mod.Enable();
@@ -177,8 +180,8 @@ namespace ModManager.Patch {
                 }
             }
 
-            bool activeCheats = allowCheats && ModManagerRegistrants.Cheats.Count > 0;
-            bool activeMods = allowMods && ModManagerRegistrants.Mods.Count > 0;
+            bool activeCheats = allowCheats && ModManagerRegistrants.Cheats.Any(m => ModManagerConfig.IsEnabled(m.Guid));
+            bool activeMods = allowMods && ModManagerRegistrants.Mods.Any(m => ModManagerConfig.IsEnabled(m.Guid));
 
             if (activeCheats) {
                 sessionTag += " (cheats)";
