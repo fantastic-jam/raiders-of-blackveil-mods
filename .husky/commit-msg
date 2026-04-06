@@ -1,1 +1,2 @@
+#!/bin/sh
 node --experimental-strip-types tools/validate-commit-msg.mts "$1"
