@@ -18,6 +18,7 @@ namespace DisableSkillsBar {
 
         public string GetModType() => "Cosmetics";
         public string GetModName() => Name;
+        public string GetModDescription() => "Prevents the skills bar from reacting to accidental hover or clicks during combat. Hold Alt to interact normally.";
         public bool Disabled => DisableSkillsBarPatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
