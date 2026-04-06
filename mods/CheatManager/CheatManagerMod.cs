@@ -19,6 +19,7 @@ namespace CheatManager {
 
         public string GetModType() => nameof(ModType.Cheat);
         public string GetModName() => Name;
+        public string GetModDescription() => "Enables the built-in developer cheat hotkeys. Hold Alt in-game to see the reference overlay.";
         public bool Disabled => CheatManagerPatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
