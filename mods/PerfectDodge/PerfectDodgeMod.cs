@@ -25,6 +25,7 @@ namespace PerfectDodge {
 
         public string GetModType() => nameof(ModType.Mod);
         public string GetModName() => Name;
+        public string GetModDescription() => "Negates a hit if you get struck within a short window after pressing dash, and refunds the dash charge.";
         public bool Disabled => PerfectDodgePatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
