@@ -2,10 +2,14 @@
 
 Got a friend who just picked up the game? Bring them along. This mod lets the host dial in a handicap per player so the seasoned raider and the complete newcomer can share the same run without it being a disaster for one of them.
 
-Press [b]F3[/b] in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.
+Press [b]F3[/b] (configurable) in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.
 [line]
 [heading]ModManager[/heading]
-This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], BeginnersWelcome is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed:
+[list]
+[*]An [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], BeginnersWelcome is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.[/*]
+[*]A [b]Beginners Welcome[/b] entry appears in the Mods menu (main menu and pause menu) where you can rebind the handicap panel toggle key.[/*]
+[/list]
 
 [line]
 [heading]Requirements[/heading]

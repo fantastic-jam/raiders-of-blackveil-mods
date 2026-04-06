@@ -43,8 +43,7 @@ namespace BeginnersWelcome.UI {
             }
 
 
-            if (Keyboard.current.f3Key.wasPressedThisFrame) {
-
+            if (Keyboard.current[BeginnersWelcomeMod.PanelToggleKey.Value].wasPressedThisFrame) {
                 panel.Toggle();
             }
 

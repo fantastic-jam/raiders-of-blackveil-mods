@@ -40,7 +40,7 @@ namespace BeginnersWelcome.UI {
             _panel.style.width = isLobby ? 380 : 260;
             _panel.VisibleDisplay(visible: false);
 
-            var title = new Label("Handicap  [F3]");
+            var title = new Label(GetTitle());
             title.style.color = Color.white;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
             title.style.marginBottom = 8;
@@ -53,6 +53,8 @@ namespace BeginnersWelcome.UI {
 
             container.Add(_panel);
         }
+
+        private static string GetTitle() => "Handicap";
 
         public void Toggle() {
             if (NetworkManager.Instance?.NetworkRunner?.IsSinglePlayer ?? false) {

@@ -2,13 +2,16 @@
 
 Got a friend who just picked up the game? Bring them along. This mod lets the host dial in a handicap per player so the seasoned raider and the complete newcomer can share the same run without it being a disaster for one of them.
 
-Press **F3** in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.
+Press **F3** (configurable) in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.
 
 ---
 
 ## ModManager
 
-This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, BeginnersWelcome is disabled for that session and the session name will show a **(modded)** suffix when it's active.
+This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed:
+
+- An **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, BeginnersWelcome is disabled for that session and the session name will show a **(modded)** suffix when it's active.
+- A **Beginners Welcome** entry appears in the Mods menu (main menu and pause menu) where you can rebind the handicap panel toggle key.
 
 ---
 
