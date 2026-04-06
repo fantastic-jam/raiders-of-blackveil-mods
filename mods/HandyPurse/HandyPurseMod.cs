@@ -28,6 +28,7 @@ namespace HandyPurse {
 
         public string GetModType() => nameof(ModType.Mod);
         public string GetModName() => Name;
+        public string GetModDescription() => "Raises the stack limits for all currencies. Caps are configurable in the BepInEx config file.";
         public bool Disabled => HandyPursePatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
