@@ -99,12 +99,12 @@ namespace OfflineMode.Patch {
         private static bool DisclaimerManagerCtorPrefix() => LoginManager.OnDisclaimerManagerCreated();
 
         private static void MenuStartPageOnInitPostfix(MenuStartPage __instance) {
-            // Inject the Offline Mode button above Exit.
-            var exitBtn = __instance.RootElement.Q<VisualElement>("ExitButton");
-            if (exitBtn == null) {
-                OfflineModeMod.PublicLogger.LogWarning("OfflineMode: ExitButton not found — Offline Mode button skipped.");
+            // Inject the Offline Mode button under Solo play (NewSinglePlayerGameButton).
+            var soloBtn = __instance.RootElement.Q<VisualElement>("NewSinglePlayerGameButton");
+            if (soloBtn == null) {
+                OfflineModeMod.PublicLogger.LogWarning("OfflineMode: NewSinglePlayerGameButton not found — Offline Mode button skipped.");
             } else {
-                var container = exitBtn.parent;
+                var container = soloBtn.parent;
                 if (container != null) {
                     var hasSave = OfflineSaveManager.HasAnySave();
                     var offlineBtn = new ButtonGeneric3 {
@@ -121,7 +121,7 @@ namespace OfflineMode.Patch {
                         lbl.Refresh();
                     }
 
-                    container.Insert(container.IndexOf(exitBtn), offlineBtn);
+                    container.Insert(container.IndexOf(soloBtn) + 1, offlineBtn);
                 }
             }
 
