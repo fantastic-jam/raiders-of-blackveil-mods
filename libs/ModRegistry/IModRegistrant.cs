@@ -37,5 +37,12 @@
 
         /// <summary>Short description shown in ModManager UI. Empty is fine.</summary>
         public string GetModDescription() => "";
+
+        /// <summary>
+        /// When true, clients joining a session with this game mode active must also have it
+        /// installed and enabled. ModManager will block the join and offer to enable it if
+        /// the client has it installed but disabled. Only meaningful for GameMode mods.
+        /// </summary>
+        public bool IsClientRequired => false;
     }
 }
