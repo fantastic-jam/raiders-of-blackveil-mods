@@ -11,7 +11,7 @@ namespace HandyPurse {
     public class HandyPurseMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.handypurse";
         public const string Name = "HandyPurse";
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
