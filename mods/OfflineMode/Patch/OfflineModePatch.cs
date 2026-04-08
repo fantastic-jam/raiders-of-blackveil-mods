@@ -12,7 +12,10 @@ using UnityEngine.UIElements;
 
 namespace OfflineMode.Patch {
     public static class OfflineModePatch {
+        private static bool _disabled;
         private static bool _startupBypassed;
+
+        public static void SetDisabled() => _disabled = true;
         private static MethodInfo _startApplicationMethod;
         private static FieldInfo _cursorField;
         private static MethodInfo _startClickMethod;
@@ -99,8 +102,8 @@ namespace OfflineMode.Patch {
         private static bool DisclaimerManagerCtorPrefix() => LoginManager.OnDisclaimerManagerCreated();
 
         private static void MenuStartPageOnInitPostfix(MenuStartPage __instance) {
-            // Inject the Offline Mode button under Solo play (NewSinglePlayerGameButton).
-            var soloBtn = __instance.RootElement.Q<VisualElement>("NewSinglePlayerGameButton");
+            // Inject the Offline Mode button under Solo play — only when enabled.
+            var soloBtn = _disabled ? null : __instance.RootElement.Q<VisualElement>("NewSinglePlayerGameButton");
             if (soloBtn == null) {
                 OfflineModeMod.PublicLogger.LogWarning("OfflineMode: NewSinglePlayerGameButton not found — Offline Mode button skipped.");
             } else {
@@ -125,7 +128,7 @@ namespace OfflineMode.Patch {
                 }
             }
 
-            // Wrap play buttons: clear IsOffline, trigger login if not yet logged in.
+            // Always wrap play buttons: clears IsOffline and triggers login if not yet logged in.
             foreach (var btnName in new[] {
                 "NewSinglePlayerGameButton",
                 "TutorialButton",

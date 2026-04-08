@@ -17,7 +17,10 @@ namespace OfflineMode {
         public string GetModType() => "Utility";
         public string GetModName() => Name;
         public string GetModDescription() => "Play offline and sync your save when you reconnect.";
-        public void Disable() { }
+        public void Disable() {
+            PublicLogger.LogInfo($"{Name}: disabled.");
+            OfflineModePatch.SetDisabled();
+        }
 
         private void Awake() {
             PublicLogger = Logger;
