@@ -1,0 +1,119 @@
+[size=5]Wildguard Mod Framework (WMF)[/size]
+
+Manage and control your mods from inside the game.
+
+A [b]Mods[/b] button is added to the main menu and the in-game pause menu. Opening it shows all installed BepInEx plugins. Mods that support enable/disable (via [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModRegistry]ModRegistry[/url] or duck typing) have a working toggle — turn them off permanently or bring them back on. Mods without enable/disable support are listed as well but cannot be toggled.
+
+The Mods menu has two panels: a left bar for navigation and a right side that shows either the toggle list or a mod's own settings page. Mods can expose a custom settings panel by implementing [b]IModMenuProvider[/b] — they get their own named entry in the left bar. Toggle changes are only available from the main menu; the in-game Mods button shows current state but disables editing.
+
+The enabled/disabled state is saved to a config file and applied at startup. New mods are added automatically; uninstalled mods are cleaned up.
+
+When hosting, the [b]Allow Mods[/b] and [b]Allow Cheats[/b] toggles on the host setup screen only apply to mods that are enabled in config. The session name is suffixed with [b](cheats)[/b] or [b](modded)[/b] so other players know what they're joining.
+
+A [b]Game Mode[/b] stepper appears on the host setup screen and the solo start screen. Mods that declare [font=Courier New]ModType.GameMode[/font] register as selectable game modes. Only one game mode can be active per session — selecting one disables all others. The default is [b]Normal[/b] (no game mode active).
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+1. Install BepInEx (skip if already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe)[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download WMF and ModRegistry from the releases page[/*]
+[*]Extract both ZIPs into your game's BepInEx folder[/*]
+[*]Launch the game[/*]
+[/list]
+[line]
+[heading]For mod authors[/heading]
+WMF lists every loaded BepInEx plugin. To make your mod's toggle interactive, implement [b]IModRegistrant[/b] on your plugin class (or use the duck-typed convention — no DLL reference required).
+
+[heading]Quick example[/heading]
+[code]
+using ModRegistry;
+
+[BepInPlugin(Id, Name, Version)]
+public class MyMod : BaseUnityPlugin, IModRegistrant {
+    public string GetModType() => nameof(ModType.Mod);
+    public string GetModName() => "My Mod";
+    public string GetModDescription() => "Does something useful.";
+    public bool Disabled { get; private set; }
+
+    public void Disable() {
+        Disabled = true;
+        _harmony?.UnpatchSelf();
+    }
+
+    public void Enable() {
+        Disabled = false;
+        _harmony?.PatchAll();
+    }
+}
+[/code]
+
+[heading]Method reference[/heading]
+
+[b]string GetModType()[/b] — [i]required[/i]
+Returns one of the following strings (case-insensitive). Controls which host toggle manages your mod.
+[list]
+[*][b]"Mod"[/b] — shown under the Allow Mods toggle[/*]
+[*][b]"Cheat"[/b] — shown under the Allow Cheats toggle[/*]
+[*][b]"Cosmetics"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
+[*][b]"Utility"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
+[*][b]"GameMode"[/b] — registered as a selectable game mode; appears in the Game Mode stepper on the host and solo screens[/*]
+[/list]
+
+[b]void Disable()[/b] — [i]required[/i]
+Called at startup when the mod is disabled in config, and before a session starts when the host disallows your mod's category. Must make the mod completely inert. Recommended: set a flag [i]and[/i] call [font=Courier New]_harmony?.UnpatchSelf()[/font].
+
+[b]bool Disabled { get; }[/b] — [i]required[/i]
+Must reflect current state: [font=Courier New]true[/font] after [font=Courier New]Disable()[/font], [font=Courier New]false[/font] after [font=Courier New]Enable()[/font].
+
+[b]void Enable()[/b] — [i]optional[/i]
+Called when the host re-enables a previously disabled mod type (e.g. back in the lobby). Implement by clearing the flag and re-patching. If omitted, the mod stays disabled for the entire session.
+
+[b]string GetModName()[/b] — [i]optional[/i]
+Display name shown in the Mods page. Falls back to the BepInEx plugin name if absent or empty.
+
+[b]string GetModDescription()[/b] — [i]optional[/i]
+Short description. Can be empty.
+
+[b]bool IsClientRequired { get; }[/b] — [i]optional, GameMode only[/i]
+When [font=Courier New]true[/font], clients joining a session with this game mode active must also have it installed and enabled. Defaults to [font=Courier New]false[/font].
+
+[heading]Game mode mods (ModType.GameMode)[/heading]
+Return [font=Courier New]"GameMode"[/font] from [font=Courier New]GetModType()[/font] to register as a selectable game mode. WMF disables all game mode mods at startup and enables only the one the player picks in the Game Mode stepper when the session starts.
+
+[b]Single-variant[/b] — the whole mod is one selectable entry. No extra interface needed:
+[code]
+public string GetModType() => nameof(ModType.GameMode);
+public bool IsClientRequired => true;
+[/code]
+
+[b]Multi-variant (IGameModeProvider)[/b] — implement [b]IGameModeProvider[/b] alongside [b]IModRegistrant[/b] to expose several entries from one plugin (e.g. "Rogue Run" and "Rogue Run — Hard"). WMF registers one stepper entry per variant. [font=Courier New]Enable()[/font] is called first, then [font=Courier New]EnableVariant(variantId)[/font] with the chosen variant ID. [font=Courier New]Disable()[/font] deactivates everything.
+[code]
+public IReadOnlyList<GameModeVariant> GameModeVariants => new[] {
+    new GameModeVariant("normal", "My Game Mode"),
+    new GameModeVariant("hard",   "My Game Mode — Hard", "Harder variant"),
+};
+
+public void EnableVariant(string variantId) {
+    _currentVariant = variantId;
+    _harmony?.PatchAll();
+}
+[/code]
+
+[b]string MenuName { get; }[/b] — [i]optional[/i]
+Returning a non-null string opts your mod into the left bar of the Mods menu. When selected, WMF calls [font=Courier New]OpenMenu(container, isInGameMenu)[/font] to let you build a settings panel. Implement [b]IModMenuProvider[/b] alongside [b]IModRegistrant[/b], or expose [font=Courier New]MenuName[/font], [font=Courier New]OpenMenu(VisualElement, bool)[/font], and [font=Courier New]CloseMenu()[/font] as plain public members (duck typing). [font=Courier New]isInGameMenu[/font] is true when opened from the pause menu — use it to disable controls that are unsafe to change mid-session.
+
+[heading]Duck typing (no DLL)[/heading]
+If you prefer not to reference [font=Courier New]ModRegistry.dll[/font], expose the same members as plain public methods/properties with the exact signatures above — WMF will find them via reflection. The required members are [b]GetModType()[/b], [b]Disable()[/b], and [b]Disabled[/b]. [font=Courier New]IsClientRequired[/font] is also discovered via duck typing for game mode mods. Multi-variant game modes ([b]IGameModeProvider[/b]) require the DLL reference — duck typing is not supported for that interface.
+
+Download [font=Courier New]ModRegistry.dll[/font] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework]releases page[/url] if you want the interface for compile-time safety.
