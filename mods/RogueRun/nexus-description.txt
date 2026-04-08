@@ -1,0 +1,45 @@
+[size=5]RogueRun[/size]
+
+[i]The run that never happened. The one they still talk about.[/i]
+
+They say my grandfather walked into the Meat Factory with nothing but the clothes on his back. No smuggler on the Liberator that day — no way to send anything home. So he armed himself with whatever Blackveil left lying around and cleared every room on the way down. Walked out alive. Left it all inside where it belonged. His own kit was waiting right where he'd stashed it. I've heard the story a hundred times. It gets a little longer every year.
+
+[line]
+[heading]Highlights[/heading]
+[list]
+[*][b]Went in empty-handed[/b] — permanent loadout locked away safe while the run kit builds itself room by room from nothing[/*]
+[*][b]Every door, every room, no shortcuts[/b] — the whole gauntlet, top to bottom, the way the old-timers say it was meant to be run[/*]
+[*][b]Loot dropped on top of loot[/b] — gear chests stacked over normal rewards, because in that run, the Factory was generous[/*]
+[*][b]Bosses handed over their secrets[/b] — perks straight from every major kill, each fight shaping what you'd become by the end[/*]
+[*][b]No junk cluttering the satchel[/b] — stat flasks where the souvenirs and recipes would've been; numbers climbed clean the whole way through[/*]
+[*][b]Killed the BiomeBoss and walked[/b] — original gear untouched, the run itself gone, nothing left but the memory[/*]
+[/list]
+
+[line]
+[heading]WMF[/heading]
+RogueRun registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]WMF[/url] as a [b]Game Mode[/b]. Select it in the host setup screen before starting a session. All clients must have RogueRun installed and enabled in WMF to join.
+
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]WMF[/url][/*]
+[/list]
+
+[line]
+[heading]Installation[/heading]
+
+1. Install BepInEx (skip if already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build.[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe).[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+
+2. Install the mod
+[list]
+[*]Download [b]RogueRun-x.x.x.zip[/b] from the releases page.[/*]
+[*]Extract the ZIP into your game's BepInEx folder.[/*]
+[*]Launch the game.[/*]
+[/list]
