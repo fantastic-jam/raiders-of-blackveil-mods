@@ -32,25 +32,31 @@ export function latestModTag(modName: string): string | null {
 
 export function changelog(modName: string, prevTag: string | null): string {
   const range = prevTag ? `${prevTag}..HEAD` : 'HEAD'
-  const lines = git([
+  const raw = git([
     'log',
     range,
-    '--pretty=format:%s',
+    '--pretty=format:%x00%B',
     '--no-merges',
     `--grep=(${modName})`,
     `--grep=(All)`,
     '-i',
   ])
-    .split('\n')
+
+  const entries = raw
+    .split('\x00')
+    .map((block) => block.trim())
     .filter(Boolean)
-    .filter((l) => !/^chore\([^)]+\):\s*release v/.test(l))
-    .filter((l) => !/^tidy\([^)]+\):/.test(l))
-    .map((l) => {
-      const m = l.match(/^(fix|chore|new)\([^)]+\):\s*(.+)$/)
-      return m ? `*${m[1]}*: ${m[2]}` : `- ${l}`
+    .filter((block) => !/^chore\([^)]+\):\s*release v/.test(block))
+    .filter((block) => !/^tidy\([^)]+\):/.test(block))
+    .map((block) => {
+      const [subject, ...rest] = block.split('\n')
+      const body = rest.map((l) => l.trim()).filter(Boolean)
+      const m = subject.trim().match(/^(fix|chore|new)\([^)]+\):\s*(.+)$/)
+      const header = m ? `*${m[1]}*: ${m[2]}` : `- ${subject.trim()}`
+      return body.length > 0 ? `${header}\n${body.map((l) => `  ${l}`).join('\n')}` : header
     })
 
-  return lines.length > 0 ? `## Changelog\n\n${lines.join('\n')}` : 'No changes recorded.'
+  return entries.length > 0 ? `## Changelog\n\n${entries.join('\n\n')}` : 'No changes recorded.'
 }
 
 export function stageFile(file: string): void {
