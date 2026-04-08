@@ -6,9 +6,9 @@ Press **F3** (configurable) in the lobby to open the handicap panel. Only the ho
 
 ---
 
-## ModManager
+## WMF
 
-This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Mod**. When ModManager is installed:
+This mod registers with [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) as a **Mod**. When WMF is installed:
 
 - An **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, BeginnersWelcome is disabled for that session and the session name will show a **(modded)** suffix when it's active.
 - A **Beginners Welcome** entry appears in the Mods menu (main menu and pause menu) where you can rebind the handicap panel toggle key.
@@ -19,7 +19,7 @@ This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
 - [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
-- [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager)
+- [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework)
 
 ---
 
