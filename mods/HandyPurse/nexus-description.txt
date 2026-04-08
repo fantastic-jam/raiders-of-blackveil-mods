@@ -23,15 +23,15 @@ Requires solo play or being the session host.
 [i]If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.[/i]
 
 [line]
-[heading]ModManager[/heading]
-This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], HandyPurse is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
+[heading]WMF[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]WMF[/url] as a [b]Mod[/b]. When WMF is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], HandyPurse is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
 
 [line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
 [*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
-[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]ModManager[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]WMF[/url][/*]
 [/list]
 [line]
 [heading]Installation[/heading]
