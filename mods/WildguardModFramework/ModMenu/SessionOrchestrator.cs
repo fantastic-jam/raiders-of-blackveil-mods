@@ -57,10 +57,10 @@ namespace WildguardModFramework.ModMenu {
             }
         }
 
-        // Game mode activation for host sessions only.
-        // Solo game modes are activated by SoloModePickerInjector.ConfirmAndStart() before this fires.
+        // Applies the selected game mode for all session types.
+        // For solo sessions, MenuStartPage.OnActivate may fire between ConfirmAndStart() and BeginPlaySession
+        // (e.g. when OfflineMode runs deferred login), so we must re-activate here rather than relying on ConfirmAndStart().
         private static RegisteredGameMode ApplyGameModeChoice(BackendManager.PlaySessionMode playSessionMode) {
-            if (playSessionMode == BackendManager.PlaySessionMode.SinglePlayer) { return null; }
 
             var selectedId = ModScanner.SelectedGameModeVariantId;
             foreach (var gm in ModScanner.GameModes) { gm.Disable(); }

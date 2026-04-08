@@ -1,5 +1,4 @@
 ﻿using WildguardModFramework.Registry;
-using RR;
 using RR.Input;
 using RR.UI.Controls.Menu;
 using RR.UI.Pages;
@@ -11,7 +10,7 @@ namespace WildguardModFramework.ModMenu {
     /// <summary>
     /// Injects a solo game-mode picker over the NewSinglePlayerGameButton and owns the overlay page.
     /// Called once from MenuStartPagePatch.OnInitPostfix when game modes are registered.
-    /// Also replicates MenuStartPage.StartClick(SinglePlayer) for bypassed single-player launches.
+    /// Delegates to the original button handler so third-party wrappers (e.g. OfflineMode login) are preserved.
     /// </summary>
     internal static class SoloModePickerInjector {
         private static UIDynamicPageLayer<SoloStartPage> _soloPage;
@@ -28,20 +27,18 @@ namespace WildguardModFramework.ModMenu {
             var soloContainer = new VisualElement { name = "SoloStartContainer" };
             instance.RootElement.Add(soloContainer);
 
+            // Capture before replacing — may include OfflineMode's EnsureLoggedIn wrapper.
+            var originalOnClick = soloBtn.OnClick;
+
             _soloPage = new UIDynamicPageLayer<SoloStartPage>(soloContainer, instance.ParentPageLayer, 0f, 0f);
             _soloPage.Page.OnStartSolo = () => {
                 _soloPage.Close(TransitionAnimation.None);
-                StartSoloGame();
+                // Delegate to original handler so login wrappers (e.g. OfflineMode) run first.
+                originalOnClick?.Invoke(soloBtn);
             };
             _soloPage.Page.OnCloseRequest = () => _soloPage.Close(TransitionAnimation.None);
 
-            soloBtn.OnClick = _ => {
-                if (ModScanner.GameModes.Count == 0) {
-                    StartSoloGame();
-                } else {
-                    _soloPage.Open(TransitionAnimation.None);
-                }
-            };
+            soloBtn.OnClick = _ => _soloPage.Open(TransitionAnimation.None);
         }
 
         /// <summary>Returns false if the solo picker consumed the input (skip original handler).</summary>
@@ -51,16 +48,5 @@ namespace WildguardModFramework.ModMenu {
             return true;
         }
 
-        /// <summary>
-        /// Replicates MenuStartPage.StartClick(PlaySessionMode.SinglePlayer).
-        /// Note: AudioManager.PlayUISound is omitted — it requires FMODUnity which is not referenced.
-        /// </summary>
-        private static void StartSoloGame() {
-            AudioManager.Instance?.StopMainMenuAudio();
-            UIManager.Instance?.CloseHUD();
-            UIManager.Instance?.ChangePage("LoadingGamePage", TransitionAnimation.Fade, false, () => {
-                BackendManager.Instance?.BeginPlaySession("", "", BackendManager.PlaySessionMode.SinglePlayer, false);
-            });
-        }
     }
 }
