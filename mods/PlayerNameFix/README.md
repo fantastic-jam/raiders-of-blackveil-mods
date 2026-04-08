@@ -4,9 +4,9 @@ Fixes the `<N/A>` display name shown when your Steam profile is private. At logi
 
 ---
 
-## ModManager
+## WMF
 
-This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as a **Utility**. When ModManager is installed it appears in the Mods list and can be toggled on or off without restarting the game.
+This mod registers with [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) as a **Utility**. When WMF is installed it appears in the Mods list and can be toggled on or off without restarting the game.
 
 ---
 
