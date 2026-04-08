@@ -49,7 +49,12 @@ namespace PerfectDodge {
 
             try {
                 _harmony = new Harmony(Id);
-                PerfectDodgePatch.Apply(_harmony);
+                if (!PerfectDodgePatch.Apply(_harmony)) {
+                    _harmony.UnpatchSelf();
+                    PerfectDodgePatch.SetDisabled();
+                    LogBreakingChange();
+                    return;
+                }
                 PublicLogger.LogInfo(
                     $"{Name} by {Author} (version {Version}) loaded. " +
                     $"PerfectDodgeWindow={PerfectDodgeWindowSeconds.Value}s, DamageReduction=100%.");
@@ -57,6 +62,13 @@ namespace PerfectDodge {
             catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
+        }
+
+        private void LogBreakingChange() {
+            PublicLogger.LogError("============================================================");
+            PublicLogger.LogError($"{Name} v{Version}: game assembly breaking change detected.");
+            PublicLogger.LogError($"Mod disabled. Update the mod or report a bug (include log).");
+            PublicLogger.LogError("============================================================");
         }
     }
 }

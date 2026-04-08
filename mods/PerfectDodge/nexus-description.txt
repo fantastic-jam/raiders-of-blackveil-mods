@@ -3,15 +3,15 @@
 Adds a [b]just-dodge[/b] mechanic: if you get hit within a short window right after pressing dash, the hit is fully blocked and your dash charge is instantly refunded. A [i]dodged[/i] label appears overhead to confirm it.
 The timing window is configurable.
 [line]
-[heading]ModManager[/heading]
-This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Mod[/b]. When ModManager is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], PerfectDodge is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
+[heading]WMF[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]WMF[/url] as a [b]Mod[/b]. When WMF is installed, an [b]Allow Mods[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], PerfectDodge is disabled for that session and the session name will show a [b](modded)[/b] suffix when it's active.
 
 [line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
 [*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
-[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]ModManager[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]WMF[/url][/*]
 [/list]
 [line]
 [heading]Installation[/heading]

@@ -24,7 +24,9 @@ namespace PerfectDodge.Patch {
         private static FieldInfo _resetAllCooldownField;
         private static FieldInfo _healthStatsField;
 
-        public static void Apply(Harmony harmony) {
+        // Returns false if a critical patch could not be applied.
+        public static bool Apply(Harmony harmony) {
+            // Optional — charge refund simply won't fire if this is missing.
             _resetAllCooldownField = AccessTools.Field(typeof(ChampionAbilityWithCooldown), "_resetAllCooldown");
             if (_resetAllCooldownField == null) {
                 PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find ChampionAbilityWithCooldown._resetAllCooldown — charge refund disabled.");
@@ -32,27 +34,28 @@ namespace PerfectDodge.Patch {
 
             _healthStatsField = AccessTools.Field(typeof(Health), "_stats");
             if (_healthStatsField == null) {
-                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find Health._stats — patch inactive.");
-                return;
+                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find Health._stats — patch unavailable.");
+                return false;
             }
 
             var mainStateChangedMethod = AccessTools.Method(typeof(DashAbility), "MainStateChanged");
             if (mainStateChangedMethod == null) {
-                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find DashAbility.MainStateChanged — patch inactive.");
-                return;
+                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find DashAbility.MainStateChanged — patch unavailable.");
+                return false;
             }
             harmony.Patch(mainStateChangedMethod,
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(PerfectDodgePatch), nameof(MainStateChangedPostfix))));
 
             var takeBasicDamageMethod = AccessTools.Method(typeof(Health), "TakeBasicDamage");
             if (takeBasicDamageMethod == null) {
-                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find Health.TakeBasicDamage — patch inactive.");
-                return;
+                PerfectDodgeMod.PublicLogger.LogWarning("PerfectDodge: Could not find Health.TakeBasicDamage — patch unavailable.");
+                return false;
             }
             harmony.Patch(takeBasicDamageMethod,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(PerfectDodgePatch), nameof(TakeBasicDamagePrefix))));
 
             PerfectDodgeMod.PublicLogger.LogInfo("PerfectDodge patches applied.");
+            return true;
         }
 
         /// <summary>
@@ -74,7 +77,10 @@ namespace PerfectDodge.Patch {
                 _dodgeWindowEndTime[actorId] = Time.time + PerfectDodgeMod.PerfectDodgeWindowSeconds.Value;
             } else if (prevState == ChampionAbility.MainStateValues.InAction) {
                 // Dash movement ended — if a perfect dodge happened, refund the charge.
-                if (_pendingRefunds.Remove(actorId) && _resetAllCooldownField != null) {
+                // _resetAllCooldown is consumed in FixedUpdateNetwork under HasStateAuthority.
+                // Setting it on a client has no effect — only set it on the state authority.
+                if (_pendingRefunds.Remove(actorId) && _resetAllCooldownField != null
+                    && __instance.Object.HasStateAuthority) {
                     _resetAllCooldownField.SetValue(__instance, true);
                 }
             }
@@ -110,7 +116,12 @@ namespace PerfectDodge.Patch {
             stats.Events.TriggerEvent(CharacterEvent.OnDodge, new TriggerParams(attacker));
 
             // Write a dodge entry (value=0) into the networked damage array so all clients display "Dodge!"
-            __instance.AddDamageData(0f, StatusEffect.BasicDamage, attacker != null ? attacker.ActorID : StatsManager.InvalidActorID);
+            // Guard: AddDamageData writes to a NetworkArray unconditionally — calling it on a client
+            // advances _lastVisualizedDamageData locally before the server state arrives, causing the
+            // display to skip the server's own entry. Only write from the state authority.
+            if (__instance.Object.HasStateAuthority) {
+                __instance.AddDamageData(0f, StatusEffect.BasicDamage, attacker != null ? attacker.ActorID : StatsManager.InvalidActorID);
+            }
 
             // Block the hit entirely — skip TakeBasicDamage
             __result = false;
