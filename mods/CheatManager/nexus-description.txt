@@ -21,15 +21,15 @@ The game ships with a full set of cheat hotkeys (heal, kill enemies, add currenc
 
 Hotkeys are only active when no UI windows are open.
 [line]
-[heading]ModManager[/heading]
-This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]ModManager[/url] as a [b]Cheat[/b]. When ModManager is installed, an [b]Allow Cheats[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], CheatManager is disabled for that session and the session name will show a [b](cheats)[/b] suffix when it's active.
+[heading]WMF[/heading]
+This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/12?tab=files]WMF[/url] as a [b]Cheat[/b]. When WMF is installed, an [b]Allow Cheats[/b] toggle appears in the host setup screen. If the host sets it to [b]No[/b], CheatManager is disabled for that session and the session name will show a [b](cheats)[/b] suffix when it's active.
 
 [line]
 [heading]Requirements[/heading]
 [list]
 [*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
 [*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
-[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]ModManager[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]WMF[/url][/*]
 [/list]
 [line]
 [heading]Installation[/heading]
