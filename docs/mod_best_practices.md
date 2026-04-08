@@ -1,6 +1,6 @@
 # Mod Best Practices
 
-Rules derived from code review of RogueRun, PerfectDodge, and ModManager. Every rule here has a live example in the codebase — no generic BepInEx advice.
+Rules derived from code review of RogueRun, PerfectDodge, and WildguardModFramework. Every rule here has a live example in the codebase — no generic BepInEx advice.
 
 ---
 
@@ -191,7 +191,7 @@ Patch classes need to log but cannot access the BepInEx `Logger` property (that 
 
 ## 4. `IModRegistrant` implementation
 
-When a mod should appear in ModManager (to be toggled per-session), the plugin class implements `IModRegistrant`. Rules:
+When a mod should appear in WMF (to be toggled per-session), the plugin class implements `IModRegistrant`. Rules:
 
 - `GetModType()` returns `nameof(ModType.Mod)`, `nameof(ModType.Cheat)`, or `nameof(ModType.GameMode)` — never a string literal, so renaming the enum is caught at compile time.
 - `Disabled` reads from a state flag. For mods with dedicated state classes, delegate to that class directly: `public bool Disabled => !RogueRunState.IsActive;`
@@ -253,7 +253,7 @@ foreach (var player in players) {
 
 When a mod needs shared state between the plugin class and the patch class, put it in a dedicated static class in the mod's root namespace. See `RogueRunState`:
 
-- `IsActive` — controlled by `Enable()`/`Disable()` calls from ModManager. `public` getter, `internal` setter.
+- `IsActive` — controlled by `Enable()/Disable() calls from WMF. `public` getter, `internal` setter.
 - `InRun` — controlled by patches that track level entry/exit. `internal` on both getter and setter.
 - Snapshot data — `internal static readonly`, cleared explicitly via a named method.
 
@@ -354,8 +354,105 @@ The loop in both entry and exit patches does `if (inv == null) continue;`. This 
 
 ---
 
-## 11. What belongs in `libs/` vs. in the mod
+## 11. Patch extraction — patches are wiring only
 
-Extract to `libs/` only when two or more mods share the logic and the interface is stable. The current `libs/ModRegistry/` exists because both ModManager and every registrant mod need `IModRegistrant` and `ModType`. Do not extract a helper to `libs/` for a single mod's convenience — keep it in the mod.
+### Rule: patch methods must be one-liners (except Disabled/Active guards)
+
+Every Harmony patch method body must be a single delegating call to a named collaborator class. Any logic that is more than a guard check belongs in a Controller, Service, or Lifecycle class — never in the patch method itself.
+
+```csharp
+// Good — NetworkPatch.cs
+static void OnPlayerJoinedPostfix(NetworkRunner runner, PlayerRef playerRef) =>
+    GameModeProtocol.OnPlayerJoined(runner, playerRef);
+
+// Bad — logic lives in the patch
+static void OnPlayerJoinedPostfix(PlayerManager __instance, NetworkRunner runner, PlayerRef playerRef) {
+    if (!runner.IsServer) { return; }
+    // ... 20 more lines ...
+}
+```
+
+The exception is `Apply()` (wires hooks and logs warnings) and the Disabled/Active guard at the top of patch methods for mods that support enable/disable.
+
+### Naming conventions for extracted classes
+
+| Type | Purpose | Example |
+|---|---|---|
+| `*Patch` | Harmony glue only — `Apply()` + one-liner hooks | `NetworkPatch`, `HostStartPagePatch` |
+| `*Controller` | Owns UI page state for the lifetime of a page instance | `HostPageController` |
+| `*Orchestrator` | Stateless or cross-cutting session/business logic | `SessionOrchestrator` |
+| `*Injector` | One-time UI injection, owns overlay/page state | `ModsButtonInjector`, `SoloModePickerInjector` |
+| `*Lifecycle` | Plugin-level lifecycle operations (startup, shutdown) | `ModLifecycle` |
+| `*Protocol` | Network protocol state and dispatch | `GameModeProtocol` |
+| `CoroutineRunner` | Empty `MonoBehaviour` for coroutine hosting only | `CoroutineRunner` |
+
+Avoid the suffix "Manager" — the game already uses `NetworkManager`, `PlayerManager`, `UIManager`, etc. Clashing names cause namespace confusion and noisy greps.
+
+### Controller vs. static class — choose by lifetime
+
+Use an **instance class** (`*Controller`) when the class holds references to `VisualElement` or `MonoBehaviour` objects that are tied to a specific page instance lifetime. Static fields holding `VisualElement` references go stale when the page is destroyed or recreated, causing silent bugs.
+
+Use a **static class** when the class holds no UI references, or when the data is genuinely global (e.g., `ConfirmedPlayers` in `GameModeProtocol`).
+
+```csharp
+// Controller pattern — HostPageController
+internal sealed class HostPageController {
+    internal static HostPageController Current { get; private set; }
+
+    internal static void Activate(MenuStartHostPage page) {
+        if (Current != null) { Current.Reset(); return; }
+        Current = new HostPageController(page);  // fresh instance per first inject
+    }
+}
+```
+
+### Coroutine hosting — never use Harmony `__instance`
+
+Do not call `__instance.StartCoroutine(...)` in a patch or extracted class. The `__instance` reference is a game object you do not control; it can be destroyed mid-wait and will silently stop the coroutine.
+
+Instead, use a dedicated `CoroutineRunner` MonoBehaviour created in `Awake()` with `DontDestroyOnLoad`:
+
+```csharp
+// WmfMod.Awake()
+var go = new GameObject("WMF.CoroutineRunner");
+DontDestroyOnLoad(go);
+Runner = go.AddComponent<CoroutineRunner>();
+
+// In any class
+WmfMod.Runner.StartCoroutine(MyCoroutine());
+```
+
+### Reflection handles in extracted classes
+
+Extracted classes that access private game members must resolve `AccessTools.Field` / `AccessTools.Method` handles once, as `private static readonly` fields at class scope — never inline inside a method body.
+
+```csharp
+// Good — resolved once at class init
+private static readonly FieldInfo CursorField = AccessTools.Field(typeof(MenuStartHostPage), "_cursor");
+
+// Bad — resolved every call
+private void Inject(MenuStartHostPage page) {
+    var cursor = AccessTools.Field(typeof(MenuStartHostPage), "_cursor").GetValue(page);
+}
+```
+
+### `ref` parameters stay in the patch method
+
+`ref` parameters from Harmony cannot be passed into async methods or captured by lambdas. Keep the actual `ref` read/write in the patch method; let the extracted class compute and return the value to assign.
+
+```csharp
+// Good — ref stays in the patch; SessionOrchestrator takes ref directly (static method call is fine)
+static void BeginPlaySessionPrefix(ref string sessionTag, BackendManager.PlaySessionMode mode) =>
+    SessionOrchestrator.Begin(ref sessionTag,
+        HostPageController.Current?.AllowMods   ?? true,
+        HostPageController.Current?.AllowCheats ?? true,
+        mode);
+```
+
+---
+
+## 12. What belongs in `libs/` vs. in the mod
+
+Extract to `libs/` only when two or more mods share the logic and the interface is stable. The current `libs/ModRegistry/` exists because both WMF and every registrant mod need `IModRegistrant` and `ModType`. Do not extract a helper to `libs/` for a single mod's convenience — keep it in the mod.
 
 State classes (`RogueRunState`) stay in the mod namespace. They are not candidates for `libs/` even if they look generic.

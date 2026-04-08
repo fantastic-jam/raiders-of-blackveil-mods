@@ -76,6 +76,21 @@ mods/[ModName]/
 - Resolve reflection fields once in `Apply()`, warn and bail if not found
 - `AccessTools.Field` / `AccessTools.Method` for private member access
 - Use `prefix` to intercept/block, `postfix` to observe/modify after
+- **Patch methods are one-liners only** — all logic lives in Controller/Orchestrator/Protocol classes. See `docs/mod_best_practices.md` §11.
+
+## Code style
+
+- All C# must respect `.editorconfig` rules (indent 4 spaces, braces K&R style, explicit access modifiers, etc.)
+- After any C# edit run `pnpm run lint:cs:fix` to auto-fix formatting, then verify with `pnpm run build`
+
+## Best practices reference
+
+Detailed rules with live codebase examples are in [`docs/mod_best_practices.md`](docs/mod_best_practices.md). Key sections:
+- §1–2 Harmony patching and fail-safe patterns
+- §4 `IModRegistrant` implementation
+- §5 Networking / `IsServer` guards
+- §6 State management
+- §11 Patch extraction (Controllers, Orchestrators, Protocols)
 
 ## Localization
 
