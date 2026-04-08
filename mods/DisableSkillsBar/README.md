@@ -8,9 +8,9 @@ No configuration required.
 
 ---
 
-## ModManager
+## WMF
 
-This mod registers with [ModManager](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager) as **Cosmetics**. Cosmetics mods are always active regardless of host settings — they are not exposed in the Allow Mods / Allow Cheats toggles and cannot be disabled through ModManager.
+This mod registers with [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) as **Cosmetics**. Cosmetics mods are always active regardless of host settings — they are not exposed in the Allow Mods / Allow Cheats toggles and cannot be disabled through WMF.
 
 ---
 
