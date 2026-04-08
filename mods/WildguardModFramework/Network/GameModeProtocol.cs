@@ -178,7 +178,7 @@ namespace WildguardModFramework.Network {
 
             _runNotificationShown = true;
             UIManager.Instance?.GetHUDPage()?.CornerNotifications?.AddLevelEvent(
-                runMode.DisplayName, runMode.RunStartMessage);
+                "@" + runMode.DisplayName, "@" + runMode.RunStartMessage);
         }
 
         internal static void OnLobbySceneLoadDone() {
