@@ -11,7 +11,7 @@ namespace PerfectDodge {
     public class PerfectDodgeMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge";
         public const string Name = "PerfectDodge";
-        public const string Version = "0.4.1";
+        public const string Version = "0.4.2";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
