@@ -1,0 +1,141 @@
+﻿using System.Collections;
+using RR;
+using RR.Game;
+using ThePit.Patch;
+using UnityEngine;
+
+namespace ThePit {
+    internal class MatchController : MonoBehaviour {
+        private const float MatchDurationSeconds = 600f; // 10 minutes
+        private const float ArenaGracePeriodSeconds = 5f;
+        private const float RespawnDelaySeconds = 3f;
+        private const float RespawnInvincibilitySeconds = 10f;
+        private const float EndSequenceDelaySeconds = 10f;
+
+        private static MatchController _instance;
+
+        // Called from first room: create the object so TriggerRespawn has a target.
+        internal static void CreateInstance() {
+            var go = new GameObject("ThePit_Match");
+            Object.DontDestroyOnLoad(go);
+            _instance = go.AddComponent<MatchController>();
+        }
+
+        // Called when EventBeginLevel fires for the SlashBash room.
+        internal static void StartArena() {
+            if (_instance == null) { return; }
+            _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
+            _instance.StartCoroutine(_instance.MatchTimerCoroutine());
+        }
+
+        internal static void TriggerRespawn(int victimActorId) {
+            if (_instance == null) { return; }
+            _instance.StartCoroutine(_instance.RespawnCoroutine(victimActorId));
+        }
+
+        // ── Arena grace period ───────────────────────────────────────────────────
+
+        // AllDamageDisabled is already true from DungeonManager.OnSceneLoadDone.
+        // Record deadlines and schedule clear — no need to set AllDamageDisabled=true.
+        private IEnumerator ArenaGraceCoroutine() {
+            float deadline = Time.time + ArenaGracePeriodSeconds;
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                var champ = p.PlayableChampion;
+                if (champ == null) { continue; }
+                ThePitState.InvincibleUntil[champ.Stats.ActorID] = deadline;
+                StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
+            }
+            yield break;
+        }
+
+        // Clears AllDamageDisabled only if our deadline is still the current one.
+        // If a new respawn fired in between, InvincibleUntil was updated and we bail.
+        private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline) {
+            yield return new WaitUntil(() => Time.time >= deadline);
+            if (!ThePitState.InvincibleUntil.TryGetValue(actorId, out float current) || current != deadline) {
+                yield break;
+            }
+            ThePitState.InvincibleUntil.Remove(actorId);
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                if (p.PlayableChampion?.Stats?.ActorID == actorId) {
+                    p.PlayableChampion.Stats.Health.AllDamageDisabled = false;
+                    break;
+                }
+            }
+        }
+
+        // ── Match timer ──────────────────────────────────────────────────────────
+
+        private IEnumerator MatchTimerCoroutine() {
+            yield return new WaitForSeconds(MatchDurationSeconds);
+            EndMatch();
+        }
+
+        private void EndMatch() {
+            ThePitState.MatchEnded = true;
+
+            int winnerActorId = DetermineWinner();
+
+            // Kill all players who aren't the winner.
+            foreach (var player in PlayerManager.Instance.GetPlayers()) {
+                var champ = player.PlayableChampion;
+                if (champ == null) { continue; }
+                if (champ.Stats.ActorID != winnerActorId && champ.Stats.Health.IsAlive) {
+                    champ.Stats.Health.Die();
+                }
+            }
+
+            StartCoroutine(ReturnToLobbyCoroutine());
+        }
+
+        private static int DetermineWinner() {
+            int winnerActorId = -1;
+            int maxKills = -1;
+            foreach (var player in PlayerManager.Instance.GetPlayers()) {
+                var champ = player.PlayableChampion;
+                if (champ == null) { continue; }
+                int id = champ.Stats.ActorID;
+                ThePitState.KillCounts.TryGetValue(id, out int kills);
+                if (kills > maxKills) {
+                    maxKills = kills;
+                    winnerActorId = id;
+                }
+            }
+            return winnerActorId;
+        }
+
+        private IEnumerator ReturnToLobbyCoroutine() {
+            yield return new WaitForSeconds(EndSequenceDelaySeconds);
+            ThePitState.IsActive = false;
+            ThePitState.ResetMatchState();
+            GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
+            Destroy(gameObject);
+        }
+
+        // ── Respawn ──────────────────────────────────────────────────────────────
+
+        private IEnumerator RespawnCoroutine(int victimActorId) {
+            yield return new WaitForSeconds(RespawnDelaySeconds);
+            if (ThePitState.MatchEnded) { yield break; }
+
+            Player target = null;
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                if (p.PlayableChampion?.Stats?.ActorID == victimActorId) {
+                    target = p;
+                    break;
+                }
+            }
+            if (target?.PlayableChampion == null) { yield break; }
+
+            var champ = target.PlayableChampion;
+            ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
+            champ.Stats.Health.Resurrect(100f);
+            GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
+
+            float deadline = Time.time + RespawnInvincibilitySeconds;
+            ThePitState.InvincibleUntil[victimActorId] = deadline;
+            champ.Stats.Health.AllDamageDisabled = true;
+            StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline));
+        }
+    }
+}

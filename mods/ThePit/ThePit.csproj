@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\UserPaths.props" Condition="Exists('..\UserPaths.props')" />
+  <Import Project="..\Common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>ThePit</AssemblyName>
+    <RootNamespace>ThePit</RootNamespace>
+    <LangVersion>10</LangVersion>
+    <Optimize>true</Optimize>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\ModRegistry\ModRegistry.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

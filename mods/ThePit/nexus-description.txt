@@ -1,0 +1,25 @@
+[size=5]ThePit[/size]
+
+A proving ground for raiders and newcomers. The Pit hosts brutal free-for-all brawls — an honoured tradition used to test the mettle of those who want to earn their place among the crew.
+
+[b]Perk Draft[/b] — Enter the arena bare. Perks drop near you over time and XP builds passively. Survive 10 minutes — the player with the most kills wins.
+
+Only the host needs this mod installed.
+
+[line]
+
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2060990/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[*][url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework]WildguardModFramework[/url]
+[/list]
+
+[line]
+
+[heading]Installation[/heading]
+[list]
+[*]Install BepInEx 5 into your Raiders of Blackveil game folder.
+[*]Download the latest ThePit ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ThePit]releases page[/url].
+[*]Extract the ZIP directly into your game folder — the [b]plugins/[/b] folder inside the ZIP maps to [b]BepInEx/plugins/[/b].
+[/list]

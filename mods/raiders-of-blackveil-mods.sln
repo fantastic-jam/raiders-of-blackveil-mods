@@ -22,6 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OfflineMode", "OfflineMode\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RogueRun", "RogueRun\RogueRun.csproj", "{7B4E9F2A-1C5D-4E8F-A3B6-0D2E5F7A9C1B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThePit", "ThePit\ThePit.csproj", "{3E8F5A2C-7D01-4B9E-C6F4-1A5D8E3B7C20}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|Any CPU = Release|Any CPU
@@ -49,6 +51,8 @@ Global
 		{D5F3A8C1-2E97-4B0F-C6D8-9A1B3E5F7D29}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7B4E9F2A-1C5D-4E8F-A3B6-0D2E5F7A9C1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B4E9F2A-1C5D-4E8F-A3B6-0D2E5F7A9C1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E8F5A2C-7D01-4B9E-C6F4-1A5D8E3B7C20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E8F5A2C-7D01-4B9E-C6F4-1A5D8E3B7C20}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
