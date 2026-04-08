@@ -1,16 +1,6 @@
 # Wildguard Mod Framework (WMF)
 
-The mod framework for Raiders of Blackveil. Manage and control your mods from inside the game.
-
-A **Mods** button is added to the main menu and the in-game pause menu. Opening it shows all installed BepInEx plugins. Mods that support enable/disable (via `IModRegistrant` or duck typing) have a working toggle — turn them off permanently or bring them back on. Mods without enable/disable support are listed as well but cannot be toggled.
-
-The Mods menu has two panels: a left bar for navigation and a right side that shows either the toggle list or a mod's own settings page. Mods that implement `IModMenuProvider` (or expose the same members via duck typing) get their own named entry in the left bar. Toggle changes are only available from the main menu — the in-game Mods button shows current state but disables editing.
-
-The enabled/disabled state is saved to a config file and applied at startup. New mods are added automatically; uninstalled mods are cleaned up.
-
-When hosting, the **Allow Mods** and **Allow Cheats** toggles on the host setup screen only apply to mods that are enabled in config. The session name is suffixed with **(cheats)** or **(modded)** so other players know what they're joining.
-
-A **Game Mode** stepper appears on the host setup screen and the solo start screen. Mods that declare `ModType.GameMode` register as selectable game modes. Only one game mode can be active per session — selecting one disables all others. The default is **Normal** (no game mode active).
+The mod framework for Raiders of Blackveil. WMF gives players in-game control over their mods and gives mod authors a common API for discovery, game modes, and settings menus — with no engine restarts required.
 
 ---
 
@@ -34,14 +24,42 @@ Skip this step if BepInEx is already installed.
 ### 2. Install the mod
 
 1. Download `WildguardModFramework-x.x.x.zip` from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework).
-2. Extract the ZIP into your game's `BepInEx` folder.
+2. Extract the ZIP into your game's `BepInEx` folder. `ModRegistry.dll` is bundled inside as a patcher — no separate download needed.
 3. Launch the game.
 
 ---
 
-## For mod authors
+## Mod Discovery
 
-WMF lists every loaded BepInEx plugin. To make your mod's toggle interactive, implement `IModRegistrant` on your plugin class. WMF scans all loaded plugins when the main menu initializes and discovers any that match the contract below.
+A **Mods** button is added to the main menu and the in-game pause menu. Opening it shows every installed BepInEx plugin. Mods that support enable/disable have a working toggle — turn them off permanently or bring them back without touching the filesystem. Mods without toggle support are listed as well, so you always have a clear picture of what's loaded.
+
+The enabled/disabled state is saved to a config file and applied at startup. New mods are detected automatically; uninstalled mods are cleaned up from the list.
+
+**Multiplayer awareness** — when hosting, **Allow Mods** and **Allow Cheats** toggles appear on the host setup screen. These only govern mods that are enabled in your config. The session name is suffixed with **(cheats)** or **(modded)** so other players know exactly what they're joining before they click.
+
+Toggle changes are available from the main menu. The in-game Mods button shows current state but disables editing so nothing breaks mid-session.
+
+---
+
+## Game Modes and Variants
+
+A **Game Mode** stepper appears on the host setup screen and the solo start screen. Mods that register as game modes show up as selectable entries. Only one game mode can be active per session — selecting one disables all others. The default is **Normal** (no game mode active).
+
+Game mode mods can expose a single entry or multiple named variants from the same plugin (e.g. "Rogue Run" and "Rogue Run — Hard"). When `IsClientRequired` is set, other players joining the session must also have the mod installed and enabled.
+
+---
+
+## Mod Menus
+
+The Mods screen is split into two panels: a left bar for navigation and a right panel for content. Mods that expose a settings menu get their own named entry in the left bar — players can browse settings for each mod without leaving the game.
+
+The menu system is aware of context: mods can disable or hide controls that are unsafe to change mid-session when the menu is opened from the pause screen.
+
+---
+
+## For Mod Authors
+
+WMF discovers mods automatically — no registration step needed. To unlock the full feature set (toggles, game modes, settings menus), implement `IModRegistrant` on your plugin class, or use the duck-typed convention if you prefer not to ship an extra DLL.
 
 ### Quick example
 
@@ -67,7 +85,21 @@ public class MyMod : BaseUnityPlugin, IModRegistrant {
 }
 ```
 
-### Method reference
+### Referencing ModRegistry.dll
+
+`ModRegistry.dll` is bundled inside the WMF ZIP under `BepInEx/patchers/`. Copy it to your project and add a reference:
+
+```xml
+<ItemGroup>
+  <Reference Include="ModRegistry">
+    <HintPath>path\to\ModRegistry.dll</HintPath>
+  </Reference>
+</ItemGroup>
+```
+
+---
+
+### Mod Discovery API
 
 #### `string GetModType()` — **required**
 
@@ -137,35 +169,25 @@ public void Enable() {
 
 Human-readable display name shown in the Mods page. If absent or returns an empty string, WMF falls back to the BepInEx plugin `Name` constant.
 
-```csharp
-public string GetModName() => "My Mod";
-```
-
 ---
 
 #### `string GetModDescription()` — **optional**
 
-Short description. Can be empty.
-
-```csharp
-public string GetModDescription() => "Increases gold drop rate.";
-```
+Short description shown in the Mods page. Can be empty.
 
 ---
 
-#### `bool IsClientRequired { get; }` — **optional** *(GameMode only)*
+### Game Mode API
+
+Return `"GameMode"` from `GetModType()` to register your mod as a selectable game mode. WMF disables all game mode mods at startup and enables only the one selected in the Game Mode stepper when the session starts.
+
+#### `bool IsClientRequired { get; }` — **optional**
 
 When `true`, clients joining a session with this game mode active must also have it installed and enabled. Defaults to `false` if omitted.
 
 ```csharp
 public bool IsClientRequired => true;
 ```
-
----
-
-### Game mode mods (`ModType.GameMode`)
-
-Return `"GameMode"` from `GetModType()` to register your mod as a selectable game mode. WMF disables all game mode mods at startup and enables only the one selected in the Game Mode stepper when the session starts.
 
 #### Single-variant game mode
 
@@ -219,9 +241,13 @@ public class MyGameMode : BaseUnityPlugin, IModRegistrant, IGameModeProvider {
 
 `Enable()` is called first (mod-level setup), then `EnableVariant(variantId)` with the chosen variant ID. `Disable()` deactivates everything.
 
-`VariantId` must be unique within the plugin. The full internal key used by WMF is `"pluginGuid::variantId"` (WMF internal key).
+`VariantId` must be unique within the plugin. The full internal key used by WMF is `"pluginGuid::variantId"`.
+
+Duck typing does not support `IGameModeProvider` — multi-variant game modes must reference `ModRegistry.dll` and implement the interface.
 
 ---
+
+### Mod Menu API
 
 #### `string MenuName { get; }` — **optional**
 
@@ -253,6 +279,81 @@ public class MyMod : BaseUnityPlugin, IModRegistrant, IModMenuProvider {
 
 ---
 
+### Networking API
+
+WMF exposes a reliable data channel so mods can exchange messages between the host and clients during a session — without registering new Fusion stream types or touching the game's network layer directly.
+
+All traffic is multiplexed over a single `DataStreamType` value owned by WMF. Each message is prefixed with its channel name so handlers only see messages addressed to them. Delivery is guaranteed (Fusion reliable data).
+
+> **Scope** — `Broadcast` only reaches players in `WmfNetwork.ConfirmedPlayers`: clients that completed the WMF handshake. Players without WMF installed are never in that set.
+
+#### Subscribing to a channel
+
+Subscribe in `Enable()` and unsubscribe in `Disable()` to avoid receiving messages when your mod is off:
+
+```csharp
+using WildguardModFramework.Network;
+
+private Action<PlayerRef, byte[]> _handler;
+
+public void Enable() {
+    _handler = OnMessage;
+    WmfNetwork.Subscribe("my-mod.sync", _handler);
+    // ...
+}
+
+public void Disable() {
+    WmfNetwork.Unsubscribe("my-mod.sync", _handler);
+    // ...
+}
+
+private void OnMessage(PlayerRef sender, byte[] payload) {
+    // deserialize payload and act on it
+}
+```
+
+Channel names are arbitrary UTF-8 strings (max 255 bytes). Use a namespaced format (`"mod-name.purpose"`) to avoid collisions with other mods.
+
+---
+
+#### Sending messages
+
+Three delivery directions are available:
+
+| Method | Direction | Notes |
+|---|---|---|
+| `WmfNetwork.Send(target, channel, payload)` | Host → specific client | Call only from the host (`runner.IsServer`) |
+| `WmfNetwork.SendToHost(channel, payload)` | Client → host | Call from any client |
+| `WmfNetwork.Broadcast(channel, payload)` | Host → all WMF clients | Only reaches confirmed WMF players |
+
+```csharp
+// Client sends a request to the host
+var payload = Encoding.UTF8.GetBytes("hello");
+WmfNetwork.SendToHost("my-mod.request", payload);
+
+// Host replies to a specific client
+WmfNetwork.Send(playerRef, "my-mod.reply", Encoding.UTF8.GetBytes("ack"));
+
+// Host pushes state to all WMF clients
+WmfNetwork.Broadcast("my-mod.state", SerializeState());
+```
+
+All payloads are raw `byte[]` — serialization format is your choice (UTF-8 strings, JSON, `BinaryWriter`, etc.).
+
+---
+
+#### IsServer guard
+
+Always check `runner.IsServer` (or `NetworkRunner.IsServer`) before calling `Send` or `Broadcast`. Those methods reach out to `NetworkManager` which throws if called from a non-host context.
+
+```csharp
+if (NetworkManager.Instance?.Runner?.IsServer == true) {
+    WmfNetwork.Broadcast("my-mod.tick", payload);
+}
+```
+
+---
+
 ### Without a DLL reference (duck typing)
 
 Referencing `ModRegistry.dll` is optional. WMF also discovers mods by matching method names via reflection — no interface needed. Your plugin class just needs to expose the right members with the exact signatures above:
@@ -273,15 +374,3 @@ Referencing `ModRegistry.dll` is optional. WMF also discovers mods by matching m
 Duck typing does not support `IGameModeProvider` — multi-variant game modes must reference `ModRegistry.dll` and implement the interface.
 
 The interface approach is preferred because it gives you compile-time checks and IDE auto-complete. Duck typing is useful when you can't or don't want to ship an extra DLL alongside your mod.
-
-### Referencing ModRegistry.dll
-
-Download `ModRegistry.dll` from the [WMF releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) and add it to your project:
-
-```xml
-<ItemGroup>
-  <Reference Include="ModRegistry">
-    <HintPath>path\to\ModRegistry.dll</HintPath>
-  </Reference>
-</ItemGroup>
-```
