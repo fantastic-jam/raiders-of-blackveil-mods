@@ -62,5 +62,9 @@
             <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Runtime.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="Fusion.Sockets">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Sockets.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 </Project>
