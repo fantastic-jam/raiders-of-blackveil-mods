@@ -35,6 +35,9 @@ namespace ModManager {
                 MenuStartPagePatch.Apply(_harmony);
                 MenuPausePagePatch.Apply(_harmony);
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
+                PublicLogger.LogWarning(
+                    $"{Name} is deprecated and will be removed in a future update. " +
+                    "Please migrate to WMF (Wildguard Mod Framework): https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework");
             }
             catch (Exception ex) {
                 PublicLogger.LogError(ex);

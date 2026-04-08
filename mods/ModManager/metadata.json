@@ -1,5 +1,6 @@
 {
-  "nexus_mod_id": 12,
-  "nexus_file_group_id": "7269167",
-  "patchers": ["ModRegistry.dll"]
+  "nexus_mod_id": null,
+  "nexus_file_group_id": null,
+  "patchers": ["ModRegistry.dll"],
+  "deprecated": true
 }

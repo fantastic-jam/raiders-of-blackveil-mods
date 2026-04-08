@@ -1,91 +1,13 @@
 [size=5]ModManager[/size]
 
-Manage and control your mods from inside the game.
+[color=#ff6600][b]⚠ Deprecated.[/b] ModManager has been superseded by [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework]WMF[/url]. Please migrate — ModManager will be removed in a future update.[/color]
 
-A [b]Mods[/b] button is added to the main menu and the in-game pause menu. Opening it shows all installed BepInEx plugins. Mods that support enable/disable (via [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModRegistry]ModRegistry[/url] or duck typing) have a working toggle — turn them off permanently or bring them back on. Mods without enable/disable support are listed as well but cannot be toggled.
-
-The Mods menu has two panels: a left bar for navigation and a right side that shows either the toggle list or a mod's own settings page. Mods can expose a custom settings panel by implementing [b]IModMenuProvider[/b] — they get their own named entry in the left bar. Toggle changes are only available from the main menu; the in-game Mods button shows current state but disables editing.
-
-The enabled/disabled state is saved to a config file and applied at startup. New mods are added automatically; uninstalled mods are cleaned up.
-
-When hosting, the [b]Allow Mods[/b] and [b]Allow Cheats[/b] toggles on the host setup screen only apply to mods that are enabled in config. The session name is suffixed with [b](cheats)[/b] or [b](modded)[/b] so other players know what they're joining.
+ModManager is the previous version of the mod management runtime for Raiders of Blackveil. It is no longer actively developed. All features have been moved to [b]WMF[/b], which also adds a network channel API for mod-to-mod communication.
 [line]
-[heading]Requirements[/heading]
+[heading]Migration[/heading]
 [list]
-[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
-[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[*]Uninstall ModManager ([font=Courier New]BepInEx/plugins/fantastic-jam-ModManager/[/font])[/*]
+[*]Install [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework]WMF[/url] from the releases page[/*]
+[*]If your mod declares [font=Courier New][BepInDependency(ModManagerMod.Id)][/font], update it to [font=Courier New][BepInDependency(WMFMod.Id)][/font][/*]
 [/list]
-[line]
-[heading]Installation[/heading]
-1. Install BepInEx (skip if already installed)
-[list]
-[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
-[*]Extract the contents into your game folder (the one containing RoB.exe)[/*]
-[*]Launch the game once and close it — BepInEx will initialize its folder structure[/*]
-[/list]
-2. Install the mod
-[list]
-[*]Download ModManager and ModRegistry from the releases page[/*]
-[*]Extract both ZIPs into your game's BepInEx folder[/*]
-[*]Launch the game[/*]
-[/list]
-[line]
-[heading]For mod authors[/heading]
-ModManager lists every loaded BepInEx plugin. To make your mod's toggle interactive, implement [b]IModRegistrant[/b] on your plugin class (or use the duck-typed convention — no DLL reference required).
-
-[heading]Quick example[/heading]
-[code]
-using ModRegistry;
-
-[BepInPlugin(Id, Name, Version)]
-public class MyMod : BaseUnityPlugin, IModRegistrant {
-    public string GetModType() => nameof(ModType.Mod);
-    public string GetModName() => "My Mod";
-    public string GetModDescription() => "Does something useful.";
-    public bool Disabled { get; private set; }
-
-    public void Disable() {
-        Disabled = true;
-        _harmony?.UnpatchSelf();
-    }
-
-    public void Enable() {
-        Disabled = false;
-        _harmony?.PatchAll();
-    }
-}
-[/code]
-
-[heading]Method reference[/heading]
-
-[b]string GetModType()[/b] — [i]required[/i]
-Returns one of the following strings (case-insensitive). Controls which host toggle manages your mod.
-[list]
-[*][b]"Mod"[/b] — shown under the Allow Mods toggle[/*]
-[*][b]"Cheat"[/b] — shown under the Allow Cheats toggle[/*]
-[*][b]"Cosmetics"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
-[*][b]"Utility"[/b] — listed in the Mods page, not surfaced in host toggles[/*]
-[/list]
-
-[b]void Disable()[/b] — [i]required[/i]
-Called at startup when the mod is disabled in config, and before a session starts when the host disallows your mod's category. Must make the mod completely inert. Recommended: set a flag [i]and[/i] call [font=Courier New]_harmony?.UnpatchSelf()[/font].
-
-[b]bool Disabled { get; }[/b] — [i]required[/i]
-Must reflect current state: [font=Courier New]true[/font] after [font=Courier New]Disable()[/font], [font=Courier New]false[/font] after [font=Courier New]Enable()[/font].
-
-[b]void Enable()[/b] — [i]optional[/i]
-Called when the host re-enables a previously disabled mod type (e.g. back in the lobby). Implement by clearing the flag and re-patching. If omitted, the mod stays disabled for the entire session.
-
-[b]string GetModName()[/b] — [i]optional[/i]
-Display name shown in the Mods page. Falls back to the BepInEx plugin name if absent or empty.
-
-[b]string GetModDescription()[/b] — [i]optional[/i]
-Short description. Can be empty.
-
-[b]string MenuName { get; }[/b] — [i]optional[/i]
-Returning a non-null string opts your mod into the left bar of the Mods menu. When selected, ModManager calls [font=Courier New]OpenMenu(container, isInGameMenu)[/font] to let you build a settings panel. Implement [b]IModMenuProvider[/b] alongside [b]IModRegistrant[/b], or expose [font=Courier New]MenuName[/font], [font=Courier New]OpenMenu(VisualElement, bool)[/font], and [font=Courier New]CloseMenu()[/font] as plain public members (duck typing). [font=Courier New]isInGameMenu[/font] is true when opened from the pause menu — use it to disable controls that are unsafe to change mid-session.
-
-[heading]Duck typing (no DLL)[/heading]
-If you prefer not to reference [font=Courier New]ModRegistry.dll[/font], expose the same members as plain public methods/properties with the exact signatures above — ModManager will find them via reflection. The required members are [b]GetModType()[/b], [b]Disable()[/b], and [b]Disabled[/b].
-
-Download [font=Courier New]ModRegistry.dll[/font] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ModManager]releases page[/url] if you want the interface for compile-time safety.
+Mods that use duck typing (no DLL reference) require no code changes.
