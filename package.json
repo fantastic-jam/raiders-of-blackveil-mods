@@ -20,6 +20,7 @@
     "lint:all": "pnpm run lint && pnpm run lint:cs && pnpm run typecheck",
     "format": "prettier --write tools/",
     "format:check": "prettier --check tools/",
+    "clean": "node --experimental-strip-types tools/clean.mts",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -14,6 +14,7 @@ export function listMods(): string[] {
     .readdirSync(MODS_DIR)
     .filter((f) => fs.statSync(path.join(MODS_DIR, f)).isDirectory())
     .filter((f) => !f.startsWith('.'))
+    .filter((f) => !readModMetadata(f).deprecated)
 }
 
 export function modDir(modName: string): string {
@@ -109,6 +110,7 @@ export interface ModMetadata {
   nexus_mod_id: string | null
   nexus_file_group_id: string | null
   patchers?: string[]
+  deprecated?: boolean
 }
 
 export function readModMetadata(modName: string): ModMetadata {
