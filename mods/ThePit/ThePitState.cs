@@ -42,7 +42,14 @@ namespace ThePit {
             InvincibleUntil.Clear();
             KillCounts.Clear();
             ShameleonShadowDancePatch.Reset();
+            ShameleonTongueLeapPatch.Reset();
             BlazeBlastWavePatch.Reset();
+            SunStrikeAreaPatch.Reset();
+            BlazeAttackPatch.ResetAllCasters();
+            BlazeSpecialAreaPatch.Reset();
+            BeatriceAttackPatch.ResetAllCasters();
+            BeatriceEntanglingRootsPatch.ResetAllCasters();
+            BeatriceLotusFlowerPatch.ResetAllCasters();
         }
     }
 }

@@ -1,13 +1,11 @@
-﻿using HarmonyLib;
+﻿using System.Runtime.CompilerServices;
+using HarmonyLib;
 using RR.Game.Character;
 using UnityEngine;
 
 namespace ThePit.Patch.Abilities {
-    // Expands tongueHitMask to include the Player layer so the tongue physically
-    // connects to other champions. Jump-behind fires via the existing wall-jump code.
-    // Stun for champions is not implemented (requires HitInfo struct internals).
     internal static class ShameleonTongueLeapPatch {
-        private static LayerMask _savedMask;
+        private static readonly ConditionalWeakTable<ShameleonTongueLeapAbility, PvpShameleonTongueLeapAbility> _sidecars = new();
 
         internal static void Apply(Harmony harmony) {
             var fun = AccessTools.Method(typeof(ShameleonTongueLeapAbility), "FixedUpdateNetwork");
@@ -20,15 +18,20 @@ namespace ThePit.Patch.Abilities {
                 postfix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(FunPostfix)));
         }
 
+        internal static void Reset() {
+            foreach (var a in Object.FindObjectsOfType<ShameleonTongueLeapAbility>()) {
+                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+            }
+        }
+
         private static void FunPrefix(ShameleonTongueLeapAbility __instance) {
             if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
-            _savedMask = __instance.tongueHitMask;
-            __instance.tongueHitMask = (LayerMask)(__instance.tongueHitMask.value | LayerMask.GetMask("Player"));
+            _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Prefix();
         }
 
         private static void FunPostfix(ShameleonTongueLeapAbility __instance) {
             if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
-            __instance.tongueHitMask = _savedMask;
+            _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Postfix();
         }
     }
 }

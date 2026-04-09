@@ -8,11 +8,14 @@ using UnityEngine;
 namespace ThePit {
     internal class PerkDripController : MonoBehaviour {
         private const float SceneInitDelaySecs = 2f;
-        private const float PerkIntervalSeconds = 30f;
         private const int MaxPerksPerPlayer = 20;
         private const int InitialPerkCount = 3;
-        private const float XpTickIntervalSeconds = 45f;
         private const int MaxXpLevel = 20;
+
+        private static float PerkIntervalSeconds =>
+            ThePitMod.CfgPerkIntervalSeconds?.Value ?? 15f;   // original: 30
+        private static float XpTickIntervalSeconds =>
+            ThePitMod.CfgXpTickIntervalSeconds?.Value ?? 23f; // original: 45
 
         private static readonly PlayerFilter[] _allFilters = {
             PlayerFilter.Player0, PlayerFilter.Player1, PlayerFilter.Player2
@@ -111,17 +114,23 @@ namespace ThePit {
             var limits = rdb.XPDescriptor.XPLimits;
 
             foreach (var filter in _allFilters) {
-                var champ = PlayerManager.Instance?.GetPlayerByPlayerFilter(filter)?.PlayableChampion;
-                if (champ == null) { continue; }
+                try {
+                    var champ = PlayerManager.Instance?.GetPlayerByPlayerFilter(filter)?.PlayableChampion;
+                    if (champ == null) { continue; }
 
-                int currentXP = champ.XP.Amount;
-                int currentLevel = rdb.GetXPLevel(currentXP);
-                if (currentLevel >= MaxXpLevel || currentLevel >= limits.Count) { continue; }
+                    int currentXP = champ.XP.Amount;
+                    int currentLevel = rdb.GetXPLevel(currentXP);
+                    if (currentLevel >= MaxXpLevel || currentLevel >= limits.Count) { continue; }
 
-                int newXP = limits[currentLevel];
-                int points = rdb.GetXPUpgradePoints(currentXP, newXP);
-                champ.XP.Amount = newXP;
-                champ.XP.AbilityPoints += points;
+                    int newXP = limits[currentLevel];
+                    int points = rdb.GetXPUpgradePoints(currentXP, newXP);
+                    champ.XP.Amount = newXP;
+                    champ.XP.AbilityPoints += points;
+                }
+                catch (System.InvalidOperationException) {
+                    // PlayerManager not yet Spawned — skip this tick entirely.
+                    return;
+                }
             }
         }
     }

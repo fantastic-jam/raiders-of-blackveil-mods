@@ -106,7 +106,8 @@ namespace ThePit.Patch.Abilities {
             StatsManager result = null;
             foreach (var hit in hits) {
                 if (!hit.collider.TryGetComponent<StatsManager>(out var sm)) { continue; }
-                if (!sm.IsChampion || !sm.IsAlive) { continue; }
+                if (!sm.IsChampion || !sm.IsAlive || sm.IsImmuneOrInvincible) { continue; }
+                if (ThePitState.IsPlayerInvincible(sm.ActorID)) { continue; }
                 if (includes != null && System.Array.IndexOf(includes, sm) < 0) { continue; }
                 if (excludes != null && System.Array.IndexOf(excludes, sm) >= 0) { continue; }
                 if (hit.distance < best) { best = hit.distance; result = sm; }
@@ -192,7 +193,8 @@ namespace ThePit.Patch.Abilities {
                 var col = buffer[i];
                 if (col == null) { continue; }
                 if (!col.TryGetComponent<StatsManager>(out var sm)) { continue; }
-                if (!sm.IsChampion || !sm.IsAlive) { continue; }
+                if (!sm.IsChampion || !sm.IsAlive || sm.IsImmuneOrInvincible) { continue; }
+                if (ThePitState.IsPlayerInvincible(sm.ActorID)) { continue; }
                 if (includes != null && System.Array.IndexOf(includes, sm) < 0) { continue; }
                 if (excludes != null && System.Array.IndexOf(excludes, sm) >= 0) { continue; }
                 if (!result.Contains(sm)) { result.Add(sm); }

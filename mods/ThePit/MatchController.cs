@@ -2,11 +2,13 @@
 using RR;
 using RR.Game;
 using ThePit.Patch;
+using ThePit.Patch.Abilities;
 using UnityEngine;
 
 namespace ThePit {
     internal class MatchController : MonoBehaviour {
-        private const float MatchDurationSeconds = 600f; // 10 minutes
+        private static float MatchDurationSeconds =>
+            ThePitMod.CfgMatchDurationSeconds?.Value ?? 600f; // original: 600 (10 minutes)
         private const float ArenaGracePeriodSeconds = 5f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
@@ -24,6 +26,11 @@ namespace ThePit {
         // Called when EventBeginLevel fires for the SlashBash room.
         internal static void StartArena() {
             if (_instance == null) { return; }
+            // Champions spawned in the lobby before ArenaEntered was true — expand now.
+            BlazeAttackPatch.ExpandAllCasters();
+            BeatriceAttackPatch.ExpandAllCasters();
+            BeatriceEntanglingRootsPatch.ExpandAllCasters();
+            BeatriceLotusFlowerPatch.ExpandAllCasters();
             _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
             _instance.StartCoroutine(_instance.MatchTimerCoroutine());
         }

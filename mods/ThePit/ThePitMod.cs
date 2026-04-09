@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using ModRegistry;
@@ -15,6 +16,13 @@ namespace ThePit {
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
+
+        // ── Progression config ───────────────────────────────────────────────────
+        // Original: PerkInterval = 30 s, XpTickInterval = 45 s, MatchDuration = 600 s.
+        // Halving intervals makes progression approximately 2× faster.
+        public static ConfigEntry<float> CfgPerkIntervalSeconds;
+        public static ConfigEntry<float> CfgXpTickIntervalSeconds;
+        public static ConfigEntry<float> CfgMatchDurationSeconds;
 
         public string GetModType() => nameof(ModType.GameMode);
         public string GetModName() => Name;
@@ -61,6 +69,16 @@ namespace ThePit {
 
         private void Awake() {
             PublicLogger = Logger;
+
+            CfgPerkIntervalSeconds = Config.Bind(
+                "Progression", "PerkIntervalSeconds", 15f,
+                "Seconds between perk drops in the arena. Original: 30. Default (15) = 2× faster.");
+            CfgXpTickIntervalSeconds = Config.Bind(
+                "Progression", "XpTickIntervalSeconds", 23f,
+                "Seconds between XP level-up ticks in the arena. Original: 45. Default (23) ≈ 2× faster.");
+            CfgMatchDurationSeconds = Config.Bind(
+                "Progression", "MatchDurationSeconds", 600f,
+                "Total match duration in seconds. Original: 600 (10 minutes).");
 
             try {
                 _harmony = new Harmony(Id);

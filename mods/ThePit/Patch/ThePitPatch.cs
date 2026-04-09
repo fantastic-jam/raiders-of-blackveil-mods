@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using HarmonyLib;
 using RR;
+using RR.Game.Character;
 using RR.Game.Enemies;
 using RR.Game.Stats;
 using RR.Level;
@@ -127,11 +128,17 @@ namespace ThePit.Patch {
             ShameleonShadowStrikePatch.Apply(harmony);
             ShameleonShadowDancePatch.Apply(harmony);
             ShameleonTongueLeapPatch.Apply(harmony);
+            BlazeAttackPatch.Apply(harmony);
             BlazeBlastWavePatch.Apply(harmony);
             BlazeSpecialAreaPatch.Apply(harmony);
             SunStrikeAreaPatch.Apply(harmony);
+            BeatriceAttackPatch.Apply(harmony);
+            BeatriceEntanglingRootsPatch.Apply(harmony);
+            BeatriceLotusFlowerPatch.Apply(harmony);
             BeatriceSpecialObjectPatch.Apply(harmony);
             ManEaterPlantBrainPatch.Apply(harmony);
+            ChampionMinionPatch.Apply(harmony);
+            AreaCharacterSelectorPatch.Apply(harmony);
             RhinoAttackPatch.Apply(harmony);
             RhinoEarthquakePatch.Apply(harmony);
             RhinoShieldsUpPatch.Apply(harmony);
@@ -168,6 +175,28 @@ namespace ThePit.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(AddHealthPrefix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: Health.AddHealth not found — cross-champion heals not blocked.");
+            }
+
+            // --- Block ability use while respawn-invincible: preserves cooldowns and prevents
+            //     a freshly respawned champion from immediately dealing damage ---
+            var canActivateGetter = AccessTools.PropertyGetter(typeof(ChampionAbility), "CanActivate");
+            if (canActivateGetter != null) {
+                harmony.Patch(canActivateGetter,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(CanActivatePrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbility.CanActivate not found — invincible ability block inactive.");
+            }
+
+            // --- Reset ThePit state when host manually returns to lobby mid-match ---
+            // ReturnToLobbyCoroutine already resets before calling RPC_Handle_ReturnToLobby,
+            // so the normal match-end path is covered. This catches the case where the host
+            // returns via the in-game menu before our timer fires.
+            var returnToLobby = AccessTools.Method(typeof(GameManager), "RPC_Handle_ReturnToLobby");
+            if (returnToLobby != null) {
+                harmony.Patch(returnToLobby,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(ReturnToLobbyPostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
             }
 
             ThePitMod.PublicLogger.LogInfo("ThePit: patch applied.");
@@ -363,12 +392,45 @@ namespace ThePit.Patch {
 
         // ── Self-damage prevention ───────────────────────────────────────────────
 
-        // Champion abilities that detect other champions (Player layer) could hit the
-        // caster themselves. Block any damage where attacker and victim are the same champion.
+        // Block champion-on-champion damage that our PvP patches introduce:
+        //   • Self-damage (caster hits own collider via expanded Player layer)
+        //   • Damage to a respawn-invincible victim (bypasses game's IsImmuneOrInvincible
+        //     because our invincibility is tracked outside the game engine)
+        //   • Damage from a respawn-invincible attacker (in-flight projectiles fired
+        //     before CanActivate was blocked still reach targets)
         private static bool TakeBasicDamagePrefix(StatsManager __instance, StatsManager attacker) {
             if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
             if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
-            return attacker.ActorID != __instance.ActorID;
+            if (attacker.ActorID == __instance.ActorID) { return false; }
+            if (ThePitState.IsPlayerInvincible(__instance.ActorID)) { return false; }
+            if (ThePitState.IsPlayerInvincible(attacker.ActorID)) { return false; }
+            return true;
+        }
+
+        // ── Ability block while respawn-invincible ───────────────────────────────
+
+        // Prevent a freshly respawned champion from activating abilities during their
+        // invincibility window. Prefix returns false to skip the original and sets
+        // __result = false so no cooldown is consumed.
+        private static bool CanActivatePrefix(ChampionAbility __instance, ref bool __result) {
+            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            var stats = __instance.Stats;
+            if (stats == null || !stats.IsChampion) { return true; }
+            if (!ThePitState.IsPlayerInvincible(stats.ActorID)) { return true; }
+            __result = false;
+            return false;
+        }
+
+        // ── Hub return: reset ThePit state on manual exit ────────────────────────
+
+        // Catches the path where the host presses "Return to Hub" before the match
+        // timer fires (bypassing ReturnToLobbyCoroutine). When the coroutine runs
+        // normally it sets IsActive = false first, so IsDraftMode is already false
+        // by the time this fires — making it a no-op in that case.
+        private static void ReturnToLobbyPostfix() {
+            if (!ThePitState.IsDraftMode) { return; }
+            ThePitState.IsActive = false;
+            ThePitState.ResetMatchState();
         }
 
         // ── Cross-champion heal prevention ───────────────────────────────────────
