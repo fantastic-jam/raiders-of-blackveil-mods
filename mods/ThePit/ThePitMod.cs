@@ -71,14 +71,14 @@ namespace ThePit {
             PublicLogger = Logger;
 
             CfgPerkIntervalSeconds = Config.Bind(
-                "Progression", "PerkIntervalSeconds", 15f,
-                "Seconds between perk drops in the arena. Original: 30. Default (15) = 2× faster.");
+                "Progression", "PerkIntervalSeconds", 30f,
+                "Seconds between perk drops in the arena. Default: 30s.");
             CfgXpTickIntervalSeconds = Config.Bind(
-                "Progression", "XpTickIntervalSeconds", 23f,
-                "Seconds between XP level-up ticks in the arena. Original: 45. Default (23) ≈ 2× faster.");
+                "Progression", "XpTickIntervalSeconds", 45f,
+                "Seconds between XP level-up ticks in the arena. Default: 45s.");
             CfgMatchDurationSeconds = Config.Bind(
                 "Progression", "MatchDurationSeconds", 600f,
-                "Total match duration in seconds. Original: 600 (10 minutes).");
+                "Total match duration in seconds. Default: 600s (10 minutes).");
 
             try {
                 _harmony = new Harmony(Id);
