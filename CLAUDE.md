@@ -71,26 +71,44 @@ mods/[ModName]/
 
 `UserPaths.props` — machine-local game path, gitignored, written by `pnpm run setup`.
 
+## Rules
+
+These are enforced on every task — no exceptions:
+
+1. **Patch methods are one-liners.** All logic goes in a Controller / Sidecar / Orchestrator class. See [`docs/patterns/patch-extraction.md`](docs/patterns/patch-extraction.md).
+2. **Reflection handles resolved once in `Apply()`, stored as `private static` fields.** Never inline `AccessTools.Field/Method` inside a patch method. See [`docs/patterns/harmony-patching.md`](docs/patterns/harmony-patching.md).
+3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TSidecar>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/patterns/sidecar.md`](docs/patterns/sidecar.md).
+4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/patterns/networking.md`](docs/patterns/networking.md).
+5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
+
 ## Harmony patches
 
-- Resolve reflection fields once in `Apply()`, warn and bail if not found
 - `AccessTools.Field` / `AccessTools.Method` for private member access
 - Use `prefix` to intercept/block, `postfix` to observe/modify after
-- **Patch methods are one-liners only** — all logic lives in Controller/Orchestrator/Protocol classes. See `docs/mod_best_practices.md` §11.
+- Warn and bail per reflection handle — independent null-checks, never a combined gate
 
 ## Code style
 
 - All C# must respect `.editorconfig` rules (indent 4 spaces, braces K&R style, explicit access modifiers, etc.)
 - After any C# edit run `pnpm run lint:cs:fix` to auto-fix formatting, then verify with `pnpm run build`
 
-## Best practices reference
+## Patterns reference
 
-Detailed rules with live codebase examples are in [`docs/mod_best_practices.md`](docs/mod_best_practices.md). Key sections:
-- §1–2 Harmony patching and fail-safe patterns
-- §4 `IModRegistrant` implementation
-- §5 Networking / `IsServer` guards
-- §6 State management
-- §11 Patch extraction (Controllers, Orchestrators, Protocols)
+Focused pattern docs (with code examples):
+
+| Topic | File |
+|---|---|
+| Harmony patching mechanics, `Apply()`, naming, coroutines | [`docs/patterns/harmony-patching.md`](docs/patterns/harmony-patching.md) |
+| Patch extraction — Controllers, Orchestrators, one-liner rule | [`docs/patterns/patch-extraction.md`](docs/patterns/patch-extraction.md) |
+| Sidecar pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/patterns/sidecar.md`](docs/patterns/sidecar.md) |
+| Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/patterns/networking.md`](docs/patterns/networking.md) |
+| State management, `IModRegistrant`, `libs/` boundary | [`docs/patterns/state.md`](docs/patterns/state.md) |
+
+ThePit-specific:
+
+| Topic | File |
+|---|---|
+| Ability PvP coverage — which pattern to use per ability type | [`docs/ThePit/abilities.md`](docs/ThePit/abilities.md) |
 
 ## Localization
 
