@@ -41,10 +41,10 @@ namespace ThePit {
             // Wait until arena is entered before starting the periodic drip.
             yield return new WaitUntil(() => ThePitState.ArenaEntered || ThePitState.MatchEnded);
             while (ThePitState.IsDraftMode && !ThePitState.MatchEnded) {
-                yield return new WaitForSeconds(PerkIntervalSeconds);
                 _arenaRound++;
                 // All players receive the same rarity tier per tick.
                 GrantPerksToAllPlayers(1, PickRarity(_arenaRound));
+                yield return new WaitForSeconds(PerkIntervalSeconds);
             }
             Destroy(gameObject);
         }
@@ -79,8 +79,8 @@ namespace ThePit {
         private IEnumerator XpCoroutine() {
             yield return new WaitUntil(() => ThePitState.ArenaEntered);
             while (ThePitState.IsDraftMode && !ThePitState.MatchEnded) {
-                yield return new WaitForSeconds(XpTickIntervalSeconds);
                 GrantXpTickToAllPlayers();
+                yield return new WaitForSeconds(XpTickIntervalSeconds);
             }
         }
 
