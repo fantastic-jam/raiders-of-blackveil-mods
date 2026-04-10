@@ -24,6 +24,14 @@ namespace ThePit {
         public static ConfigEntry<float> CfgXpTickIntervalSeconds;
         public static ConfigEntry<float> CfgMatchDurationSeconds;
 
+        // ── Stepper option lists ──────────────────────────────────────────────────
+        // Each is a comma-separated list of "Label:Value" pairs used to populate the
+        // host config overlay steppers. Parse errors fall back to the built-in defaults.
+        public static ConfigEntry<string> CfgDurationOptions;
+        public static ConfigEntry<string> CfgDropRateOptions;
+        public static ConfigEntry<string> CfgInitialPerksOptions;
+        public static ConfigEntry<string> CfgDamageReductionOptions;
+
         public string GetModType() => nameof(ModType.GameMode);
         public string GetModName() => Name;
         public string GetModDescription() => "A proving ground for raiders and newcomers. Test your mettle in brutal free-for-all brawls.";
@@ -72,13 +80,30 @@ namespace ThePit {
 
             CfgPerkIntervalSeconds = Config.Bind(
                 "Progression", "PerkIntervalSeconds", 30f,
-                "Seconds between perk drops in the arena. Default: 30s.");
+                "Base seconds between perk drops. The Drop Rate stepper multiplies this.");
             CfgXpTickIntervalSeconds = Config.Bind(
                 "Progression", "XpTickIntervalSeconds", 45f,
-                "Seconds between XP level-up ticks in the arena. Default: 45s.");
+                "Base seconds per XP level-up. The Drop Rate stepper multiplies this.");
             CfgMatchDurationSeconds = Config.Bind(
                 "Progression", "MatchDurationSeconds", 600f,
-                "Total match duration in seconds. Default: 600s (10 minutes).");
+                "Fallback match duration in seconds when no overlay choice is saved.");
+
+            CfgDurationOptions = Config.Bind(
+                "Steppers", "DurationOptions",
+                "5 min:300,8 min:480,10 min:600,15 min:900,20 min:1200",
+                "Match duration stepper options. Format: Label:seconds,... — parse errors revert to defaults.");
+            CfgDropRateOptions = Config.Bind(
+                "Steppers", "DropRateOptions",
+                "Trickle:3.0,Slow:2.0,Normal:1.0,Fast:0.67,Rapid:0.5,Frenzy:0.33",
+                "Drop rate stepper options. Format: Label:intervalMultiplier,... (1.0 = base rate, 2.0 = half rate).");
+            CfgInitialPerksOptions = Config.Bind(
+                "Steppers", "InitialPerksOptions",
+                "1,2,3,4,5,6,7,8,9,10,11,12",
+                "Initial perk chest round count options. Format: comma-separated integers, or Label:int pairs.");
+            CfgDamageReductionOptions = Config.Bind(
+                "Steppers", "DamageReductionOptions",
+                "Off:1,Gentle:5,Medium:10,Strong:20,Extreme:40",
+                "Damage reduction stepper options. Format: Label:maxFactor,... — at max XP level, incoming damage is divided by maxFactor. Off=1 means no reduction.");
 
             try {
                 _harmony = new Harmony(Id);

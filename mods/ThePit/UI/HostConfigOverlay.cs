@@ -6,10 +6,12 @@ using UnityEngine.UIElements;
 
 namespace ThePit.UI {
     // Full-screen overlay shown in the lobby when the host interacts with the planning table.
-    // Lets the host choose match duration, perk/XP drop rate, and initial chest rounds.
-    // Disables all player input while visible; restores it on close or confirm.
+    // Stepper option lists are loaded from BepInEx config at construction time; parse errors
+    // fall back to the built-in defaults. Disables all player input while visible.
     internal sealed class HostConfigOverlay {
-        private static readonly (string Label, float Seconds)[] DurationOptions = {
+        // ── Built-in defaults (used when cfg is absent or unparseable) ────────────
+
+        private static readonly (string Label, float Seconds)[] DefaultDurations = {
             ("5 min",  300f),
             ("8 min",  480f),
             ("10 min", 600f),
@@ -17,47 +19,74 @@ namespace ThePit.UI {
             ("20 min", 1200f),
         };
 
-        // Multiplier on the BepInEx-configured interval. 1.0 = normal rate.
-        // Base intervals: perk every 30 s, XP every 45 s.
-        private static readonly (string Label, float IntervalMult)[] DropRateOptions = {
-            ("Trickle", 3.0f),  // perk every ~90 s
-            ("Slow",    2.0f),  // perk every ~60 s
-            ("Normal",  1.0f),  // perk every ~30 s
-            ("Fast",    0.67f), // perk every ~20 s
-            ("Rapid",   0.5f),  // perk every ~15 s
-            ("Frenzy",  0.33f), // perk every ~10 s
+        private static readonly (string Label, float IntervalMult)[] DefaultDropRates = {
+            ("Trickle", 3.0f),
+            ("Slow",    2.0f),
+            ("Normal",  1.0f),
+            ("Fast",    0.67f),
+            ("Rapid",   0.5f),
+            ("Frenzy",  0.33f),
         };
 
-        private static readonly (string Label, int Count)[] InitialPerkOptions;
+        private static readonly (string Label, int Count)[] DefaultInitialPerks;
+
+        private static readonly (string Label, float MaxFactor)[] DefaultDamageReduction = {
+            ("Off",     1f),
+            ("Gentle",  5f),
+            ("Medium",  10f),
+            ("Strong",  20f),
+            ("Extreme", 40f),
+        };
 
         static HostConfigOverlay() {
-            const int min = 1;
-            const int max = 12;
-            InitialPerkOptions = new (string, int)[max - min + 1];
-            for (int i = 0; i <= max - min; i++) {
-                int v = min + i;
-                InitialPerkOptions[i] = (v.ToString(), v);
+            DefaultInitialPerks = new (string, int)[12];
+            for (int i = 0; i < 12; i++) {
+                DefaultInitialPerks[i] = ((i + 1).ToString(), i + 1);
             }
         }
 
-        // Persists the host's last choices within the session.
-        private static int _savedDurationIdx = 2;    // "10 min"
-        private static int _savedDropRateIdx = 2;    // "Normal"
-        private static int _savedInitialPerksIdx = 5; // 6 rounds (index = value - 1)
+        // ── Saved session state (persists across overlay open/close) ──────────────
+
+        private static int _savedDurationIdx = 2;        // "10 min"
+        private static int _savedDropRateIdx = 2;        // "Normal"
+        private static int _savedInitialPerksIdx = 5;    // 6 rounds
+        private static int _savedDamageReductionIdx = 3; // "Strong:20"
+
+        // ── Instance ──────────────────────────────────────────────────────────────
 
         private readonly VisualElement _backdrop;
         private readonly Stepper<float> _durationStepper;
         private readonly Stepper<float> _dropRateStepper;
         private readonly Stepper<int> _initialPerksStepper;
+        private readonly Stepper<float> _damageReductionStepper;
         private readonly Action _onConfirm;
 
         internal bool IsVisible { get; private set; }
 
         internal HostConfigOverlay(VisualElement pageRoot, Action onConfirm) {
             _onConfirm = onConfirm;
-            _durationStepper = new Stepper<float>("DURATION", DurationOptions, _savedDurationIdx);
-            _dropRateStepper = new Stepper<float>("DROP RATE", DropRateOptions, _savedDropRateIdx);
-            _initialPerksStepper = new Stepper<int>("INITIAL PERKS", InitialPerkOptions, _savedInitialPerksIdx);
+
+            // Load options from cfg, falling back to built-in defaults on parse error.
+            var durations = StepperOptions.ParseFloat(
+                ThePitMod.CfgDurationOptions?.Value ?? string.Empty, DefaultDurations);
+            var dropRates = StepperOptions.ParseFloat(
+                ThePitMod.CfgDropRateOptions?.Value ?? string.Empty, DefaultDropRates);
+            var initialPerks = StepperOptions.ParseInt(
+                ThePitMod.CfgInitialPerksOptions?.Value ?? string.Empty, DefaultInitialPerks);
+            var damageReduction = StepperOptions.ParseFloat(
+                ThePitMod.CfgDamageReductionOptions?.Value ?? string.Empty, DefaultDamageReduction);
+
+            // Clamp saved indices to the (potentially changed) option list lengths.
+            _savedDurationIdx = StepperOptions.Clamp(_savedDurationIdx, durations.Length);
+            _savedDropRateIdx = StepperOptions.Clamp(_savedDropRateIdx, dropRates.Length);
+            _savedInitialPerksIdx = StepperOptions.Clamp(_savedInitialPerksIdx, initialPerks.Length);
+            _savedDamageReductionIdx = StepperOptions.Clamp(_savedDamageReductionIdx, damageReduction.Length);
+
+            _durationStepper = new Stepper<float>("DURATION", durations, _savedDurationIdx);
+            _dropRateStepper = new Stepper<float>("DROP RATE", dropRates, _savedDropRateIdx);
+            _initialPerksStepper = new Stepper<int>("INITIAL PERKS", initialPerks, _savedInitialPerksIdx);
+            _damageReductionStepper = new Stepper<float>("DMG REDUCTION", damageReduction, _savedDamageReductionIdx);
+
             _backdrop = Build();
             _backdrop.style.display = DisplayStyle.None;
             pageRoot.Add(_backdrop);
@@ -67,6 +96,7 @@ namespace ThePit.UI {
             _durationStepper.SetIndex(_savedDurationIdx);
             _dropRateStepper.SetIndex(_savedDropRateIdx);
             _initialPerksStepper.SetIndex(_savedInitialPerksIdx);
+            _damageReductionStepper.SetIndex(_savedDamageReductionIdx);
             _backdrop.style.display = DisplayStyle.Flex;
             IsVisible = true;
             DisableInput();
@@ -83,9 +113,13 @@ namespace ThePit.UI {
             _savedDurationIdx = _durationStepper.Index;
             _savedDropRateIdx = _dropRateStepper.Index;
             _savedInitialPerksIdx = _initialPerksStepper.Index;
+            _savedDamageReductionIdx = _damageReductionStepper.Index;
+
             ThePitState.MatchDurationSecondsOverride = _durationStepper.Value;
             ThePitState.DropIntervalMultiplier = _dropRateStepper.Value;
             ThePitState.InitialChestRoundsOverride = _initialPerksStepper.Value;
+            ThePitState.DamageReductionMaxFactor = _damageReductionStepper.Value;
+
             Close();
             _onConfirm?.Invoke();
         }
@@ -152,6 +186,7 @@ namespace ThePit.UI {
             card.Add(_durationStepper.Root);
             card.Add(_dropRateStepper.Root);
             card.Add(_initialPerksStepper.Root);
+            card.Add(_damageReductionStepper.Root);
 
             var spacer = new VisualElement();
             spacer.style.height = 22;

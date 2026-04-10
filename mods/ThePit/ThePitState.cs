@@ -50,6 +50,10 @@ namespace ThePit {
         // Number of initial perk chest rounds before the door opens. -1 = use PerkDripController's default. 0 = skip chest phase.
         internal static int InitialChestRoundsOverride { get; set; } = -1;
 
+        // At max XP level, incoming champion damage is divided by this factor.
+        // 1 = no reduction. 0 = use the BepInEx cfg default option.
+        internal static float DamageReductionMaxFactor { get; set; }
+
         // ActorID → Time.time deadline. Blocks all incoming damage until deadline passes.
         internal static Dictionary<int, float> InvincibleUntil { get; } = new();
 

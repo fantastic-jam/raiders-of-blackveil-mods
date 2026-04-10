@@ -547,7 +547,9 @@ namespace ThePit.Patch {
         //   • Damage from a respawn-invincible attacker (in-flight projectiles fired
         //     before CanActivate was blocked still reach targets)
         // Also applies level-based damage reduction so late-game champions are tankier.
-        // Formula: multiplier = 1 / level → level 1 = full damage, level 20 = 1/20th damage.
+        // The overlay/cfg maxFactor controls how much damage is divided at max XP level.
+        // Formula: at level L, divisor = Lerp(1, maxFactor, (L-1)/(maxLevel-1))
+        //   → level 1: full damage; level 20 with maxFactor=20: 1/20th damage.
         private static bool TakeBasicDamagePrefix(StatsManager __instance, ref DamageDescriptor dmgDesc, StatsManager attacker) {
             if (!ThePitState.IsAttackPossible) { return true; }
             if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
@@ -555,15 +557,43 @@ namespace ThePit.Patch {
             if (ThePitState.IsPlayerInvincible(__instance.ActorID)) { return false; }
             if (ThePitState.IsPlayerInvincible(attacker.ActorID)) { return false; }
 
-            var rdb = RewardDatabase.Instance;
-            if (rdb != null && __instance.Champion != null) {
-                int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
-                if (level > 1) {
-                    dmgDesc = dmgDesc.CloneAndMultiply(1f / level);
+            float maxFactor = ThePitState.DamageReductionMaxFactor > 0f
+                ? ThePitState.DamageReductionMaxFactor
+                : (ThePitMod.CfgDamageReductionOptions == null ? 20f
+                    : ParseDefaultDamageReductionFactor());
+
+            if (maxFactor > 1f) {
+                var rdb = RewardDatabase.Instance;
+                if (rdb != null && __instance.Champion != null) {
+                    const int MaxXpLevel = 20;
+                    int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
+                    if (level > 1) {
+                        float t = (float)(level - 1) / (MaxXpLevel - 1);
+                        float divisor = Mathf.Lerp(1f, maxFactor, t);
+                        dmgDesc = dmgDesc.CloneAndMultiply(1f / divisor);
+                    }
                 }
             }
 
             return true;
+        }
+
+        // Reads the default damage reduction factor from the first entry of the cfg option list.
+        // Falls back to 20 (= "Strong") if absent or unparseable.
+        // This is only used when no overlay session has run yet (first match after restart).
+        private static float ParseDefaultDamageReductionFactor() {
+            var raw = ThePitMod.CfgDamageReductionOptions?.Value;
+            if (string.IsNullOrEmpty(raw)) { return 20f; }
+            try {
+                // Default is "Strong:20" at index 3 of the default list — read index 3 if it exists.
+                var entries = raw.Split(',');
+                int idx = System.Math.Min(3, entries.Length - 1);
+                int colon = entries[idx].IndexOf(':');
+                if (colon < 0) { return 20f; }
+                return float.Parse(entries[idx][(colon + 1)..].Trim(),
+                    System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch { return 20f; }
         }
 
         // ── Ability block while respawn-invincible ───────────────────────────────
