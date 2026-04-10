@@ -7,6 +7,11 @@ namespace ThePit {
         internal const string VariantDraft = "beta";
         internal const string VariantMoba = "moba";
 
+        // Full compound IDs as stored by WMF: "{pluginGuid}::{variantId}".
+        // We own both parts, so these are constants, not runtime string ops.
+        internal const string WmfVariantIdBeta = ThePitMod.Id + "::" + VariantDraft;
+        internal const string WmfVariantIdMoba = ThePitMod.Id + "::" + VariantMoba;
+
         internal static bool IsActive { get; set; }
         internal static string ActiveVariant { get; set; }
 
@@ -31,6 +36,16 @@ namespace ThePit {
 
         // True while PvP combat should be active: mod on, in the arena, timer still running.
         internal static bool IsAttackPossible => IsDraftMode && ArenaEntered && !MatchEnded;
+
+        // Set by the host config overlay before the session starts.
+        // 0 means "fall back to the BepInEx config value".
+        internal static float MatchDurationSecondsOverride { get; set; }
+
+        // Scales perk and XP drop intervals. 1.0 = normal, 2.0 = half rate, 0.5 = double rate.
+        internal static float DropIntervalMultiplier { get; set; } = 1.0f;
+
+        // Number of initial perk chest rounds before the door opens. -1 = use PerkDripController's default. 0 = skip chest phase.
+        internal static int InitialChestRoundsOverride { get; set; } = -1;
 
         // ActorID → Time.time deadline. Blocks all incoming damage until deadline passes.
         internal static Dictionary<int, float> InvincibleUntil { get; } = new();

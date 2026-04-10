@@ -1,12 +1,14 @@
 ﻿using System.Reflection;
 using HarmonyLib;
 using RR;
+using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
 using RR.Game.Stats;
 using RR.Level;
 using RR.Utility;
 using ThePit.Patch.Abilities;
+using UnityEngine;
 
 namespace ThePit.Patch {
     public static class ThePitPatch {
@@ -109,6 +111,15 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: EnemySpawnManager.Activate not found — dynamic waves may spawn.");
             }
 
+            // --- Reposition player spawn points around the floor door in the SlashBash arena ---
+            var cacheSpawnPoints = AccessTools.Method(typeof(LevelManager), "CacheSpawnPoints");
+            if (cacheSpawnPoints != null) {
+                harmony.Patch(cacheSpawnPoints,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(CacheSpawnPointsPostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: LevelManager.CacheSpawnPoints not found — arena spawn positions unchanged.");
+            }
+
             // --- Despawn pre-placed enemies (MiniBoss room has Slash & Bash pre-placed in scene) ---
             var sceneInit = AccessTools.Method(typeof(EnemySpawnManager), "SceneInit");
             if (sceneInit != null) {
@@ -134,6 +145,15 @@ namespace ThePit.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(RewardActivatePrefix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: RewardManager.Activate not found — start room chests may appear.");
+            }
+
+            // --- Suppress loot container (chest) spawns in both ThePit rooms ---
+            var vendorSceneInit = AccessTools.Method(typeof(LevelVendorManager), nameof(LevelVendorManager.SceneInit));
+            if (vendorSceneInit != null) {
+                harmony.Patch(vendorSceneInit,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(VendorSceneInitPrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: LevelVendorManager.SceneInit not found — loot containers may spawn.");
             }
 
             // --- PvP: per-ability champion detection via PvpDetector ---
@@ -212,6 +232,9 @@ namespace ThePit.Patch {
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
             }
+
+            // --- Lobby planning table: intercept for match config overlay ---
+            PlanningTablePatch.Apply(harmony);
 
             ThePitMod.PublicLogger.LogInfo("ThePit: patch applied.");
             return true;
@@ -370,6 +393,10 @@ namespace ThePit.Patch {
         // the run end ourselves via ReturnToLobby.
         private static bool RewardActivatePrefix() => !ThePitState.IsDraftMode;
 
+        // Skip LevelVendorManager.SceneInit in ThePit rooms — prevents loot containers
+        // (regular and locked chests containing coins, souvenirs, equipment) from spawning.
+        private static bool VendorSceneInitPrefix() => !ThePitState.IsDraftMode;
+
         // ── Door suppression in SlashBash room ──────────────────────────────────
 
         // Allow DoorManager.Activate only when:
@@ -393,6 +420,32 @@ namespace ThePit.Patch {
             }
 
             return !ThePitState.MiniBossRedirected;
+        }
+
+        // ── Arena spawn point relocation ─────────────────────────────────────────
+
+        // Reposition the three PlayerSpawnPoint GameObjects around the floor door so
+        // the game's own InitPlayerCharacterAtSpawnPoint places champions correctly.
+        // Only runs in the SlashBash arena (ArenaEntered becomes true one tick later,
+        // so we gate on MiniBossRedirected instead).
+        private static void CacheSpawnPointsPostfix() {
+            if (!ThePitState.IsDraftMode || !ThePitState.MiniBossRedirected) { return; }
+
+            var doorGo = GameObject.Find("DoorSpawnPoint");
+            if (doorGo == null) { return; }
+
+            Vector3 center = doorGo.transform.position;
+            const float radius = 2.5f;
+
+            for (int i = 0; i < 3; i++) {
+                var sp = GameObject.Find($"PlayerSpawnPoints/PlayerSpawnPoint{i}");
+                if (sp == null) { continue; }
+                float angle = Mathf.PI * 2f / 3f * i;
+                // Position only — leave rotation untouched so the camera rig is unaffected.
+                // Player facing is handled in TeleportAllToCenter (arena entry) and
+                // RespawnCoroutine (post-respawn) directly on the champion.
+                sp.transform.position = center + new Vector3(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius);
+            }
         }
 
         // ── Spawn suppression ────────────────────────────────────────────────────

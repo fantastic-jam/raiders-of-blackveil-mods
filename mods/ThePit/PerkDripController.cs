@@ -10,13 +10,16 @@ namespace ThePit {
     internal class PerkDripController : MonoBehaviour {
         private const float SceneInitDelaySecs = 2f;
         private const int MaxPerksPerPlayer = 20;
-        private const int InitialChestRounds = 6;
+        private const int DefaultInitialChestRounds = 6;
+
+        private static int InitialChestRounds =>
+            ThePitState.InitialChestRoundsOverride >= 0 ? ThePitState.InitialChestRoundsOverride : DefaultInitialChestRounds;
         private const int MaxXpLevel = 20;
 
         private static float PerkIntervalSeconds =>
-            ThePitMod.CfgPerkIntervalSeconds?.Value ?? 15f;   // original: 30
+            (ThePitMod.CfgPerkIntervalSeconds?.Value ?? 30f) * ThePitState.DropIntervalMultiplier;
         private static float XpTickIntervalSeconds =>
-            ThePitMod.CfgXpTickIntervalSeconds?.Value ?? 23f; // original: 45
+            (ThePitMod.CfgXpTickIntervalSeconds?.Value ?? 45f) * ThePitState.DropIntervalMultiplier;
 
         private static readonly PlayerFilter[] _allFilters = {
             PlayerFilter.Player0, PlayerFilter.Player1, PlayerFilter.Player2

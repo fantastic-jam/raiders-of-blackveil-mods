@@ -10,7 +10,7 @@ using ThePit.Patch;
 namespace ThePit {
     [BepInPlugin(Id, Name, Version)]
     public class ThePitMod : BaseUnityPlugin, IModRegistrant, IGameModeProvider {
-        private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.thepit";
+        public const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.thepit";
         public const string Name = "ThePit";
         public const string Version = "0.0.0";
         public const string Author = "christphe";

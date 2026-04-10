@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using RR;
 using RR.Game;
+using RR.Game.Character;
 using RR.Level;
 using ThePit.Patch;
 using ThePit.Patch.Abilities;
@@ -9,7 +10,9 @@ using UnityEngine;
 namespace ThePit {
     internal class MatchController : MonoBehaviour {
         private static float MatchDurationSeconds =>
-            ThePitMod.CfgMatchDurationSeconds?.Value ?? 600f; // original: 600 (10 minutes)
+            ThePitState.MatchDurationSecondsOverride > 0f
+                ? ThePitState.MatchDurationSecondsOverride
+                : (ThePitMod.CfgMatchDurationSeconds?.Value ?? 600f);
         private const float ArenaGracePeriodSeconds = 5f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
@@ -32,45 +35,8 @@ namespace ThePit {
             BeatriceAttackPatch.ExpandAllCasters();
             BeatriceEntanglingRootsPatch.ExpandAllCasters();
             BeatriceLotusFlowerPatch.ExpandAllCasters();
-            TeleportAllToCenter();
             _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
             _instance.StartCoroutine(_instance.MatchTimerCoroutine());
-        }
-
-        private static void TeleportAllToCenter() {
-            // DoorSpawnPoint is where the floor pit door lives in the SlashBash arena.
-            // Fall back to averaging player spawn points if the object is absent.
-            Vector3 center;
-            var doorGo = GameObject.Find("DoorSpawnPoint");
-            if (doorGo != null) {
-                center = doorGo.transform.position;
-            } else {
-                var sum = Vector3.zero;
-                int count = 0;
-                for (int i = 0; i < 3; i++) {
-                    var sp = GameObject.Find($"PlayerSpawnPoints/PlayerSpawnPoint{i}");
-                    if (sp != null) { sum += sp.transform.position; count++; }
-                }
-                if (count == 0) { return; }
-                center = sum / count;
-            }
-
-            var players = PlayerManager.Instance.GetPlayers();
-            int n = players.Count;
-            if (n == 0) { return; }
-
-            const float radius = 2.5f;
-            for (int i = 0; i < n; i++) {
-                var player = players[i];
-                if (player.PlayableChampion == null) { continue; }
-                float angle = Mathf.PI * 2f / n * i;
-                var offset = new Vector3(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius);
-                var pos = center + offset;
-                var lookDir = center - pos;
-                lookDir.y = 0f;
-                var rot = lookDir.sqrMagnitude > 0.001f ? Quaternion.LookRotation(lookDir) : Quaternion.identity;
-                player.PlayableChampion.TeleportTo(pos, rot);
-            }
         }
 
         internal static void TriggerRespawn(int victimActorId) {
@@ -167,6 +133,19 @@ namespace ThePit {
             Destroy(gameObject);
         }
 
+        // ── Helpers ──────────────────────────────────────────────────────────────
+
+        // Rotate the champion to face the arena center without touching spawn point transforms
+        // (which would affect the camera rig).
+        private static void FaceArenaCenter(NetworkChampionBase champ) {
+            var doorGo = GameObject.Find("DoorSpawnPoint");
+            if (doorGo == null) { return; }
+            var dir = doorGo.transform.position - champ.transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.001f) { return; }
+            champ.transform.rotation = Quaternion.LookRotation(dir);
+        }
+
         // ── Respawn ──────────────────────────────────────────────────────────────
 
         private IEnumerator RespawnCoroutine(int victimActorId) {
@@ -186,6 +165,7 @@ namespace ThePit {
             ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
             champ.Stats.Health.Resurrect(100f);
             GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
+            FaceArenaCenter(champ);
             ThePitPatch.LockChampionAbilitiesFor(champ, RespawnInvincibilitySeconds);
 
             float deadline = Time.time + RespawnInvincibilitySeconds;

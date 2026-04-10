@@ -21,6 +21,10 @@
       <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
