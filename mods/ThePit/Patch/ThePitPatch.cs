@@ -502,12 +502,13 @@ namespace ThePit.Patch {
         // death cutscene doesn't fire when we kill losers, bypassing our 20s delay).
         // ReturnToLobbyCoroutine sets IsActive=false before calling RPC_Handle_ReturnToLobby,
         // which makes IsDraftMode false and lets the prefix become a no-op.
+        // Block the "all players dead" outro only while the match is still running.
+        // Once MatchEnded=true (EndMatch fired) let it through — or after ResetMatchState
+        // on hub return the flag is already clear.
         private static bool OutroActivatePrefix(OutroManager.OutroReason reason) {
-            if (!ThePitState.IsDraftMode) {
-                return true;
-            }
-
-            return reason != OutroManager.OutroReason.AllPlayerDead;
+            if (!ThePitState.IsDraftMode) { return true; }
+            if (reason != OutroManager.OutroReason.AllPlayerDead) { return true; }
+            return ThePitState.MatchEnded;
         }
 
         // ── Self-damage prevention ───────────────────────────────────────────────
@@ -560,7 +561,6 @@ namespace ThePit.Patch {
         // by the time this fires — making it a no-op in that case.
         private static void ReturnToLobbyPostfix() {
             if (!ThePitState.IsDraftMode) { return; }
-            ThePitState.IsActive = false;
             ThePitState.ResetMatchState();
             MatchController.Stop();
         }

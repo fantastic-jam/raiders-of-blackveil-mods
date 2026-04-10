@@ -57,10 +57,14 @@ namespace ThePit {
         // AllDamageDisabled is already true from DungeonManager.OnSceneLoadDone.
         // Record deadlines and schedule clear — no need to set AllDamageDisabled=true.
         private IEnumerator ArenaGraceCoroutine() {
+            // Wait one frame so InitPlayerCharacterAtSpawnPoint has placed champions.
+            yield return null;
             float deadline = Time.time + ArenaGracePeriodSeconds;
+            var doorGo = GameObject.Find("DoorSpawnPoint");
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
+                if (doorGo != null) { champ.LookToPosition(doorGo.transform.position); }
                 ThePitState.InvincibleUntil[champ.Stats.ActorID] = deadline;
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
             }
@@ -134,7 +138,6 @@ namespace ThePit {
 
         private IEnumerator ReturnToLobbyCoroutine() {
             yield return new WaitForSeconds(EndSequenceDelaySeconds);
-            ThePitState.IsActive = false;
             ThePitState.ResetMatchState();
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
             Destroy(gameObject);
@@ -159,10 +162,7 @@ namespace ThePit {
         private static void FaceArenaCenter(NetworkChampionBase champ) {
             var doorGo = GameObject.Find("DoorSpawnPoint");
             if (doorGo == null) { return; }
-            var dir = doorGo.transform.position - champ.transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 0.001f) { return; }
-            champ.transform.rotation = Quaternion.LookRotation(dir);
+            champ.LookToPosition(doorGo.transform.position);
         }
 
         // ── Respawn ──────────────────────────────────────────────────────────────
