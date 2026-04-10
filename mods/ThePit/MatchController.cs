@@ -16,7 +16,7 @@ namespace ThePit {
         private const float ArenaGracePeriodSeconds = 5f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
-        private const float EndSequenceDelaySeconds = 20f;
+        private const float EndSequenceDelaySeconds = 10f;
 
         private static MatchController _instance;
 
@@ -115,8 +115,6 @@ namespace ThePit {
                 }
             }
 
-            // Open the arena floor door as the visual match-over signal.
-            DoorManager.Instance?.Activate(string.Empty);
             StartCoroutine(ReturnToLobbyCoroutine());
         }
 
@@ -136,8 +134,19 @@ namespace ThePit {
             return winnerActorId;
         }
 
+        // Called by the door patch when the winner steps on the trap door before the timer fires.
+        internal static void TriggerEarlyLobbyReturn() {
+            if (_instance == null) { return; }
+            _instance.StopAllCoroutines();
+            _instance.DoReturnToLobby();
+        }
+
         private IEnumerator ReturnToLobbyCoroutine() {
             yield return new WaitForSeconds(EndSequenceDelaySeconds);
+            DoReturnToLobby();
+        }
+
+        private void DoReturnToLobby() {
             ThePitState.ResetMatchState();
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
             Destroy(gameObject);

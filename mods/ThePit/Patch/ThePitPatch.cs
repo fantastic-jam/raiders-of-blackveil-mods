@@ -4,6 +4,7 @@ using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
+using RR.Game.Pickups;
 using RR.Game.Perk;
 using RR.Game.Stats;
 using RR.Level;
@@ -58,15 +59,22 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: DoorManager.SetupDoorInformation not found — door will show wrong type.");
             }
 
-            // --- Suppress DoorManager.Activate in the SlashBash room (MiniBossRedirected=true).
-            // In the start room it is still allowed so PerkCoroutine can open the MiniBoss door.
-            // This prevents any door UI from appearing in the arena after the match ends.
+            // --- Suppress DoorManager.Activate mid-match; allow after MatchEnded so winner can use the door.
             var doorActivate = AccessTools.Method(typeof(DoorManager), "Activate");
             if (doorActivate != null) {
                 harmony.Patch(doorActivate,
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DoorActivatePrefix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: DoorManager.Activate not found — door may appear in SlashBash room.");
+            }
+
+            // --- When winner steps on the trap door after match end, skip door-select UI and return to lobby immediately.
+            var doorCollected = AccessTools.Method(typeof(DoorPickup), nameof(DoorPickup.OnCardCollected));
+            if (doorCollected != null) {
+                harmony.Patch(doorCollected,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DoorPickupCollectedPrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: DoorPickup.OnCardCollected not found — winner door step will show door-select.");
             }
 
             // --- Health._stats field + LifeState setter — needed by kill tracking / respawn / die-prefix ---
@@ -445,28 +453,26 @@ namespace ThePit.Patch {
         // (regular and locked chests containing coins, souvenirs, equipment) from spawning.
         private static bool VendorSceneInitPrefix() => !ThePitState.IsDraftMode;
 
-        // ── Door suppression in SlashBash room ──────────────────────────────────
+        // ── Door handling ────────────────────────────────────────────────────────
+
+        // When the winner steps on the trap door after match end, immediately return to lobby
+        // instead of opening the door-select UI. Cancels the 10s fallback timer.
+        private static bool DoorPickupCollectedPrefix(ref bool __result) {
+            if (!ThePitState.IsDraftMode || !ThePitState.MatchEnded) { return true; }
+            __result = false;
+            MatchController.TriggerEarlyLobbyReturn();
+            return false;
+        }
 
         // Allow DoorManager.Activate only when:
         //   • not in draft mode (pass-through)
-        //   • match ended — door activates in the arena as the visual match-over signal
-        //   • in draft mode, start room (MiniBossRedirected=false), and chest phase is over
-        // Block during ChestPhaseActive so the game can't open the door between rounds.
-        // Block in the arena mid-match (MiniBossRedirected=true, !MatchEnded) so no door
-        // UI appears there while fighting.
+        //   • in draft mode, start room (MiniBossRedirected=false), chest phase over
+        //   • match has ended — spawns the trap door so the winner can step on it
+        // Block mid-match in the arena (MiniBossRedirected=true, !MatchEnded).
         private static bool DoorActivatePrefix() {
-            if (!ThePitState.IsDraftMode) {
-                return true;
-            }
-
-            if (ThePitState.MatchEnded) {
-                return true;
-            }
-
-            if (ThePitState.ChestPhaseActive) {
-                return false;
-            }
-
+            if (!ThePitState.IsDraftMode) { return true; }
+            if (ThePitState.MatchEnded) { return true; }
+            if (ThePitState.ChestPhaseActive) { return false; }
             return !ThePitState.MiniBossRedirected;
         }
 
