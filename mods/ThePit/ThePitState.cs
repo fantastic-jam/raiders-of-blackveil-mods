@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ThePit {
     internal static class ThePitState {
-        internal const string VariantDraft = "draft";
+        internal const string VariantDraft = "beta";
         internal const string VariantMoba = "moba";
 
         internal static bool IsActive { get; set; }
