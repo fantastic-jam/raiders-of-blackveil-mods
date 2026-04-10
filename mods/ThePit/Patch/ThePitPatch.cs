@@ -1,9 +1,11 @@
-﻿using System.Reflection;
+﻿using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
+using RR.Game.Perk;
 using RR.Game.Stats;
 using RR.Level;
 using RR.Utility;
@@ -239,6 +241,15 @@ namespace ThePit.Patch {
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(ReturnToLobbyPostfix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
+            }
+
+            // --- Perk filter: strip PvP-incompatible perks from every GetRandomPerkAmount result ---
+            var getRandomPerkAmount = AccessTools.Method(typeof(PerkDatabase), "GetRandomPerkAmount");
+            if (getRandomPerkAmount != null) {
+                harmony.Patch(getRandomPerkAmount,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(GetRandomPerkAmountPostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: PerkDatabase.GetRandomPerkAmount not found — perk filter inactive.");
             }
 
             // --- Lobby planning table: intercept for match config overlay ---
@@ -593,6 +604,11 @@ namespace ThePit.Patch {
             if (targetStats == null || !targetStats.IsChampion) { return true; }
             return healer.ActorID == targetStats.ActorID;
         }
+
+        // ── Perk filter ──────────────────────────────────────────────────────────
+
+        private static void GetRandomPerkAmountPostfix(List<PerkDescriptor> __result) =>
+            ThePitPerkFilter.FilterResult(__result);
 
         // ── HUD combat timer ─────────────────────────────────────────────────────
 
