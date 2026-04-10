@@ -132,9 +132,10 @@ namespace ThePit {
 
         private IEnumerator XpCoroutine() {
             yield return new WaitUntil(() => ThePitState.ArenaEntered);
+            var wait = new WaitForSeconds(1f);
             while (ThePitState.IsDraftMode && !ThePitState.MatchEnded) {
-                GrantXpTickToAllPlayers();
-                yield return new WaitForSeconds(XpTickIntervalSeconds);
+                GrantXpIncrement();
+                yield return wait;
             }
         }
 
@@ -161,7 +162,10 @@ namespace ThePit {
             }
         }
 
-        private static void GrantXpTickToAllPlayers() {
+        // Drips XP every second so the gauge fills smoothly.
+        // Rate: one level fills over XpTickIntervalSeconds. Ability points are granted
+        // at the moment a level boundary is crossed, not at the end of the interval.
+        private static void GrantXpIncrement() {
             var rdb = RewardDatabase.Instance;
             if (rdb?.XPDescriptor == null) { return; }
 
@@ -176,10 +180,23 @@ namespace ThePit {
                     int currentLevel = rdb.GetXPLevel(currentXP);
                     if (currentLevel >= MaxXpLevel || currentLevel >= limits.Count) { continue; }
 
-                    int newXP = limits[currentLevel];
-                    int points = rdb.GetXPUpgradePoints(currentXP, newXP);
+                    // limits[currentLevel - 1] = XP at start of this level.
+                    // limits[currentLevel]     = XP threshold to reach next level.
+                    int levelStart = limits[currentLevel - 1];
+                    int levelEnd = limits[currentLevel];
+                    int levelRange = levelEnd - levelStart;
+
+                    int xpGain = Mathf.Max(1, Mathf.RoundToInt((float)levelRange / XpTickIntervalSeconds));
+                    int newXP = Mathf.Min(levelEnd, currentXP + xpGain);
+
+                    if (newXP <= currentXP) { continue; }
+
+                    // Grant ability points the moment a level boundary is crossed.
+                    if (rdb.GetXPLevel(newXP) > currentLevel) {
+                        champ.XP.AbilityPoints += rdb.GetXPUpgradePoints(currentXP, newXP);
+                    }
+
                     champ.XP.Amount = newXP;
-                    champ.XP.AbilityPoints += points;
                 }
                 catch (System.InvalidOperationException) {
                     // PlayerManager not yet Spawned — skip this tick entirely.
