@@ -17,6 +17,17 @@ pnpm run release -- --mod [ModName] --skip-push --skip-release  # local only
 pnpm run setup                                        # dev environment setup
 ```
 
+## Documentation
+
+`docs/` contains design and developer documentation. **Read the relevant doc before diving into `game-src/`.** Docs capture intent, call chains, and mod patterns that are not obvious from decompiled code alone.
+
+| Topic | File |
+|---|---|
+| Lobby plan table — full E-interact → run-start flow | [`docs/dev/base_game/lobby_plan_table.md`](docs/dev/base_game/lobby_plan_table.md) |
+| Run structure, rooms, level progression | [`docs/dev/base_game/run_structure.md`](docs/dev/base_game/run_structure.md) |
+| Key game classes quick-reference | [`docs/dev/base_game/key_classes.md`](docs/dev/base_game/key_classes.md) |
+| Fusion networking facts | [`docs/dev/base_game/fusion_networking.md`](docs/dev/base_game/fusion_networking.md) |
+
 ## Game source
 
 `game-src/` is ILSpy-decompiled game source — read it to understand APIs, types, namespaces. Do not edit it. Key namespaces:
@@ -110,6 +121,8 @@ ThePit-specific:
 | Topic | File |
 |---|---|
 | Ability PvP coverage — which pattern to use per ability type | [`docs/dev/ThePit/abilities.md`](docs/dev/ThePit/abilities.md) |
+| Arena systems — respawn, timer, grace period | [`docs/dev/ThePit/arena-systems.md`](docs/dev/ThePit/arena-systems.md) |
+| Terminology — Beta/Draft/Moba variant naming | [`docs/dev/ThePit/terminology.md`](docs/dev/ThePit/terminology.md) |
 
 ## Localization
 
