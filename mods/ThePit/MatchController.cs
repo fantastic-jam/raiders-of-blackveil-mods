@@ -64,7 +64,14 @@ namespace ThePit {
                 ThePitState.InvincibleUntil[champ.Stats.ActorID] = deadline;
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
             }
-            yield break;
+            yield return new WaitForSeconds(ArenaGracePeriodSeconds);
+            var dm = DifficultyManager.Instance;
+            if (dm != null) {
+                float startPrecise = MatchDurationSeconds - ArenaGracePeriodSeconds;
+                ThePitPatch.CombatTimePreciseSetter?.Invoke(dm, new object[] { startPrecise });
+                ThePitPatch.CombatTimeInSecSetter?.Invoke(dm, new object[] { (int)Mathf.Ceil(startPrecise) });
+            }
+            ThePitState.CombatStarted = true;
         }
 
         // Clears AllDamageDisabled only if our deadline is still the current one.
@@ -131,6 +138,18 @@ namespace ThePit {
             ThePitState.ResetMatchState();
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
             Destroy(gameObject);
+        }
+
+        // ── HUD combat timer ─────────────────────────────────────────────────────
+
+        // DifficultyManager only ticks CombatTimePrecise when EnemySpawnManager.IsActive,
+        // which we suppress in ThePit. Drive it ourselves once the grace period ends.
+        internal static void OnDifficultyFixedUpdate(DifficultyManager dm) {
+            if (!ThePitState.CombatStarted || ThePitState.MatchEnded || dm.Runner?.IsServer != true) { return; }
+            if (ThePitPatch.CombatTimePreciseSetter == null || ThePitPatch.CombatTimeInSecSetter == null) { return; }
+            float precise = Mathf.Max(0f, dm.CombatTimePrecise - dm.Runner.DeltaTime);
+            ThePitPatch.CombatTimePreciseSetter.Invoke(dm, new object[] { precise });
+            ThePitPatch.CombatTimeInSecSetter.Invoke(dm, new object[] { (int)Mathf.Ceil(precise) });
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────

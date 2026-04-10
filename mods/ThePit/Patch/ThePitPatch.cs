@@ -17,6 +17,8 @@ namespace ThePit.Patch {
         internal static MethodInfo HealthInjurySetter;
         private static MethodInfo _cooldownTimerSetter;
         private static MethodInfo _chargeActualSetter;
+        internal static MethodInfo CombatTimePreciseSetter;
+        internal static MethodInfo CombatTimeInSecSetter;
 
         private const string SlashBashScene = "Assets/Scenes/01_Meat_Factory_Scenes/MF_Boss_SlashBash.unity";
 
@@ -235,6 +237,23 @@ namespace ThePit.Patch {
 
             // --- Lobby planning table: intercept for match config overlay ---
             PlanningTablePatch.Apply(harmony);
+
+            // --- HUD combat timer: drive CombatTimePrecise after the arena grace period ---
+            CombatTimePreciseSetter = AccessTools.PropertySetter(typeof(DifficultyManager), "CombatTimePrecise");
+            if (CombatTimePreciseSetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: DifficultyManager.CombatTimePrecise setter not found — HUD timer will not start.");
+            }
+            CombatTimeInSecSetter = AccessTools.PropertySetter(typeof(DifficultyManager), "CombatTimeInSec");
+            if (CombatTimeInSecSetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: DifficultyManager.CombatTimeInSec setter not found — HUD timer will not start.");
+            }
+            var dmFixedUpdate = AccessTools.Method(typeof(DifficultyManager), "FixedUpdateNetwork");
+            if (dmFixedUpdate != null) {
+                harmony.Patch(dmFixedUpdate,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DifficultyManagerFixedUpdatePostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: DifficultyManager.FixedUpdateNetwork not found — HUD timer will not start.");
+            }
 
             ThePitMod.PublicLogger.LogInfo("ThePit: patch applied.");
             return true;
@@ -547,6 +566,11 @@ namespace ThePit.Patch {
             if (targetStats == null || !targetStats.IsChampion) { return true; }
             return healer.ActorID == targetStats.ActorID;
         }
+
+        // ── HUD combat timer ─────────────────────────────────────────────────────
+
+        private static void DifficultyManagerFixedUpdatePostfix(DifficultyManager __instance) =>
+            MatchController.OnDifficultyFixedUpdate(__instance);
     }
 
 }

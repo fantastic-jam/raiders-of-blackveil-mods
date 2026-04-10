@@ -30,6 +30,9 @@ namespace ThePit {
         // Set true when the match timer fires — suppresses respawn on subsequent deaths.
         internal static bool MatchEnded { get; set; }
 
+        // Set true once the arena grace period expires — enables the HUD combat timer.
+        internal static bool CombatStarted { get; set; }
+
         // Set true during the initial perk chest phase — blocks door activation until all
         // chest rounds complete and PerkDripController opens the door manually.
         internal static bool ChestPhaseActive { get; set; }
@@ -62,6 +65,7 @@ namespace ThePit {
             ArenaEntered = false;
             MatchEnded = false;
             ChestPhaseActive = false;
+            CombatStarted = false;
             InvincibleUntil.Clear();
             KillCounts.Clear();
             ShameleonShadowDancePatch.Reset();
