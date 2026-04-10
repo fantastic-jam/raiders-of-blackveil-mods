@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Reflection;
+﻿using System.Reflection;
 using HarmonyLib;
 using RR;
 using RR.Game;
@@ -243,13 +242,16 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
             }
 
-            // --- Perk filter: strip PvP-incompatible perks from every GetRandomPerkAmount result ---
-            var getRandomPerkAmount = AccessTools.Method(typeof(PerkDatabase), "GetRandomPerkAmount");
-            if (getRandomPerkAmount != null) {
-                harmony.Patch(getRandomPerkAmount,
-                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(GetRandomPerkAmountPostfix))));
+            // --- Perk filter: exclude PvP-incompatible perks from the selectable pool ---
+            // Patch IsItUnlocked (upstream of selection) so banned perks never enter the draw.
+            // Patching the output of GetRandomPerkAmount would leave the shrine with fewer than
+            // 3 slots filled, causing the UI to freeze waiting for a pick that isn't there.
+            var isItUnlocked = AccessTools.Method(typeof(PerkDescriptor), "IsItUnlocked");
+            if (isItUnlocked != null) {
+                harmony.Patch(isItUnlocked,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(IsItUnlockedPostfix))));
             } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: PerkDatabase.GetRandomPerkAmount not found — perk filter inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: PerkDescriptor.IsItUnlocked not found — perk filter inactive.");
             }
 
             // --- Lobby planning table: intercept for match config overlay ---
@@ -637,8 +639,8 @@ namespace ThePit.Patch {
 
         // ── Perk filter ──────────────────────────────────────────────────────────
 
-        private static void GetRandomPerkAmountPostfix(List<PerkDescriptor> __result) =>
-            ThePitPerkFilter.FilterResult(__result);
+        private static void IsItUnlockedPostfix(PerkDescriptor __instance, ref bool __result) =>
+            ThePitPerkFilter.FilterUnlocked(__instance, ref __result);
 
         // ── HUD combat timer ─────────────────────────────────────────────────────
 

@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using RR.Game;
+﻿using RR.Game;
 using RR.Game.Perk;
-using RR.Game.Stats;
 
 namespace ThePit.Patch {
     internal static class ThePitPerkFilter {
@@ -16,9 +14,12 @@ namespace ThePit.Patch {
             return false;
         }
 
-        internal static void FilterResult(List<PerkDescriptor> result) {
-            if (!ThePitState.IsDraftMode || result == null) { return; }
-            result.RemoveAll(IsBanned);
+        // Postfix on PerkDescriptor.IsItUnlocked — marks banned perks as unavailable
+        // before they enter the selection pool, so GetRandomPerkAmount always draws
+        // a full set (no null shrine slots, no UI freeze).
+        internal static void FilterUnlocked(PerkDescriptor perk, ref bool result) {
+            if (!result || !ThePitState.IsDraftMode) { return; }
+            if (IsBanned(perk)) { result = false; }
         }
     }
 }
