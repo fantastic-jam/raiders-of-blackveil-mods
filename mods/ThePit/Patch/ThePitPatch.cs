@@ -518,12 +518,23 @@ namespace ThePit.Patch {
         //     because our invincibility is tracked outside the game engine)
         //   • Damage from a respawn-invincible attacker (in-flight projectiles fired
         //     before CanActivate was blocked still reach targets)
-        private static bool TakeBasicDamagePrefix(StatsManager __instance, StatsManager attacker) {
+        // Also applies level-based damage reduction so late-game champions are tankier.
+        // Formula: multiplier = 1 / level → level 1 = full damage, level 20 = 1/20th damage.
+        private static bool TakeBasicDamagePrefix(StatsManager __instance, ref DamageDescriptor dmgDesc, StatsManager attacker) {
             if (!ThePitState.IsAttackPossible) { return true; }
             if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
             if (attacker.ActorID == __instance.ActorID) { return false; }
             if (ThePitState.IsPlayerInvincible(__instance.ActorID)) { return false; }
             if (ThePitState.IsPlayerInvincible(attacker.ActorID)) { return false; }
+
+            var rdb = RewardDatabase.Instance;
+            if (rdb != null && __instance.Champion != null) {
+                int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
+                if (level > 1) {
+                    dmgDesc = dmgDesc.CloneAndMultiply(1f / level);
+                }
+            }
+
             return true;
         }
 
