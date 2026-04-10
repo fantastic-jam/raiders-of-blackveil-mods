@@ -16,6 +16,7 @@ namespace ThePit.Patch {
         private static MethodInfo HealthLifeStateSetter;
         internal static MethodInfo HealthInjurySetter;
         private static MethodInfo _cooldownTimerSetter;
+        private static MethodInfo _cooldownTimerGetter;
         private static MethodInfo _chargeActualSetter;
         internal static MethodInfo CombatTimePreciseSetter;
         internal static MethodInfo CombatTimeInSecSetter;
@@ -86,6 +87,11 @@ namespace ThePit.Patch {
             _cooldownTimerSetter = AccessTools.PropertySetter(typeof(ChampionAbilityWithCooldown), "CooldownTimer");
             if (_cooldownTimerSetter == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.CooldownTimer setter not found — ability lock on respawn inactive.");
+            }
+
+            _cooldownTimerGetter = AccessTools.PropertyGetter(typeof(ChampionAbilityWithCooldown), "CooldownTimer");
+            if (_cooldownTimerGetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.CooldownTimer getter not found — ult cooldown preservation on respawn inactive.");
             }
 
             _chargeActualSetter = AccessTools.PropertySetter(typeof(ChampionAbilityWithCooldown), "Charge_Actual");
@@ -269,11 +275,21 @@ namespace ThePit.Patch {
             if (_cooldownTimerSetter == null || _chargeActualSetter == null) { return; }
             var runner = champ.Runner;
             if (runner == null) { return; }
-            var timer = PausableTickTimer.CreateFromSeconds(runner, seconds);
+            var defaultTimer = PausableTickTimer.CreateFromSeconds(runner, seconds);
             foreach (var ability in new ChampionAbility[] { champ.Power, champ.Special, champ.Defensive, champ.Ultimate }) {
                 if (ability is not ChampionAbilityWithCooldown cd) { continue; }
+                var lockTimer = defaultTimer;
+                if (ability == champ.Ultimate && _cooldownTimerGetter != null) {
+                    var current = (PausableTickTimer)_cooldownTimerGetter.Invoke(cd, null);
+                    if (current.IsRunning) {
+                        float remaining = current.RemainingTime(runner);
+                        if (remaining > seconds) {
+                            lockTimer = PausableTickTimer.CreateFromSeconds(runner, remaining);
+                        }
+                    }
+                }
                 _chargeActualSetter.Invoke(cd, new object[] { (byte)0 });
-                _cooldownTimerSetter.Invoke(cd, new object[] { timer });
+                _cooldownTimerSetter.Invoke(cd, new object[] { lockTimer });
             }
         }
 
