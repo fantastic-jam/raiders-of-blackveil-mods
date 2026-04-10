@@ -1,10 +1,14 @@
 ﻿using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR.Game.Character;
+using RR.Game.Stats;
 using UnityEngine;
 
 namespace ThePit.Patch.Abilities {
     // Beatrice's Entangling Roots fires projectiles via ProjectileCaster. Same fix as BlazeAttackPatch.
+    // ApplyRoot prefix: expanding the caster to the Player layer lets the projectile hit Beatrice
+    // herself. TakeBasicDamage is already blocked globally, but GetRooted runs before it — so we
+    // guard ApplyRoot against self-hits and invincible targets explicitly.
     internal static class BeatriceEntanglingRootsPatch {
         private static readonly ConditionalWeakTable<BeatriceEntanglingRootAbility, PvpBeatriceEntanglingRootsAbility> _sidecars = new();
 
@@ -19,6 +23,13 @@ namespace ThePit.Patch.Abilities {
                 return;
             }
             harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(SpawnedPostfix)));
+
+            var applyRoot = AccessTools.Method(typeof(BeatriceEntanglingRootAbility), "ApplyRoot");
+            if (applyRoot != null) {
+                harmony.Patch(applyRoot, prefix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(ApplyRootPrefix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceEntanglingRootAbility.ApplyRoot not found — self-root on launch not blocked.");
+            }
         }
 
         internal static void ExpandAllCasters() {
@@ -35,5 +46,18 @@ namespace ThePit.Patch.Abilities {
 
         private static void SpawnedPostfix(BeatriceEntanglingRootAbility __instance) =>
             _sidecars.GetValue(__instance, inst => new PvpBeatriceEntanglingRootsAbility(inst)).TryExpand();
+
+        // Block ApplyRoot when the projectile hits Beatrice herself or an invincible champion.
+        // WitheredSeed hits are always allowed through (the seed revive logic must not be skipped).
+        private static bool ApplyRootPrefix(BeatriceEntanglingRootAbility __instance, Collider targetCol) {
+            if (!ThePitState.IsAttackPossible) { return true; }
+            if (targetCol.CompareTag("WitheredSeed")) { return true; }
+            if (!targetCol.TryGetComponent<StatsManager>(out var stats) || !stats.IsChampion) { return true; }
+            var caster = __instance.Stats;
+            if (caster != null && stats.ActorID == caster.ActorID) { return false; }
+            if (ThePitState.IsPlayerInvincible(stats.ActorID)) { return false; }
+            if (caster != null && ThePitState.IsPlayerInvincible(caster.ActorID)) { return false; }
+            return true;
+        }
     }
 }

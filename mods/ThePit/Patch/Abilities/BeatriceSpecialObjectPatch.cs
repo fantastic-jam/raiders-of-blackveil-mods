@@ -16,7 +16,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static bool FlowerEffectPrefix(BeatriceSpecialObject __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             return _sidecars.GetValue(__instance, inst => new PvpBeatriceSpecialObject(inst)).FlowerEffect();
         }
     }

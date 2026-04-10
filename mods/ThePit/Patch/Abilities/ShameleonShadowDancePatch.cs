@@ -30,7 +30,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static bool LetsDancePrefix(ShameleonShadowDanceAbility __instance, ref bool __result) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             (bool skip, bool result) = _sidecars.GetValue(__instance, inst => new PvpShameleonShadowDanceAbility(inst)).LetsDance();
             if (!skip) { return true; }
             __result = result;

@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR.Game.Character;
+using RR.Game.Enemies;
 
 namespace ThePit.Patch.Abilities {
     // NetworkChampionMinion.SelectEnemyTarget and GeneralAttackConditionsOk use
@@ -26,16 +27,31 @@ namespace ThePit.Patch.Abilities {
             if (generalConditions != null) {
                 harmony.Patch(generalConditions, postfix: new HarmonyMethod(typeof(ChampionMinionPatch), nameof(GeneralAttackConditionsPostfix)));
             }
+
+            var onDead = AccessTools.Method(typeof(NetworkChampionMinion), "OnDead");
+            if (onDead != null) {
+                harmony.Patch(onDead, prefix: new HarmonyMethod(typeof(ChampionMinionPatch), nameof(OnDeadPrefix)));
+            }
         }
 
         private static void SelectEnemyTargetPostfix(NetworkChampionMinion __instance, ref bool __result) {
-            if (__result || !ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (__result || !ThePitState.IsAttackPossible) { return; }
             __result = _sidecars.GetValue(__instance, inst => new PvpChampionMinion(inst)).SelectEnemyTarget();
         }
 
         private static void GeneralAttackConditionsPostfix(NetworkChampionMinion __instance, ref bool __result) {
-            if (__result || !ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (__result || !ThePitState.IsAttackPossible) { return; }
             __result = _sidecars.GetValue(__instance, inst => new PvpChampionMinion(inst)).GeneralAttackConditions();
+        }
+
+        // OnDead casts _targetCharacter to NetworkEnemyBase and passes it to RemoveMeAsTargetter.
+        // When we set _targetCharacter to a champion, the cast returns null and RemoveMeAsTargetter
+        // crashes on enemy.Stats. Clear the field before OnDead runs if it holds a non-enemy target.
+        private static void OnDeadPrefix(NetworkChampionMinion __instance) {
+            var target = PvpChampionMinion.TargetCharacterField?.GetValue(__instance);
+            if (target != null && target is not NetworkEnemyBase) {
+                PvpChampionMinion.TargetCharacterField.SetValue(__instance, null);
+            }
         }
     }
 }

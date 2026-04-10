@@ -14,7 +14,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpRhinoSpinAbility(RhinoSpinAbility inst) { _inst = inst; }
 
         internal void DoHit() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (_inst.hitCollider == null || DamagePerCycleField == null) { return; }
 

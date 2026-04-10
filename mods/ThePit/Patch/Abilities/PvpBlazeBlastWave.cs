@@ -26,7 +26,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpBlazeBlastWave(BlazeBlastWave inst) { _inst = inst; }
 
         internal void OnCollect() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (_inst.MainState != ChampionAbility.MainStateValues.InAction) { return; }
             if (ActionStarterTickGetter == null || CollectFramesField == null || CollectDistanceField == null) { return; }
@@ -51,7 +51,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         internal void OnPush() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (ActionStarterTickGetter == null || PushDelayFramesField == null ||
                 PushFramesField == null || PushWidthField == null || PushDistanceField == null) { return; }
@@ -92,7 +92,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         internal void OnDamage() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (DamageAfterPushField == null || _champTicks.Count == 0) { return; }
 

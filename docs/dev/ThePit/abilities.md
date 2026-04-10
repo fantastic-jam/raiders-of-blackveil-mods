@@ -111,7 +111,7 @@ Minions use `NetworkNPCBase.SelectEnemyTarget` which only scans `AllEnemies`. Tw
 |---|---|---|---|---|
 | Rhino | Sidecar (Pattern 1) | — | — | Earthquake, ShieldsUp, Spin, Stampede: Pattern 3 |
 | Blaze | Mask expansion (Pattern 2) | BlazeBlastWave: Pattern 3 | BlazeSpecialArea: Pattern 3 | — |
-| Beatrice | Mask expansion (Pattern 2) | EntanglingRoots: Pattern 2 | LotusFlower: Pattern 2 | SpecialObject: Pattern 3 |
+| Beatrice | Mask expansion (Pattern 2) | EntanglingRoots: Pattern 2 + ApplyRoot self-root guard | LotusFlower: Pattern 2 | SpecialObject: Pattern 3; WitheredSeedBrain: Pattern 2+5 |
 | Shameleon | ShameleonAttack: Pattern 3 | ShadowDance: Pattern 3 | TongueLeap: Pattern 3 | ShadowStrike: Pattern 3 |
 | ManEaterPlant | ManEaterPlantBrain: Pattern 3+5 | — | — | — |
 | SunStrike | — | SunStrikeArea: Pattern 3 | — | — |

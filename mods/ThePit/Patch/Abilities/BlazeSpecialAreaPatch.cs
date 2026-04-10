@@ -36,12 +36,12 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static bool UpdateAuraEffectPrefix(BlazeSpecialArea __instance, bool checkWhoIsInside) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             return _sidecars.GetValue(__instance, inst => new PvpBlazeSpecialArea(inst)).UpdateAuraEffect(checkWhoIsInside);
         }
 
         private static void FixedUpdateNetworkPostfix(BlazeSpecialArea __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             _sidecars.GetValue(__instance, inst => new PvpBlazeSpecialArea(inst)).OnFixedUpdate();
         }
     }

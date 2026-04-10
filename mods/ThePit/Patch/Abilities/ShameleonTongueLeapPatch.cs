@@ -25,12 +25,12 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static void FunPrefix(ShameleonTongueLeapAbility __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Prefix();
         }
 
         private static void FunPostfix(ShameleonTongueLeapAbility __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Postfix();
         }
     }

@@ -5,6 +5,7 @@ using RR.Game.Character;
 using RR.Game.Enemies;
 using RR.Game.Stats;
 using RR.Level;
+using RR.Utility;
 using ThePit.Patch.Abilities;
 
 namespace ThePit.Patch {
@@ -12,6 +13,8 @@ namespace ThePit.Patch {
         internal static FieldInfo HealthStatsField;
         private static MethodInfo HealthLifeStateSetter;
         internal static MethodInfo HealthInjurySetter;
+        private static MethodInfo _cooldownTimerSetter;
+        private static MethodInfo _chargeActualSetter;
 
         private const string SlashBashScene = "Assets/Scenes/01_Meat_Factory_Scenes/MF_Boss_SlashBash.unity";
 
@@ -76,6 +79,16 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: Health.Injury setter not found — injury will not clear on respawn.");
             }
 
+            _cooldownTimerSetter = AccessTools.PropertySetter(typeof(ChampionAbilityWithCooldown), "CooldownTimer");
+            if (_cooldownTimerSetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.CooldownTimer setter not found — ability lock on respawn inactive.");
+            }
+
+            _chargeActualSetter = AccessTools.PropertySetter(typeof(ChampionAbilityWithCooldown), "Charge_Actual");
+            if (_chargeActualSetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.Charge_Actual setter not found — ability lock on respawn inactive.");
+            }
+
             // --- Skip KnockedOut state: champions die immediately, no teammate-revive window ---
             // --- Kill tracking + respawn trigger ---
             var die = AccessTools.Method(typeof(Health), "Die");
@@ -137,6 +150,7 @@ namespace ThePit.Patch {
             BeatriceLotusFlowerPatch.Apply(harmony);
             BeatriceSpecialObjectPatch.Apply(harmony);
             ManEaterPlantBrainPatch.Apply(harmony);
+            WitheredSeedBrainPatch.Apply(harmony);
             ChampionMinionPatch.Apply(harmony);
             AreaCharacterSelectorPatch.Apply(harmony);
             RhinoAttackPatch.Apply(harmony);
@@ -201,6 +215,24 @@ namespace ThePit.Patch {
 
             ThePitMod.PublicLogger.LogInfo("ThePit: patch applied.");
             return true;
+        }
+
+        // ── Ability cooldown lock ────────────────────────────────────────────────
+
+        // Set Power/Special/Defensive/Ultimate into cooldown for `seconds` so the
+        // skill bar shows the cooldown timer during the invincibility window.
+        // FixedUpdateNetwork auto-restores Charge_Actual when the timer expires —
+        // no EnableAllAbilities() needed.
+        internal static void LockChampionAbilitiesFor(NetworkChampionBase champ, float seconds) {
+            if (_cooldownTimerSetter == null || _chargeActualSetter == null) { return; }
+            var runner = champ.Runner;
+            if (runner == null) { return; }
+            var timer = PausableTickTimer.CreateFromSeconds(runner, seconds);
+            foreach (var ability in new ChampionAbility[] { champ.Power, champ.Special, champ.Defensive, champ.Ultimate }) {
+                if (ability is not ChampionAbilityWithCooldown cd) { continue; }
+                _chargeActualSetter.Invoke(cd, new object[] { (byte)0 });
+                _cooldownTimerSetter.Invoke(cd, new object[] { timer });
+            }
         }
 
         // ── Entry point ─────────────────────────────────────────────────────────
@@ -340,12 +372,24 @@ namespace ThePit.Patch {
 
         // ── Door suppression in SlashBash room ──────────────────────────────────
 
-        // Allow DoorManager.Activate in the start room (MiniBossRedirected=false) so the
-        // grace-period call opens the MiniBoss door. Block it once we're in SlashBash so
-        // no door UI ever appears there — the match ends via ReturnToLobby directly.
+        // Allow DoorManager.Activate only when:
+        //   • not in draft mode (pass-through)
+        //   • match ended — door activates in the arena as the visual match-over signal
+        //   • in draft mode, start room (MiniBossRedirected=false), and chest phase is over
+        // Block during ChestPhaseActive so the game can't open the door between rounds.
+        // Block in the arena mid-match (MiniBossRedirected=true, !MatchEnded) so no door
+        // UI appears there while fighting.
         private static bool DoorActivatePrefix() {
             if (!ThePitState.IsDraftMode) {
                 return true;
+            }
+
+            if (ThePitState.MatchEnded) {
+                return true;
+            }
+
+            if (ThePitState.ChestPhaseActive) {
+                return false;
             }
 
             return !ThePitState.MiniBossRedirected;
@@ -356,7 +400,8 @@ namespace ThePit.Patch {
         // Block the wave director from activating (prevents dynamic enemy spawns).
         private static bool EnemySpawnActivatePrefix() => !ThePitState.IsDraftMode;
 
-        // Despawn any pre-placed enemies (Slash & Bash are pre-placed in the MiniBoss scene).
+        // Despawn any pre-placed enemies (Slash & Bash are pre-placed in the MiniBoss scene)
+        // and deactivate all traps so the arena is a clean PvP space.
         private static void EnemySpawnSceneInitPostfix(EnemySpawnManager __instance) {
             if (!ThePitState.IsDraftMode) {
                 return;
@@ -372,18 +417,21 @@ namespace ThePit.Patch {
                     __instance.Runner.Despawn(enemy.Object);
                 }
             }
+
+            foreach (var trap in TrapBase.AllTraps) {
+                trap?.TurnOffTrap();
+            }
         }
 
         // ── Death screen suppression ─────────────────────────────────────────────
 
-        // Block the "all players dead" game-over sequence while the match is ongoing
-        // so the respawn coroutine can resurrect the player without the run ending.
+        // Block the "all players dead" game-over sequence while IsDraftMode is true —
+        // both during the match (so respawn can fire) and after MatchEnded (so the
+        // death cutscene doesn't fire when we kill losers, bypassing our 20s delay).
+        // ReturnToLobbyCoroutine sets IsActive=false before calling RPC_Handle_ReturnToLobby,
+        // which makes IsDraftMode false and lets the prefix become a no-op.
         private static bool OutroActivatePrefix(OutroManager.OutroReason reason) {
             if (!ThePitState.IsDraftMode) {
-                return true;
-            }
-
-            if (ThePitState.MatchEnded) {
                 return true;
             }
 
@@ -399,7 +447,7 @@ namespace ThePit.Patch {
         //   • Damage from a respawn-invincible attacker (in-flight projectiles fired
         //     before CanActivate was blocked still reach targets)
         private static bool TakeBasicDamagePrefix(StatsManager __instance, StatsManager attacker) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
             if (attacker.ActorID == __instance.ActorID) { return false; }
             if (ThePitState.IsPlayerInvincible(__instance.ActorID)) { return false; }
@@ -413,7 +461,7 @@ namespace ThePit.Patch {
         // invincibility window. Prefix returns false to skip the original and sets
         // __result = false so no cooldown is consumed.
         private static bool CanActivatePrefix(ChampionAbility __instance, ref bool __result) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             var stats = __instance.Stats;
             if (stats == null || !stats.IsChampion) { return true; }
             if (!ThePitState.IsPlayerInvincible(stats.ActorID)) { return true; }
@@ -431,6 +479,7 @@ namespace ThePit.Patch {
             if (!ThePitState.IsDraftMode) { return; }
             ThePitState.IsActive = false;
             ThePitState.ResetMatchState();
+            MatchController.Stop();
         }
 
         // ── Cross-champion heal prevention ───────────────────────────────────────
@@ -438,7 +487,7 @@ namespace ThePit.Patch {
         // In co-op, champion heals and heal-area abilities affect all players. In ThePit
         // PvP mode only the caster should receive their own heals — never an opponent.
         private static bool AddHealthPrefix(Health __instance, StatsManager healer) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return true; }
+            if (!ThePitState.IsAttackPossible) { return true; }
             if (healer == null || !healer.IsChampion) { return true; }
             if (HealthStatsField == null) { return true; }
             var targetStats = (StatsManager)HealthStatsField.GetValue(__instance);

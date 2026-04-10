@@ -15,7 +15,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpRhinoStampedeAbility(RhinoStampedeAbility inst) { _inst = inst; }
 
         internal void DetectEnemies() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (_inst.grabCollider == null) { return; }
 

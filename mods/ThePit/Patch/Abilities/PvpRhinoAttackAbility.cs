@@ -18,7 +18,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         internal void DoHit() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
 
             bool isLast = PvpDetector.IsLastComboPhase(_inst);

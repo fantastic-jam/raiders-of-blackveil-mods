@@ -17,7 +17,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpRhinoEarthquakeAbility(RhinoEarthquakeAbility inst) { _inst = inst; }
 
         internal void OnFixedUpdate() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (WavePosGetter == null || WaveStartPosField == null ||
                 WaveDirectionField == null || HittedEnemiesField == null) { return; }

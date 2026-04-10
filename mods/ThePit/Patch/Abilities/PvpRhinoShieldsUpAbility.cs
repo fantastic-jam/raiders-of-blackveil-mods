@@ -15,7 +15,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpRhinoShieldsUpAbility(RhinoShieldsUpAbility inst) { _inst = inst; }
 
         internal void HitEnemies() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (_inst.dealDamageCollider == null || BaseDamageField == null) { return; }
 

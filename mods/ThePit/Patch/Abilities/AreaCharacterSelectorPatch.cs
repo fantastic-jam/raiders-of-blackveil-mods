@@ -54,7 +54,7 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static void SelectCandidatesPostfix(AreaCharacterSelector __instance, StatsManager temporaryOwner) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (__instance.Runner?.IsServer != true) { return; }
 
             bool actOnEnemies = (bool)_actOnEnemiesField.GetValue(__instance);

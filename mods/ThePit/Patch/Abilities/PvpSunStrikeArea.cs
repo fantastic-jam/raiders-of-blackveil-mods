@@ -9,7 +9,7 @@ namespace ThePit.Patch.Abilities {
         internal PvpSunStrikeArea(SunStrikeArea inst) { _inst = inst; }
 
         internal void DamageCheck() {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             if (_inst.Runner?.IsServer != true) { return; }
             if (_fired) { return; }
             _fired = true;

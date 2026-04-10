@@ -25,6 +25,13 @@ namespace ThePit {
         // Set true when the match timer fires — suppresses respawn on subsequent deaths.
         internal static bool MatchEnded { get; set; }
 
+        // Set true during the initial perk chest phase — blocks door activation until all
+        // chest rounds complete and PerkDripController opens the door manually.
+        internal static bool ChestPhaseActive { get; set; }
+
+        // True while PvP combat should be active: mod on, in the arena, timer still running.
+        internal static bool IsAttackPossible => IsDraftMode && ArenaEntered && !MatchEnded;
+
         // ActorID → Time.time deadline. Blocks all incoming damage until deadline passes.
         internal static Dictionary<int, float> InvincibleUntil { get; } = new();
 
@@ -39,6 +46,7 @@ namespace ThePit {
             MiniBossRedirected = false;
             ArenaEntered = false;
             MatchEnded = false;
+            ChestPhaseActive = false;
             InvincibleUntil.Clear();
             KillCounts.Clear();
             ShameleonShadowDancePatch.Reset();
@@ -50,6 +58,7 @@ namespace ThePit {
             BeatriceAttackPatch.ResetAllCasters();
             BeatriceEntanglingRootsPatch.ResetAllCasters();
             BeatriceLotusFlowerPatch.ResetAllCasters();
+            WitheredSeedBrainPatch.ResetAllCasters();
         }
     }
 }

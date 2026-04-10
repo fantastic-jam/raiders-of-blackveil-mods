@@ -33,12 +33,12 @@ namespace ThePit.Patch.Abilities {
         }
 
         private static void AimPostfix(ManEaterPlantBrain __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             _sidecars.GetValue(__instance, inst => new PvpManEaterPlantBrain(inst)).Aim();
         }
 
         private static void HitEnemiesInArchPostfix(ManEaterPlantBrain __instance) {
-            if (!ThePitState.IsDraftMode || !ThePitState.ArenaEntered) { return; }
+            if (!ThePitState.IsAttackPossible) { return; }
             _sidecars.GetValue(__instance, inst => new PvpManEaterPlantBrain(inst)).HitEnemiesInArch();
         }
     }

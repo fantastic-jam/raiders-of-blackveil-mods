@@ -3,13 +3,14 @@ using RR;
 using RR.Game;
 using RR.Game.Perk;
 using RR.Level;
+using RR.Utility;
 using UnityEngine;
 
 namespace ThePit {
     internal class PerkDripController : MonoBehaviour {
         private const float SceneInitDelaySecs = 2f;
         private const int MaxPerksPerPlayer = 20;
-        private const int InitialPerkCount = 3;
+        private const int InitialChestRounds = 6;
         private const int MaxXpLevel = 20;
 
         private static float PerkIntervalSeconds =>
@@ -32,11 +33,13 @@ namespace ThePit {
             ctrl.StartCoroutine(ctrl.XpCoroutine());
         }
 
+        private bool _chestRoundDone;
+
         private IEnumerator PerkCoroutine() {
-            // Wait for RewardManager.SceneInit and spawn teleport before dropping.
+            // Wait for RewardManager.SceneInit and spawn teleport before starting chests.
             yield return new WaitForSeconds(SceneInitDelaySecs);
-            GrantPerksToAllPlayers(InitialPerkCount, Rarity.Common);
-            // Open door immediately — players take it when ready (acts as ready vote).
+            // Run 6 sequential perk chest rounds; door opens only after all are done.
+            yield return StartCoroutine(RunInitialChestRounds());
             DoorManager.Instance?.Activate(string.Empty);
             // Wait until arena is entered before starting the periodic drip.
             yield return new WaitUntil(() => ThePitState.ArenaEntered || ThePitState.MatchEnded);
@@ -47,6 +50,54 @@ namespace ThePit {
                 yield return new WaitForSeconds(PerkIntervalSeconds);
             }
             Destroy(gameObject);
+        }
+
+        private IEnumerator RunInitialChestRounds() {
+            var shrine = ShrineHandler.Instance;
+            if (shrine == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShrineHandler not found — granting perks directly.");
+                GrantPerksToAllPlayers(InitialChestRounds, Rarity.Common);
+                yield break;
+            }
+
+            ThePitState.ChestPhaseActive = true;
+            var runner = PlayerManager.Instance.Runner;
+            GameEvents.AddListener(
+                gameObject,
+                GameEvents.GetGameEvent("LevelEvent_ShrineFinished"),
+                OnShrineFinished);
+
+            for (int round = 0; round < InitialChestRounds; round++) {
+                if (round > 0) {
+                    // ShrineHandler._state stays Active after CheckFinished — only SceneExit
+                    // resets it to Finished, which is the state Activate() requires.
+                    shrine.SceneExit();
+                    // Despawn any shrine items that weren't already auto-cleaned by the game.
+                    foreach (var s in FindObjectsOfType<ShrineItem>()) {
+                        if (s?.Object != null && s.Object.IsValid) {
+                            runner.Despawn(s.Object);
+                        }
+                    }
+                    yield return null; // Let despawn propagate.
+                }
+
+                _chestRoundDone = false;
+                shrine.Activate(string.Empty, LevelType.None);
+                yield return new WaitUntil(() => _chestRoundDone);
+            }
+
+            // Despawn last round's shrines.
+            foreach (var s in FindObjectsOfType<ShrineItem>()) {
+                if (s?.Object != null && s.Object.IsValid) {
+                    runner.Despawn(s.Object);
+                }
+            }
+
+            ThePitState.ChestPhaseActive = false;
+        }
+
+        private void OnShrineFinished() {
+            _chestRoundDone = true;
         }
 
         // Rarity weights that escalate with each arena perk tick:

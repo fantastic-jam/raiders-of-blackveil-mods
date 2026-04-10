@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using RR;
 using RR.Game;
+using RR.Level;
 using ThePit.Patch;
 using ThePit.Patch.Abilities;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace ThePit {
         private const float ArenaGracePeriodSeconds = 5f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
-        private const float EndSequenceDelaySeconds = 10f;
+        private const float EndSequenceDelaySeconds = 20f;
 
         private static MatchController _instance;
 
@@ -31,13 +32,58 @@ namespace ThePit {
             BeatriceAttackPatch.ExpandAllCasters();
             BeatriceEntanglingRootsPatch.ExpandAllCasters();
             BeatriceLotusFlowerPatch.ExpandAllCasters();
+            TeleportAllToCenter();
             _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
             _instance.StartCoroutine(_instance.MatchTimerCoroutine());
+        }
+
+        private static void TeleportAllToCenter() {
+            // DoorSpawnPoint is where the floor pit door lives in the SlashBash arena.
+            // Fall back to averaging player spawn points if the object is absent.
+            Vector3 center;
+            var doorGo = GameObject.Find("DoorSpawnPoint");
+            if (doorGo != null) {
+                center = doorGo.transform.position;
+            } else {
+                var sum = Vector3.zero;
+                int count = 0;
+                for (int i = 0; i < 3; i++) {
+                    var sp = GameObject.Find($"PlayerSpawnPoints/PlayerSpawnPoint{i}");
+                    if (sp != null) { sum += sp.transform.position; count++; }
+                }
+                if (count == 0) { return; }
+                center = sum / count;
+            }
+
+            var players = PlayerManager.Instance.GetPlayers();
+            int n = players.Count;
+            if (n == 0) { return; }
+
+            const float radius = 2.5f;
+            for (int i = 0; i < n; i++) {
+                var player = players[i];
+                if (player.PlayableChampion == null) { continue; }
+                float angle = Mathf.PI * 2f / n * i;
+                var offset = new Vector3(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius);
+                var pos = center + offset;
+                var lookDir = center - pos;
+                lookDir.y = 0f;
+                var rot = lookDir.sqrMagnitude > 0.001f ? Quaternion.LookRotation(lookDir) : Quaternion.identity;
+                player.PlayableChampion.TeleportTo(pos, rot);
+            }
         }
 
         internal static void TriggerRespawn(int victimActorId) {
             if (_instance == null) { return; }
             _instance.StartCoroutine(_instance.RespawnCoroutine(victimActorId));
+        }
+
+        // Called on manual lobby return — stops the timer and all coroutines.
+        internal static void Stop() {
+            if (_instance == null) { return; }
+            _instance.StopAllCoroutines();
+            Destroy(_instance.gameObject);
+            _instance = null;
         }
 
         // ── Arena grace period ───────────────────────────────────────────────────
@@ -92,6 +138,8 @@ namespace ThePit {
                 }
             }
 
+            // Open the arena floor door as the visual match-over signal.
+            DoorManager.Instance?.Activate(string.Empty);
             StartCoroutine(ReturnToLobbyCoroutine());
         }
 
@@ -138,6 +186,7 @@ namespace ThePit {
             ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
             champ.Stats.Health.Resurrect(100f);
             GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
+            ThePitPatch.LockChampionAbilitiesFor(champ, RespawnInvincibilitySeconds);
 
             float deadline = Time.time + RespawnInvincibilitySeconds;
             ThePitState.InvincibleUntil[victimActorId] = deadline;
