@@ -9,10 +9,11 @@ C# BepInEx 5 mods for the game **Raiders of Blackveil**. Each mod is a separate 
 ```bash
 pnpm run build                                        # build all mods
 pnpm run deploy -- --mod [ModName]                    # build + copy to local game
-pnpm run release -- --mod [ModName] --version 1.2.3  # full release pipeline
-pnpm run release -- --mod [ModName] --bump patch      # auto-increment patch/minor/major
-pnpm run release -- --mod [ModName] --version 1.2.3 --dry-run   # preview only
-pnpm run release -- --mod [ModName] --version 1.2.3 --skip-push --skip-release  # local only
+pnpm run pre-release -- --mod [ModName] --bump patch  # bump version + write CHANGELOG.md (no commit)
+pnpm run pre-release -- --mod [ModName] --version 1.2.3
+pnpm run release -- --mod [ModName]                   # commit version+changelog, tag, push, GH release
+pnpm run release -- --mod [ModName] --dry-run         # preview release without modifying anything
+pnpm run release -- --mod [ModName] --skip-push --skip-release  # local only
 pnpm run setup                                        # dev environment setup
 ```
 
@@ -75,10 +76,10 @@ mods/[ModName]/
 
 These are enforced on every task — no exceptions:
 
-1. **Patch methods are one-liners.** All logic goes in a Controller / Sidecar / Orchestrator class. See [`docs/patterns/patch-extraction.md`](docs/patterns/patch-extraction.md).
-2. **Reflection handles resolved once in `Apply()`, stored as `private static` fields.** Never inline `AccessTools.Field/Method` inside a patch method. See [`docs/patterns/harmony-patching.md`](docs/patterns/harmony-patching.md).
-3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TSidecar>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/patterns/sidecar.md`](docs/patterns/sidecar.md).
-4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/patterns/networking.md`](docs/patterns/networking.md).
+1. **Patch methods are one-liners.** All logic goes in a Controller / Sidecar / Orchestrator class. See [`docs/dev/patterns/patch-extraction.md`](docs/dev/patterns/patch-extraction.md).
+2. **Reflection handles resolved once in `Apply()`, stored as `private static` fields.** Never inline `AccessTools.Field/Method` inside a patch method. See [`docs/dev/patterns/harmony-patching.md`](docs/dev/patterns/harmony-patching.md).
+3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TSidecar>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/dev/patterns/sidecar.md`](docs/dev/patterns/sidecar.md).
+4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md).
 5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
 
 ## Harmony patches
@@ -98,17 +99,17 @@ Focused pattern docs (with code examples):
 
 | Topic | File |
 |---|---|
-| Harmony patching mechanics, `Apply()`, naming, coroutines | [`docs/patterns/harmony-patching.md`](docs/patterns/harmony-patching.md) |
-| Patch extraction — Controllers, Orchestrators, one-liner rule | [`docs/patterns/patch-extraction.md`](docs/patterns/patch-extraction.md) |
-| Sidecar pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/patterns/sidecar.md`](docs/patterns/sidecar.md) |
-| Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/patterns/networking.md`](docs/patterns/networking.md) |
-| State management, `IModRegistrant`, `libs/` boundary | [`docs/patterns/state.md`](docs/patterns/state.md) |
+| Harmony patching mechanics, `Apply()`, naming, coroutines | [`docs/dev/patterns/harmony-patching.md`](docs/dev/patterns/harmony-patching.md) |
+| Patch extraction — Controllers, Orchestrators, one-liner rule | [`docs/dev/patterns/patch-extraction.md`](docs/dev/patterns/patch-extraction.md) |
+| Sidecar pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/dev/patterns/sidecar.md`](docs/dev/patterns/sidecar.md) |
+| Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md) |
+| State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](docs/dev/patterns/state.md) |
 
 ThePit-specific:
 
 | Topic | File |
 |---|---|
-| Ability PvP coverage — which pattern to use per ability type | [`docs/ThePit/abilities.md`](docs/ThePit/abilities.md) |
+| Ability PvP coverage — which pattern to use per ability type | [`docs/dev/ThePit/abilities.md`](docs/dev/ThePit/abilities.md) |
 
 ## Localization
 
@@ -120,13 +121,17 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 
 ## Releases
 
-`tools/release.mts` flow: bump `Version` constant → build → package ZIP → `git commit` + tag → push → GitHub release via `@octokit/rest`.
+Two-step flow:
+
+1. `pre-release` — bumps `Version` constant in `[ModName]Mod.cs`, writes `mods/[ModName]/CHANGELOG.md` from git log. **No commit.** Review and edit `CHANGELOG.md` before proceeding.
+2. `release` — validates dirty files (only version file + CHANGELOG.md may be dirty), stages and commits both, packages ZIP, creates git tag, pushes, creates GitHub release via `@octokit/rest`.
 
 - Tag format: `[ModName]-v[Version]`
 - ZIP structure: `plugins/fantastic-jam-[ModName]/`
-- Changelog is built from `git log --grep=[ModName]` since the previous mod tag — **commit messages must contain the mod name** for changelog filtering to work
-- Use `--dry-run` to preview the full plan including the generated changelog before touching anything
+- Changelog source: `mods/[ModName]/CHANGELOG.md` if present, otherwise auto-generated from `git log --grep=[ModName]`
+- **Commit messages must contain the mod name** for changelog filtering to work
+- Use `--dry-run` on `release` to preview the full plan without modifying anything
 
 ## Adding a mod
 
-Look at create_mod.md in docs folder
+Look at [`docs/dev/create_mod.md`](docs/dev/create_mod.md)

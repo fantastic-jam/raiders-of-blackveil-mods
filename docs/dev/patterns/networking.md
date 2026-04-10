@@ -35,7 +35,7 @@ The `?` null-propagation handles the case where the runner has not yet been assi
 
 ## Game mode is Host — `IsServer` is the host check
 
-Fusion `GameMode.Host` is used. `IsServer` returns true on the host. `IsSharedModeMasterClient` is always false. There is no dedicated server. See `docs/base_game/fusion_networking.md` for detail.
+Fusion `GameMode.Host` is used. `IsServer` returns true on the host. `IsSharedModeMasterClient` is always false. There is no dedicated server. See `docs/dev/base_game/fusion_networking.md` for detail.
 
 ## `PlayerManager.Instance` null-check
 
