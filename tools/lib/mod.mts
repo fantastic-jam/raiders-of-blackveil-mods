@@ -97,6 +97,10 @@ export function projectVersionFile(name: string, kind: ProjectKind): string {
   return kind === 'lib' ? libAssemblyInfoFile(name) : modSourceFile(name)
 }
 
+export function projectChangelogFile(name: string, kind: ProjectKind): string {
+  return path.join(kind === 'lib' ? libDir(name) : modDir(name), 'CHANGELOG.md')
+}
+
 export function readProjectVersion(name: string, kind: ProjectKind): string {
   return kind === 'lib' ? readLibVersion(name) : readModVersion(name)
 }

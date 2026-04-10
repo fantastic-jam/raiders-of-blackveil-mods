@@ -1,5 +1,17 @@
-import { changelog, latestModTag } from './lib/git.mts'
-import { listLibs, listMods, readLibVersion, readModVersion } from './lib/mod.mts'
+import fs from 'node:fs'
+import { listLibs, listMods, projectChangelogFile, readProjectVersion } from './lib/mod.mts'
+
+function readUnreleased(clFile: string): string {
+  if (!fs.existsSync(clFile)) return ''
+  const content = fs.readFileSync(clFile, 'utf8')
+  const start = content.indexOf('## [Unreleased]')
+  if (start === -1) return ''
+  const afterHeading = content.indexOf('\n', start) + 1
+  const nextSection = content.indexOf('\n## ', afterHeading)
+  const section =
+    nextSection === -1 ? content.slice(afterHeading) : content.slice(afterHeading, nextSection)
+  return section.trim()
+}
 
 const projects = [
   ...listMods().map((name) => ({ name, kind: 'mod' as const })),
@@ -8,16 +20,14 @@ const projects = [
 let found = false
 
 for (const { name, kind } of projects) {
-  const lastTag = latestModTag(name)
-  const log = changelog(name, lastTag)
+  const unreleased = readUnreleased(projectChangelogFile(name, kind))
 
-  if (log === 'No changes recorded.') continue
+  if (!unreleased) continue
 
   found = true
-  const version = kind === 'lib' ? readLibVersion(name) : readModVersion(name)
-  const tagLabel = lastTag ?? '(no tag yet)'
-  console.log(`\n── ${name} v${version}  [since ${tagLabel}] ──`)
-  console.log(log.replace(/^## Changelog\n\n/, ''))
+  const version = readProjectVersion(name, kind)
+  console.log(`\n── ${name} v${version} ──`)
+  console.log(unreleased)
 }
 
 if (!found) {

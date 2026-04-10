@@ -1,15 +1,13 @@
 import 'dotenv/config'
 import { execSync } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
-import semver from 'semver'
 import {
-  changelog,
   commit,
   createTag,
   currentBranch,
-  isWorkingTreeClean,
-  latestModTag,
+  dirtyFiles,
   push,
   remoteTagExists,
   stageFile,
@@ -21,9 +19,9 @@ import {
   REPO_ROOT,
   listLibs,
   listMods,
+  projectChangelogFile,
   projectVersionFile,
   readProjectVersion,
-  writeProjectVersion,
 } from './lib/mod.mts'
 
 const { values } = parseArgs({
@@ -32,8 +30,6 @@ const { values } = parseArgs({
     mod: { type: 'string', short: 'm' },
     lib: { type: 'string', short: 'l' },
     all: { type: 'boolean' },
-    version: { type: 'string', short: 'v' },
-    bump: { type: 'string', short: 'b' },
     'skip-push': { type: 'boolean' },
     'skip-release': { type: 'boolean' },
     'dry-run': { type: 'boolean' },
@@ -47,7 +43,7 @@ const allLibs = listLibs()
 
 if (!modName && !libName && !all) {
   console.error(
-    `Usage: release --mod <name> | --lib <name> | --all [--version 1.2.3 | --bump major|minor|patch] [--dry-run] [--skip-push] [--skip-release]
+    `Usage: release --mod <name> | --lib <name> | --all [--dry-run] [--skip-push] [--skip-release]
   Mods: ${allMods.join(', ')}
   Libs: ${allLibs.join(', ')}`,
   )
@@ -66,20 +62,10 @@ if (libName && !allLibs.includes(libName)) {
   process.exit(1)
 }
 
-const versionArg = values.version
-const bumpArg = values.bump
 const dryRun = values['dry-run'] ?? false
 let skipPush = values['skip-push'] ?? false
 let skipRelease = values['skip-release'] ?? false
 
-if (versionArg && bumpArg) {
-  console.error('Cannot use both --version and --bump.')
-  process.exit(1)
-}
-if (!versionArg && !bumpArg) {
-  console.error('Either --version or --bump must be specified.')
-  process.exit(1)
-}
 if (dryRun) {
   skipPush = true
   skipRelease = true
@@ -99,12 +85,8 @@ if (branch !== 'main') {
   console.error(`Releases must be from main. Current branch: ${branch}`)
   process.exit(1)
 }
-if (!dryRun && !isWorkingTreeClean()) {
-  console.error('Working tree is not clean. Commit or stash changes first.')
-  process.exit(1)
-}
 
-// Build the list of projects to release: [name, kind]
+// Build the list of projects to release
 const projects: Array<[string, ProjectKind]> = []
 if (all) {
   for (const m of allMods) projects.push([m, 'mod'])
@@ -115,32 +97,41 @@ if (all) {
   projects.push([libName, 'lib'])
 }
 
+// Build the set of files that are allowed to be dirty (pre-release artifacts)
+function toRelative(absPath: string): string {
+  return path.relative(REPO_ROOT, absPath).replace(/\\/g, '/')
+}
+
+const allowedDirty = new Set<string>()
+for (const [name, kind] of projects) {
+  allowedDirty.add(toRelative(projectVersionFile(name, kind)))
+  allowedDirty.add(toRelative(projectChangelogFile(name, kind)))
+}
+
+// Validate dirty files
+const dirty = dirtyFiles()
+const unexpected = dirty.filter((f) => !allowedDirty.has(f))
+if (unexpected.length > 0) {
+  console.error(
+    `Unexpected dirty files — commit or stash these before releasing:\n${unexpected.map((f) => `  ${f}`).join('\n')}`,
+  )
+  process.exit(1)
+}
+
 async function runRelease(name: string, kind: ProjectKind): Promise<void> {
-  const currentVersion = readProjectVersion(name, kind)
+  const version = readProjectVersion(name, kind)
 
-  let version: string
-  if (bumpArg) {
-    const bumped = semver.inc(currentVersion, bumpArg as semver.ReleaseType)
-    if (!bumped) {
-      console.error(`Could not bump version "${currentVersion}" by "${bumpArg}" for ${name}`)
-      process.exit(1)
-    }
-    version = bumped
-  } else if (versionArg) {
-    version = versionArg
-  } else {
-    throw new Error('--version or --bump is required') // unreachable
-  }
-
-  if (!semver.valid(version)) {
-    console.error(`Invalid version "${version}". Expected SemVer (e.g. 1.2.0).`)
+  if (!version.match(/^\d+\.\d+\.\d+/)) {
+    console.error(
+      `Version "${version}" in ${projectVersionFile(name, kind)} does not look like a valid version. Did you run pre-release?`,
+    )
     process.exit(1)
   }
 
   const tag = `${name}-v${version}`
   const assetPath = path.join(REPO_ROOT, 'dist', `${name}-${version}.zip`)
-  const prevTag = latestModTag(name)
   const versionFile = projectVersionFile(name, kind)
+  const clFile = projectChangelogFile(name, kind)
 
   if (tagExists(tag)) {
     console.error(`Tag already exists locally: ${tag}`)
@@ -151,7 +142,15 @@ async function runRelease(name: string, kind: ProjectKind): Promise<void> {
     process.exit(1)
   }
 
-  const notes = changelog(name, prevTag)
+  if (!fs.existsSync(clFile)) {
+    console.error(`No CHANGELOG.md for ${name}. Use fchange to record entries before releasing.`)
+    process.exit(1)
+  }
+  const notes = execSync(`frelease --pkg ${name} changelog`, {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  }).trim()
+
   const packageFlag = kind === 'lib' ? `--lib ${name}` : `--mod ${name}`
 
   if (dryRun) {
@@ -159,21 +158,21 @@ async function runRelease(name: string, kind: ProjectKind): Promise<void> {
 === DRY RUN - nothing will be modified ===
 
   ${kind === 'lib' ? 'Lib' : 'Mod'}:      ${name}
-  Version:    ${version}
+  Version:    ${version}  (read from ${versionFile})
   Tag:        ${tag}
   Branch:     ${branch}
-  Prev tag:   ${prevTag ?? '(none - first release)'}
   Asset:      ${assetPath}
+  Notes from: ${clFile}
 
   Steps that would run:
-    1. Bump version in ${versionFile}
-    2. Build and package -> ${assetPath}
+    1. Build and package → ${assetPath}
+    2. git add ${toRelative(versionFile)} ${toRelative(clFile)}
     3. git commit -m "chore(${name}): release v${version}"
     4. git tag -a ${tag}
     5. git push origin ${branch}
     6. git push origin ${tag}
     7. Create GitHub release ${tag}
-    8. Upload ${assetPath}
+    8. Upload ${path.basename(assetPath)}
 
   Release notes:
 ${notes}
@@ -181,20 +180,14 @@ ${notes}
     return
   }
 
-  writeProjectVersion(name, kind, version)
-
-  try {
-    console.log(`Packaging ${name} ${version}...`)
-    execSync(`node --experimental-strip-types tools/package.mts ${packageFlag}`, {
-      cwd: REPO_ROOT,
-      stdio: 'inherit',
-    })
-  } catch (err) {
-    writeProjectVersion(name, kind, currentVersion)
-    throw err
-  }
+  console.log(`Packaging ${name} ${version}...`)
+  execSync(`node --experimental-strip-types tools/package.mts ${packageFlag}`, {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+  })
 
   stageFile(versionFile)
+  stageFile(clFile)
   commit(`chore(${name}): release v${version}`)
   createTag(tag)
 
@@ -204,7 +197,7 @@ ${notes}
     await createRelease(tag, `${name} v${version}`, notes, assetPath)
   }
 
-  console.log(`Release completed for ${tag}`)
+  console.log(`Released ${tag}`)
 }
 
 for (const [name, kind] of projects) {

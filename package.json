@@ -21,10 +21,30 @@
     "format": "prettier --write tools/",
     "format:check": "prettier --check tools/",
     "clean": "node --experimental-strip-types tools/clean.mts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "pre-release": "node --experimental-strip-types tools/pre-release.mts",
+    "init-changelogs": "node --experimental-strip-types tools/init-changelogs.mts"
+  },
+  "fchange": {
+    "folders": [
+      "mods",
+      "libs"
+    ],
+    "types": [
+      "fix",
+      "new",
+      "chore",
+      "tidy"
+    ],
+    "scopes": [
+      "Repo",
+      "All"
+    ],
+    "commitFormat": "{type}({pkg}): {message}"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@fantastic-jam/fchange": "latest",
     "@octokit/rest": "latest",
     "@types/archiver": "latest",
     "@types/fs-extra": "latest",

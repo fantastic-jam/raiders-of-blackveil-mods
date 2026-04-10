@@ -17,46 +17,21 @@ export function isWorkingTreeClean(): boolean {
   return git(['status', '--porcelain']) === ''
 }
 
+export function dirtyFiles(): string[] {
+  const out = git(['status', '--porcelain'])
+  if (!out) return []
+  return out
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.slice(3).trim().replace(/\\/g, '/'))
+}
+
 export function tagExists(tag: string): boolean {
   return git(['tag', '-l', tag]) === tag
 }
 
 export function remoteTagExists(tag: string): boolean {
   return git(['ls-remote', '--tags', 'origin', `refs/tags/${tag}`]) !== ''
-}
-
-export function latestModTag(modName: string): string | null {
-  const out = git(['tag', '-l', `${modName}-v*`, '--sort=-version:refname'], { allowFailure: true })
-  return out ? out.split('\n')[0].trim() : null
-}
-
-export function changelog(modName: string, prevTag: string | null): string {
-  const range = prevTag ? `${prevTag}..HEAD` : 'HEAD'
-  const raw = git([
-    'log',
-    range,
-    '--pretty=format:%x00%B',
-    '--no-merges',
-    `--grep=(${modName})`,
-    `--grep=(All)`,
-    '-i',
-  ])
-
-  const entries = raw
-    .split('\x00')
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .filter((block) => !/^chore\([^)]+\):\s*release v/.test(block))
-    .filter((block) => !/^tidy\([^)]+\):/.test(block))
-    .map((block) => {
-      const [subject, ...rest] = block.split('\n')
-      const body = rest.map((l) => l.trim()).filter(Boolean)
-      const m = subject.trim().match(/^(fix|chore|new)\([^)]+\):\s*(.+)$/)
-      const header = m ? `*${m[1]}*: ${m[2]}` : `- ${subject.trim()}`
-      return body.length > 0 ? `${header}\n${body.map((l) => `  ${l}`).join('\n')}` : header
-    })
-
-  return entries.length > 0 ? `## Changelog\n\n${entries.join('\n\n')}` : 'No changes recorded.'
 }
 
 export function stageFile(file: string): void {

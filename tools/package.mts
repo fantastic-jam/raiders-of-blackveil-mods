@@ -84,6 +84,10 @@ async function packageMod(name: string): Promise<void> {
   const readmePath = path.join(modDir(name), 'README.md')
   if (fs.existsSync(readmePath)) fs.copyFileSync(readmePath, path.join(pluginDir, 'README.md'))
 
+  const changelogPath = path.join(modDir(name), 'CHANGELOG.md')
+  if (fs.existsSync(changelogPath))
+    fs.copyFileSync(changelogPath, path.join(pluginDir, 'CHANGELOG.md'))
+
   const meta = readModMetadata(name)
   if (meta.patchers?.length) {
     const patcherDir = path.join(stagingRoot, 'patchers', `fantastic-jam-${name}`)
@@ -119,6 +123,10 @@ async function packageLib(name: string): Promise<void> {
 
   const readmePath = path.join(libDir(name), 'README.md')
   if (fs.existsSync(readmePath)) fs.copyFileSync(readmePath, path.join(pluginDir, 'README.md'))
+
+  const changelogPath = path.join(libDir(name), 'CHANGELOG.md')
+  if (fs.existsSync(changelogPath))
+    fs.copyFileSync(changelogPath, path.join(pluginDir, 'CHANGELOG.md'))
 
   await writeZip(name, version, stagingRoot)
 }
