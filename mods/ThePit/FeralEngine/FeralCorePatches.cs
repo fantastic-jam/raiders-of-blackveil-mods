@@ -5,6 +5,7 @@ using RR.Game.Character;
 using RR.Game.Perk;
 using RR.Game.Stats;
 using ThePit.FeralEngine.Abilities;
+using static RR.Game.ActorColliderDetector;
 
 namespace ThePit.FeralEngine {
     internal static class FeralCorePatches {
@@ -51,6 +52,18 @@ namespace ThePit.FeralEngine {
                 ThePitMod.PublicLogger.LogWarning("FeralCore: ChampionAbility.CanActivate not found — invincible ability block inactive.");
             }
 
+            // ── Champion-vs-champion hitbox expansion ─────────────────────────────
+            // AllTargetForChampions omits Target.Champions, so the "Player" layer is never
+            // included in the physics overlap mask and champions can't hit each other.
+            // Prefix SetTarget to add Target.Champions whenever Target.Enemies is present.
+            var setTarget = AccessTools.Method(typeof(ActorColliderDetector), "SetTarget");
+            if (setTarget != null) {
+                harmony.Patch(setTarget,
+                    prefix: new HarmonyMethod(typeof(FeralCorePatches), nameof(SetTargetPrefix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("FeralCore: ActorColliderDetector.SetTarget not found — champion hitboxes inactive.");
+            }
+
             // ── Passive perk suppression during grace / death ─────────────────────
             _triggerPerkFuncMethod = AccessTools.Method(typeof(PerkHandler), "TriggerPerkFunc");
             if (_triggerPerkFuncMethod != null) {
@@ -64,6 +77,16 @@ namespace ThePit.FeralEngine {
             AbilityPatch.Apply(harmony);
 
             ThePitMod.PublicLogger.LogInfo("FeralCore: patches applied.");
+        }
+
+        // ── Champion-vs-champion hitbox expansion ─────────────────────────────────
+        // Adds Target.Champions to any detector that targets enemies so the "Player"
+        // physics layer is included in the overlap scan, enabling champion-vs-champion hits.
+        private static void SetTargetPrefix(ref Target targetFlags) {
+            if (!ThePitState.IsDraftMode) { return; }
+            if (targetFlags.HasFlag(Target.Enemies)) {
+                targetFlags |= Target.Champions;
+            }
         }
 
         // ── Self-damage prevention + invincibility blocking ───────────────────────
