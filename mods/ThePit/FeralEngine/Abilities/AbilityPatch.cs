@@ -27,6 +27,7 @@ namespace ThePit.FeralEngine.Abilities {
             RhinoShieldsUpPatch.Apply(harmony);
             RhinoStampedePatch.Apply(harmony);
             RhinoSpinPatch.Apply(harmony);
+            ProjectileCasterSelfSkipPatch.Apply(harmony);
         }
 
         internal static void ExpandAllCasters() {
