@@ -103,6 +103,12 @@ namespace ThePit {
         }
 
         private void EndMatch() {
+            var dm = DifficultyManager.Instance;
+            if (dm != null) {
+                ThePitPatch.CombatTimePreciseSetter?.Invoke(dm, new object[] { 0f });
+                ThePitPatch.CombatTimeInSecSetter?.Invoke(dm, new object[] { 0 });
+            }
+
             ThePitState.MatchEnded = true;
 
             int winnerActorId = DetermineWinner();
