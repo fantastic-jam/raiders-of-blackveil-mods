@@ -14,10 +14,10 @@ namespace ThePit {
             ThePitState.MatchDurationSecondsOverride > 0f
                 ? ThePitState.MatchDurationSecondsOverride
                 : (ThePitMod.CfgMatchDurationSeconds?.Value ?? 600f);
-        private const float ArenaGracePeriodSeconds = 5f;
+        private const float ArenaGracePeriodSeconds = 10f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
-        private const float EndSequenceDelaySeconds = 10f;
+        private const float EndSequenceDelaySeconds = 20f;
 
         private static MatchController _instance;
 
