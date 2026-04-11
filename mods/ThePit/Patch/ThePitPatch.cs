@@ -9,7 +9,6 @@ using RR.Game.Perk;
 using RR.Game.Stats;
 using RR.Level;
 using RR.Utility;
-using ThePit.Patch.Abilities;
 using UnityEngine;
 
 namespace ThePit.Patch {
@@ -173,29 +172,6 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: LevelVendorManager.SceneInit not found — loot containers may spawn.");
             }
 
-            // --- PvP: per-ability champion detection via PvpDetector ---
-            ShameleonAttackPatch.Apply(harmony);
-            ShameleonShadowStrikePatch.Apply(harmony);
-            ShameleonShadowDancePatch.Apply(harmony);
-            ShameleonTongueLeapPatch.Apply(harmony);
-            BlazeAttackPatch.Apply(harmony);
-            BlazeBlastWavePatch.Apply(harmony);
-            BlazeSpecialAreaPatch.Apply(harmony);
-            SunStrikeAreaPatch.Apply(harmony);
-            BeatriceAttackPatch.Apply(harmony);
-            BeatriceEntanglingRootsPatch.Apply(harmony);
-            BeatriceLotusFlowerPatch.Apply(harmony);
-            BeatriceSpecialObjectPatch.Apply(harmony);
-            ManEaterPlantBrainPatch.Apply(harmony);
-            WitheredSeedBrainPatch.Apply(harmony);
-            ChampionMinionPatch.Apply(harmony);
-            AreaCharacterSelectorPatch.Apply(harmony);
-            RhinoAttackPatch.Apply(harmony);
-            RhinoEarthquakePatch.Apply(harmony);
-            RhinoShieldsUpPatch.Apply(harmony);
-            RhinoStampedePatch.Apply(harmony);
-            RhinoSpinPatch.Apply(harmony);
-
             // --- Block "all players dead" game-over screen so respawn can fire ---
             var outroActivate = AccessTools.Method(typeof(OutroManager), nameof(OutroManager.Activate));
             if (outroActivate != null) {
@@ -203,39 +179,6 @@ namespace ThePit.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(OutroActivatePrefix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: OutroManager.Activate not found — death screen will not be suppressed.");
-            }
-
-            // --- Block self-damage: champion abilities with Player layer added can hit the caster ---
-            MethodInfo takeBasicDamage = null;
-            foreach (var m in typeof(StatsManager).GetMethods()) {
-                if (m.Name != "TakeBasicDamage") { continue; }
-                var p = m.GetParameters();
-                if (p.Length >= 1 && p[0].ParameterType != typeof(float)) { takeBasicDamage = m; break; }
-            }
-            if (takeBasicDamage != null) {
-                harmony.Patch(takeBasicDamage,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(TakeBasicDamagePrefix))));
-            } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: StatsManager.TakeBasicDamage(DamageDescriptor,...) not found — self-damage not blocked.");
-            }
-
-            // --- Block cross-champion healing: ally abilities (heal, barrier area) must not buff enemies ---
-            var addHealth = AccessTools.Method(typeof(Health), "AddHealth");
-            if (addHealth != null) {
-                harmony.Patch(addHealth,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(AddHealthPrefix))));
-            } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: Health.AddHealth not found — cross-champion heals not blocked.");
-            }
-
-            // --- Block ability use while respawn-invincible: preserves cooldowns and prevents
-            //     a freshly respawned champion from immediately dealing damage ---
-            var canActivateGetter = AccessTools.PropertyGetter(typeof(ChampionAbility), "CanActivate");
-            if (canActivateGetter != null) {
-                harmony.Patch(canActivateGetter,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(CanActivatePrefix))));
-            } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbility.CanActivate not found — invincible ability block inactive.");
             }
 
             // --- Reset ThePit state when host manually returns to lobby mid-match ---
@@ -248,6 +191,22 @@ namespace ThePit.Patch {
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(ReturnToLobbyPostfix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
+            }
+
+            // --- Level-based damage reduction (Draft-specific) ---
+            // Separate from FeralCore's self-damage / invincibility block so variants
+            // can opt in or out independently.
+            MethodInfo takeBasicDamage = null;
+            foreach (var m in typeof(StatsManager).GetMethods()) {
+                if (m.Name != "TakeBasicDamage") { continue; }
+                var p = m.GetParameters();
+                if (p.Length >= 1 && p[0].ParameterType != typeof(float)) { takeBasicDamage = m; break; }
+            }
+            if (takeBasicDamage != null) {
+                harmony.Patch(takeBasicDamage,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DamageReductionPrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: StatsManager.TakeBasicDamage(DamageDescriptor,...) not found — level-based damage reduction inactive.");
             }
 
             // --- Perk filter: exclude PvP-incompatible perks from the selectable pool ---
@@ -546,78 +505,6 @@ namespace ThePit.Patch {
             return ThePitState.MatchEnded;
         }
 
-        // ── Self-damage prevention ───────────────────────────────────────────────
-
-        // Block champion-on-champion damage that our PvP patches introduce:
-        //   • Self-damage (caster hits own collider via expanded Player layer)
-        //   • Damage to a respawn-invincible victim (bypasses game's IsImmuneOrInvincible
-        //     because our invincibility is tracked outside the game engine)
-        //   • Damage from a respawn-invincible attacker (in-flight projectiles fired
-        //     before CanActivate was blocked still reach targets)
-        // Also applies level-based damage reduction so late-game champions are tankier.
-        // The overlay/cfg maxFactor controls how much damage is divided at max XP level.
-        // Formula: at level L, divisor = Lerp(1, maxFactor, (L-1)/(maxLevel-1))
-        //   → level 1: full damage; level 20 with maxFactor=20: 1/20th damage.
-        private static bool TakeBasicDamagePrefix(StatsManager __instance, ref DamageDescriptor dmgDesc, StatsManager attacker) {
-            if (!ThePitState.IsAttackPossible) { return true; }
-            if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
-            if (attacker.ActorID == __instance.ActorID) { return false; }
-            if (ThePitState.IsPlayerInvincible(__instance.ActorID)) { return false; }
-            if (ThePitState.IsPlayerInvincible(attacker.ActorID)) { return false; }
-
-            float maxFactor = ThePitState.DamageReductionMaxFactor > 0f
-                ? ThePitState.DamageReductionMaxFactor
-                : (ThePitMod.CfgDamageReductionOptions == null ? 20f
-                    : ParseDefaultDamageReductionFactor());
-
-            if (maxFactor > 1f) {
-                var rdb = RewardDatabase.Instance;
-                if (rdb != null && __instance.Champion != null) {
-                    const int MaxXpLevel = 20;
-                    int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
-                    if (level > 1) {
-                        float t = (float)(level - 1) / (MaxXpLevel - 1);
-                        float divisor = Mathf.Lerp(1f, maxFactor, t);
-                        dmgDesc = dmgDesc.CloneAndMultiply(1f / divisor);
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        // Reads the default damage reduction factor from the first entry of the cfg option list.
-        // Falls back to 20 (= "Strong") if absent or unparseable.
-        // This is only used when no overlay session has run yet (first match after restart).
-        private static float ParseDefaultDamageReductionFactor() {
-            var raw = ThePitMod.CfgDamageReductionOptions?.Value;
-            if (string.IsNullOrEmpty(raw)) { return 20f; }
-            try {
-                // Default is "Strong:20" at index 3 of the default list — read index 3 if it exists.
-                var entries = raw.Split(',');
-                int idx = System.Math.Min(3, entries.Length - 1);
-                int colon = entries[idx].IndexOf(':');
-                if (colon < 0) { return 20f; }
-                return float.Parse(entries[idx][(colon + 1)..].Trim(),
-                    System.Globalization.CultureInfo.InvariantCulture);
-            }
-            catch { return 20f; }
-        }
-
-        // ── Ability block while respawn-invincible ───────────────────────────────
-
-        // Prevent a freshly respawned champion from activating abilities during their
-        // invincibility window. Prefix returns false to skip the original and sets
-        // __result = false so no cooldown is consumed.
-        private static bool CanActivatePrefix(ChampionAbility __instance, ref bool __result) {
-            if (!ThePitState.IsAttackPossible) { return true; }
-            var stats = __instance.Stats;
-            if (stats == null || !stats.IsChampion) { return true; }
-            if (!ThePitState.IsPlayerInvincible(stats.ActorID)) { return true; }
-            __result = false;
-            return false;
-        }
-
         // ── Hub return: reset ThePit state on manual exit ────────────────────────
 
         // Catches the path where the host presses "Return to Hub" before the match
@@ -630,17 +517,29 @@ namespace ThePit.Patch {
             MatchController.Stop();
         }
 
-        // ── Cross-champion heal prevention ───────────────────────────────────────
+        // ── Level-based damage reduction ─────────────────────────────────────────
 
-        // In co-op, champion heals and heal-area abilities affect all players. In ThePit
-        // PvP mode only the caster should receive their own heals — never an opponent.
-        private static bool AddHealthPrefix(Health __instance, StatsManager healer) {
-            if (!ThePitState.IsAttackPossible) { return true; }
-            if (healer == null || !healer.IsChampion) { return true; }
-            if (HealthStatsField == null) { return true; }
-            var targetStats = (StatsManager)HealthStatsField.GetValue(__instance);
-            if (targetStats == null || !targetStats.IsChampion) { return true; }
-            return healer.ActorID == targetStats.ActorID;
+        // Scales champion-on-champion damage down based on the victim's XP level.
+        // At level 1: full damage. At max XP level with maxFactor=20: 1/20th damage.
+        // Formula: divisor = Lerp(1, maxFactor, (level-1) / (maxLevel-1))
+        private static bool DamageReductionPrefix(StatsManager __instance, ref DamageDescriptor dmgDesc, StatsManager attacker) {
+            if (!ThePitState.IsDraftMode) { return true; }
+            if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
+
+            float maxFactor = ThePitState.CachedDamageReductionFactor;
+            if (maxFactor <= 1f) { return true; }
+
+            var rdb = RewardDatabase.Instance;
+            if (rdb == null || __instance.Champion == null) { return true; }
+
+            const int MaxXpLevel = 20;
+            int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
+            if (level <= 1) { return true; }
+
+            float t = (float)(level - 1) / (MaxXpLevel - 1);
+            float divisor = Mathf.Lerp(1f, maxFactor, t);
+            dmgDesc = dmgDesc.CloneAndMultiply(1f / divisor);
+            return true;
         }
 
         // ── Perk filter ──────────────────────────────────────────────────────────

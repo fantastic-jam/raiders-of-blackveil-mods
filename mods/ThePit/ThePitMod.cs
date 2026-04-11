@@ -46,6 +46,11 @@ namespace ThePit {
         public void Disable() {
             ThePitState.IsActive = false;
             ThePitState.ActiveVariant = null;
+            MatchController.Stop();
+            if (_draftPatchesApplied) {
+                _draftHarmony?.UnpatchSelf();
+                _draftPatchesApplied = false;
+            }
             PublicLogger.LogInfo($"{Name}: disabled.");
         }
 
@@ -70,10 +75,23 @@ namespace ThePit {
 
         public void EnableVariant(string variantId) {
             ThePitState.ActiveVariant = variantId;
+            if (variantId == ThePitState.VariantDraft && !_draftPatchesApplied) {
+                if (!ThePitPatch.Apply(_draftHarmony)) {
+                    _draftHarmony.UnpatchSelf();
+                    ThePitState.IsActive = false;
+                    PublicLogger.LogError("============================================================");
+                    PublicLogger.LogError($"{Name} v{Version}: game assembly breaking change detected.");
+                    PublicLogger.LogError("Mod disabled. Update the mod or report a bug (include log).");
+                    PublicLogger.LogError("============================================================");
+                } else {
+                    _draftPatchesApplied = true;
+                }
+            }
             PublicLogger.LogInfo($"{Name}: variant '{variantId}' activated.");
         }
 
-        private Harmony _harmony;
+        private Harmony _draftHarmony;
+        private bool _draftPatchesApplied;
 
         private void Awake() {
             PublicLogger = Logger;
@@ -106,16 +124,7 @@ namespace ThePit {
                 "Damage reduction stepper options. Format: Label:maxFactor,... — at max XP level, incoming damage is divided by maxFactor. Off=1 means no reduction.");
 
             try {
-                _harmony = new Harmony(Id);
-                if (!ThePitPatch.Apply(_harmony)) {
-                    _harmony.UnpatchSelf();
-                    ThePitState.IsActive = false;
-                    PublicLogger.LogError("============================================================");
-                    PublicLogger.LogError($"{Name} v{Version}: game assembly breaking change detected.");
-                    PublicLogger.LogError("Mod disabled. Update the mod or report a bug (include log).");
-                    PublicLogger.LogError("============================================================");
-                    return;
-                }
+                _draftHarmony = new Harmony(Id + ".draft");
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
             }
             catch (Exception ex) {

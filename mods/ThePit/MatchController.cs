@@ -3,8 +3,9 @@ using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Level;
+using ThePit.FeralEngine;
 using ThePit.Patch;
-using ThePit.Patch.Abilities;
+using ThePit.FeralEngine.Abilities;
 using UnityEngine;
 
 namespace ThePit {
@@ -30,11 +31,10 @@ namespace ThePit {
         // Called when EventBeginLevel fires for the SlashBash room.
         internal static void StartArena() {
             if (_instance == null) { return; }
+            FeralCore.Activate();
+            ThePitState.CachedDamageReductionFactor = ThePitState.ResolvedDamageReductionFactor;
             // Champions spawned in the lobby before ArenaEntered was true — expand now.
-            BlazeAttackPatch.ExpandAllCasters();
-            BeatriceAttackPatch.ExpandAllCasters();
-            BeatriceEntanglingRootsPatch.ExpandAllCasters();
-            BeatriceLotusFlowerPatch.ExpandAllCasters();
+            AbilityPatch.ExpandAllCasters();
             _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
             _instance.StartCoroutine(_instance.MatchTimerCoroutine());
         }
@@ -47,6 +47,7 @@ namespace ThePit {
         // Called on manual lobby return — stops the timer and all coroutines.
         internal static void Stop() {
             if (_instance == null) { return; }
+            FeralCore.Deactivate();
             _instance.StopAllCoroutines();
             Destroy(_instance.gameObject);
             _instance = null;
@@ -65,7 +66,7 @@ namespace ThePit {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
                 if (doorGo != null) { champ.LookToPosition(doorGo.transform.position); }
-                ThePitState.InvincibleUntil[champ.Stats.ActorID] = deadline;
+                FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
             }
             yield return new WaitForSeconds(ArenaGracePeriodSeconds);
@@ -82,10 +83,10 @@ namespace ThePit {
         // If a new respawn fired in between, InvincibleUntil was updated and we bail.
         private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline) {
             yield return new WaitUntil(() => Time.time >= deadline);
-            if (!ThePitState.InvincibleUntil.TryGetValue(actorId, out float current) || current != deadline) {
+            if (!FeralCore.TryGetInvincibilityDeadline(actorId, out float current) || current != deadline) {
                 yield break;
             }
-            ThePitState.InvincibleUntil.Remove(actorId);
+            FeralCore.RemoveInvincibility(actorId);
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
                 if (p.PlayableChampion?.Stats?.ActorID == actorId) {
                     p.PlayableChampion.Stats.Health.AllDamageDisabled = false;
@@ -147,6 +148,7 @@ namespace ThePit {
         }
 
         private void DoReturnToLobby() {
+            FeralCore.Deactivate();
             ThePitState.ResetMatchState();
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
             Destroy(gameObject);
@@ -162,16 +164,6 @@ namespace ThePit {
             float precise = Mathf.Max(0f, dm.CombatTimePrecise - dm.Runner.DeltaTime);
             ThePitPatch.CombatTimePreciseSetter.Invoke(dm, new object[] { precise });
             ThePitPatch.CombatTimeInSecSetter.Invoke(dm, new object[] { (int)Mathf.Ceil(precise) });
-        }
-
-        // ── Helpers ──────────────────────────────────────────────────────────────
-
-        // Rotate the champion to face the arena center without touching spawn point transforms
-        // (which would affect the camera rig).
-        private static void FaceArenaCenter(NetworkChampionBase champ) {
-            var doorGo = GameObject.Find("DoorSpawnPoint");
-            if (doorGo == null) { return; }
-            champ.LookToPosition(doorGo.transform.position);
         }
 
         // ── Respawn ──────────────────────────────────────────────────────────────
@@ -193,11 +185,12 @@ namespace ThePit {
             ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
             champ.Stats.Health.Resurrect(100f);
             GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
-            FaceArenaCenter(champ);
+            var respawnDoorGo = GameObject.Find("DoorSpawnPoint");
+            if (respawnDoorGo != null) { champ.LookToPosition(respawnDoorGo.transform.position); }
             ThePitPatch.LockChampionAbilitiesFor(champ, RespawnInvincibilitySeconds);
 
             float deadline = Time.time + RespawnInvincibilitySeconds;
-            ThePitState.InvincibleUntil[victimActorId] = deadline;
+            FeralCore.GrantRespawnInvincibility(victimActorId, RespawnInvincibilitySeconds);
             champ.Stats.Health.AllDamageDisabled = true;
             StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline));
         }

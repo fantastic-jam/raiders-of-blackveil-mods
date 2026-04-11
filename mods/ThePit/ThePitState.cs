@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using ThePit.Patch.Abilities;
-using UnityEngine;
 
 namespace ThePit {
     internal static class ThePitState {
@@ -37,9 +35,6 @@ namespace ThePit {
         // chest rounds complete and PerkDripController opens the door manually.
         internal static bool ChestPhaseActive { get; set; }
 
-        // True while PvP combat should be active: mod on, in the arena, timer still running.
-        internal static bool IsAttackPossible => IsDraftMode && ArenaEntered && !MatchEnded;
-
         // Set by the host config overlay before the session starts.
         // 0 means "fall back to the BepInEx config value".
         internal static float MatchDurationSecondsOverride { get; set; }
@@ -54,14 +49,31 @@ namespace ThePit {
         // 1 = no reduction. 0 = use the BepInEx cfg default option.
         internal static float DamageReductionMaxFactor { get; set; }
 
-        // ActorID → Time.time deadline. Blocks all incoming damage until deadline passes.
-        internal static Dictionary<int, float> InvincibleUntil { get; } = new();
-
         // ActorID → kill count for the current match.
         internal static Dictionary<int, int> KillCounts { get; } = new();
 
-        internal static bool IsPlayerInvincible(int actorId) =>
-            InvincibleUntil.TryGetValue(actorId, out float until) && Time.time < until;
+        // Pre-resolved at arena entry by MatchController.StartArena(). Avoids config-string
+        // parsing on every damage event. Reset to 0 by ResetMatchState().
+        internal static float CachedDamageReductionFactor { get; set; }
+
+        // Resolved damage reduction factor: uses the overlay override if set, otherwise parses
+        // the default from the cfg option list (index 3 = "Strong:20" in the default list).
+        internal static float ResolvedDamageReductionFactor {
+            get {
+                if (DamageReductionMaxFactor > 0f) { return DamageReductionMaxFactor; }
+                var raw = ThePitMod.CfgDamageReductionOptions?.Value;
+                if (string.IsNullOrEmpty(raw)) { return 20f; }
+                try {
+                    var entries = raw.Split(',');
+                    int idx = System.Math.Min(3, entries.Length - 1);
+                    int colon = entries[idx].IndexOf(':');
+                    if (colon < 0) { return 20f; }
+                    return float.Parse(entries[idx][(colon + 1)..].Trim(),
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch { return 20f; }
+            }
+        }
 
         internal static void ResetMatchState() {
             MatchStarted = false;
@@ -70,18 +82,8 @@ namespace ThePit {
             MatchEnded = false;
             ChestPhaseActive = false;
             CombatStarted = false;
-            InvincibleUntil.Clear();
+            CachedDamageReductionFactor = 0f;
             KillCounts.Clear();
-            ShameleonShadowDancePatch.Reset();
-            ShameleonTongueLeapPatch.Reset();
-            BlazeBlastWavePatch.Reset();
-            SunStrikeAreaPatch.Reset();
-            BlazeAttackPatch.ResetAllCasters();
-            BlazeSpecialAreaPatch.Reset();
-            BeatriceAttackPatch.ResetAllCasters();
-            BeatriceEntanglingRootsPatch.ResetAllCasters();
-            BeatriceLotusFlowerPatch.ResetAllCasters();
-            WitheredSeedBrainPatch.ResetAllCasters();
         }
     }
 }
