@@ -249,6 +249,15 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: Health.TakeDOTDamage not found — DoT damage reduction inactive.");
             }
 
+            // --- Heal reduction: mirrors level-based damage reduction ---
+            var addHealth = AccessTools.Method(typeof(Health), "AddHealth");
+            if (addHealth != null) {
+                harmony.Patch(addHealth,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(HealReductionPrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: Health.AddHealth not found — heal reduction inactive.");
+            }
+
             // --- Perk filter: exclude PvP-incompatible perks from the selectable pool ---
             // Patch IsItUnlocked (upstream of selection) so banned perks never enter the draw.
             // Patching the output of GetRandomPerkAmount would leave the shrine with fewer than
@@ -329,6 +338,8 @@ namespace ThePit.Patch {
 
         // Sets a champion's XP to the configured starting level immediately after XPLevelReset.
         // At level N: XP.Amount = limits[N-1], AbilityPoints = N-1.
+        // At max level (N == limits.Count) all ability upgrades are applied automatically and
+        // AbilityPoints is zeroed — nothing left to spend.
         private static void ApplyInitialLevel(NetworkChampionBase champ) {
             int targetLevel = ThePitState.InitialLevelOverride;
             if (targetLevel <= 1) { return; }
@@ -338,6 +349,18 @@ namespace ThePit.Patch {
             int targetXP = limits[targetLevel - 1];
             champ.XP.Amount = targetXP;
             champ.XP.AbilityPoints = rdb.GetXPUpgradePoints(0, targetXP);
+
+            if (targetLevel < limits.Count) { return; }
+
+            // Max level: auto-spend all ability points. Attack is already at level 1 from
+            // XPLevelReset; upgrade remaining levels. Ultimate needs developerUpgrade because
+            // it normally requires the champion to be at level 5/10/15/20 per tier.
+            champ.Attack.OnUpgraded(champ.Attack.MaximumXPLevel - champ.Attack.ActualXPLevel, developerUpgrade: true);
+            champ.Power.OnUpgraded(champ.Power.MaximumXPLevel, developerUpgrade: true);
+            champ.Special.OnUpgraded(champ.Special.MaximumXPLevel, developerUpgrade: true);
+            champ.Defensive.OnUpgraded(champ.Defensive.MaximumXPLevel, developerUpgrade: true);
+            champ.Ultimate.OnUpgraded(champ.Ultimate.MaximumXPLevel, developerUpgrade: true);
+            champ.XP.AbilityPoints = 0;
         }
 
         // ── Entry point ─────────────────────────────────────────────────────────
@@ -688,6 +711,26 @@ namespace ThePit.Patch {
             float t = (float)(level - 1) / (MaxXpLevel - 1);
             float divisor = Mathf.Lerp(1f, maxFactor, t);
             damage /= divisor;
+        }
+
+        // ── Heal reduction ───────────────────────────────────────────────────────
+
+        // Mirrors level-based damage reduction so that healing scales proportionally
+        // to incoming damage — prevents high-level players from out-healing reduced damage.
+        private static void HealReductionPrefix(Health __instance, ref float value) {
+            if (!ThePitState.IsDraftMode) { return; }
+            if (HealthStatsField == null) { return; }
+            var stats = HealthStatsField.GetValue(__instance) as StatsManager;
+            if (stats == null || !stats.IsChampion || stats.Champion == null) { return; }
+            float maxFactor = ThePitState.CachedDamageReductionFactor;
+            if (maxFactor <= 1f) { return; }
+            var rdb = RewardDatabase.Instance;
+            if (rdb == null) { return; }
+            const int MaxXpLevel = 20;
+            int level = rdb.GetXPLevel(stats.Champion.XP.Amount);
+            if (level <= 1) { return; }
+            float t = (float)(level - 1) / (MaxXpLevel - 1);
+            value /= Mathf.Lerp(1f, maxFactor, t);
         }
 
         // ── Perk filter ──────────────────────────────────────────────────────────
