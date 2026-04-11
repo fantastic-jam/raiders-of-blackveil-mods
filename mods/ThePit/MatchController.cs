@@ -66,15 +66,16 @@ namespace ThePit {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
                 if (doorGo != null) { champ.LookToPosition(doorGo.transform.position); }
+                champ.Stats.Movement?.ResetRooted();
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
+                ThePitPatch.LockChampionAbilitiesFor(champ, ArenaGracePeriodSeconds);
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
             }
             yield return new WaitForSeconds(ArenaGracePeriodSeconds);
             var dm = DifficultyManager.Instance;
             if (dm != null) {
-                float startPrecise = MatchDurationSeconds - ArenaGracePeriodSeconds;
-                ThePitPatch.CombatTimePreciseSetter?.Invoke(dm, new object[] { startPrecise });
-                ThePitPatch.CombatTimeInSecSetter?.Invoke(dm, new object[] { (int)Mathf.Ceil(startPrecise) });
+                ThePitPatch.CombatTimePreciseSetter?.Invoke(dm, new object[] { MatchDurationSeconds });
+                ThePitPatch.CombatTimeInSecSetter?.Invoke(dm, new object[] { (int)Mathf.Ceil(MatchDurationSeconds) });
             }
             ThePitState.CombatStarted = true;
         }
@@ -98,6 +99,7 @@ namespace ThePit {
         // ── Match timer ──────────────────────────────────────────────────────────
 
         private IEnumerator MatchTimerCoroutine() {
+            yield return new WaitForSeconds(ArenaGracePeriodSeconds);
             yield return new WaitForSeconds(MatchDurationSeconds);
             EndMatch();
         }
