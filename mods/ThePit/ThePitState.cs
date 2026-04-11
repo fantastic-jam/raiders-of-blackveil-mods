@@ -45,6 +45,9 @@ namespace ThePit {
         // Number of initial perk chest rounds before the door opens. -1 = use PerkDripController's default. 0 = skip chest phase.
         internal static int InitialChestRoundsOverride { get; set; } = -1;
 
+        // XP level all champions start at. 1 = bare start, 5 = all skills unlocked.
+        internal static int InitialLevelOverride { get; set; } = 5;
+
         // At max XP level, incoming champion damage is divided by this factor.
         // 1 = no reduction. 0 = use the BepInEx cfg default option.
         internal static float DamageReductionMaxFactor { get; set; }

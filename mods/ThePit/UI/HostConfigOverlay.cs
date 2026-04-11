@@ -29,6 +29,7 @@ namespace ThePit.UI {
         };
 
         private static readonly (string Label, int Count)[] DefaultInitialPerks;
+        private static readonly (string Label, int Level)[] LevelOptions;
 
         private static readonly (string Label, float MaxFactor)[] DefaultDamageReduction = {
             ("Off",     1f),
@@ -43,6 +44,10 @@ namespace ThePit.UI {
             for (int i = 0; i < 12; i++) {
                 DefaultInitialPerks[i] = ((i + 1).ToString(), i + 1);
             }
+            LevelOptions = new (string, int)[20];
+            for (int i = 0; i < 20; i++) {
+                LevelOptions[i] = ((i + 1).ToString(), i + 1);
+            }
         }
 
         // ── Saved session state (persists across overlay open/close) ──────────────
@@ -51,6 +56,7 @@ namespace ThePit.UI {
         private static int _savedDropRateIdx = 2;        // "Normal"
         private static int _savedInitialPerksIdx = 5;    // 6 rounds
         private static int _savedDamageReductionIdx = 3; // "Strong:20"
+        private static int _savedInitialLevelIdx = 4;    // level 5
 
         // ── Instance ──────────────────────────────────────────────────────────────
 
@@ -59,6 +65,7 @@ namespace ThePit.UI {
         private readonly Stepper<float> _dropRateStepper;
         private readonly Stepper<int> _initialPerksStepper;
         private readonly Stepper<float> _damageReductionStepper;
+        private readonly Stepper<int> _initialLevelStepper;
         private readonly Action _onConfirm;
 
         internal bool IsVisible { get; private set; }
@@ -86,6 +93,7 @@ namespace ThePit.UI {
             _dropRateStepper = new Stepper<float>("DROP RATE", dropRates, _savedDropRateIdx);
             _initialPerksStepper = new Stepper<int>("INITIAL PERKS", initialPerks, _savedInitialPerksIdx);
             _damageReductionStepper = new Stepper<float>("DMG REDUCTION", damageReduction, _savedDamageReductionIdx);
+            _initialLevelStepper = new Stepper<int>("INITIAL LEVEL", LevelOptions, _savedInitialLevelIdx);
 
             _backdrop = Build();
             _backdrop.style.display = DisplayStyle.None;
@@ -97,6 +105,7 @@ namespace ThePit.UI {
             _dropRateStepper.SetIndex(_savedDropRateIdx);
             _initialPerksStepper.SetIndex(_savedInitialPerksIdx);
             _damageReductionStepper.SetIndex(_savedDamageReductionIdx);
+            _initialLevelStepper.SetIndex(_savedInitialLevelIdx);
             _backdrop.style.display = DisplayStyle.Flex;
             IsVisible = true;
             DisableInput();
@@ -114,11 +123,13 @@ namespace ThePit.UI {
             _savedDropRateIdx = _dropRateStepper.Index;
             _savedInitialPerksIdx = _initialPerksStepper.Index;
             _savedDamageReductionIdx = _damageReductionStepper.Index;
+            _savedInitialLevelIdx = _initialLevelStepper.Index;
 
             ThePitState.MatchDurationSecondsOverride = _durationStepper.Value;
             ThePitState.DropIntervalMultiplier = _dropRateStepper.Value;
             ThePitState.InitialChestRoundsOverride = _initialPerksStepper.Value;
             ThePitState.DamageReductionMaxFactor = _damageReductionStepper.Value;
+            ThePitState.InitialLevelOverride = _initialLevelStepper.Value;
 
             Close();
             _onConfirm?.Invoke();
@@ -186,6 +197,7 @@ namespace ThePit.UI {
             card.Add(_durationStepper.Root);
             card.Add(_dropRateStepper.Root);
             card.Add(_initialPerksStepper.Root);
+            card.Add(_initialLevelStepper.Root);
             card.Add(_damageReductionStepper.Root);
 
             var spacer = new VisualElement();

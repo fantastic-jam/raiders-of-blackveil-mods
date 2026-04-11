@@ -281,6 +281,21 @@ namespace ThePit.Patch {
             }
         }
 
+        // ── Initial XP level ─────────────────────────────────────────────────────
+
+        // Sets a champion's XP to the configured starting level immediately after XPLevelReset.
+        // At level N: XP.Amount = limits[N-1], AbilityPoints = N-1.
+        private static void ApplyInitialLevel(NetworkChampionBase champ) {
+            int targetLevel = ThePitState.InitialLevelOverride;
+            if (targetLevel <= 1) { return; }
+            var rdb = RewardDatabase.Instance;
+            var limits = rdb?.XPDescriptor?.XPLimits;
+            if (limits == null || targetLevel - 1 >= limits.Count) { return; }
+            int targetXP = limits[targetLevel - 1];
+            champ.XP.Amount = targetXP;
+            champ.XP.AbilityPoints = rdb.GetXPUpgradePoints(0, targetXP);
+        }
+
         // ── Entry point ─────────────────────────────────────────────────────────
 
         private static void EventBeginLevelPostfix() {
@@ -298,7 +313,10 @@ namespace ThePit.Patch {
                 ThePitState.ResetMatchState();
                 ThePitState.MatchStarted = true;
                 foreach (var player in PlayerManager.Instance.GetPlayers()) {
-                    player.PlayableChampion?.XPLevelReset(XPUnlocksEnabled: false);
+                    var champ = player.PlayableChampion;
+                    if (champ == null) { continue; }
+                    champ.XPLevelReset(XPUnlocksEnabled: false);
+                    ApplyInitialLevel(champ);
                 }
 
                 PerkDripController.StartDrip();
