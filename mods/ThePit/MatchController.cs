@@ -2,6 +2,7 @@
 using RR;
 using RR.Game;
 using RR.Game.Character;
+using RR.Game.Perk;
 using RR.Level;
 using ThePit.FeralEngine;
 using ThePit.Patch;
@@ -17,6 +18,9 @@ namespace ThePit {
         private const float ArenaGracePeriodSeconds = 10f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
+
+        private const float ArenaGraceSpeedBoostPct = 100f; // +100% on top of base = 2× total during arena grace
+        private const float RespawnSpeedBoostPct = 200f;   // +200% on top of base = 3× total during respawn grace
 
         private static MatchController _instance;
 
@@ -65,9 +69,9 @@ namespace ThePit {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
                 champ.Stats.Movement?.ResetRooted();
-                champ.Stats.Health.AddInvisible();
+                champ.Stats.ModifyPropertyForFrames(Property.MovementSpeed, ArenaGraceSpeedBoostPct, 999999);
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
-                StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
+                StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline, speedBoostPct: ArenaGraceSpeedBoostPct));
             }
             // Abilities aren't fully initialised on the first frame — delay like FaceTowardDoorCoroutine.
             yield return new WaitForSeconds(0.1f);
@@ -102,8 +106,8 @@ namespace ThePit {
 
         // Clears AllDamageDisabled only if our deadline is still the current one.
         // If a new respawn fired in between, InvincibleUntil was updated and we bail.
-        // withImmune: true only for respawn grace — AddImmune was called and must be paired with RemoveImmune.
-        private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline, bool withImmune = false) {
+        // withImmune/withInvisible/withSpeedBoost: only true for respawn grace (paired with AddImmune/AddInvisible/ModifyProperty).
+        private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline, bool withImmune = false, bool withInvisible = false, float speedBoostPct = 0f) {
             yield return new WaitUntil(() => Time.time >= deadline);
             if (!FeralCore.TryGetInvincibilityDeadline(actorId, out float current) || current != deadline) {
                 yield break;
@@ -112,8 +116,9 @@ namespace ThePit {
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
                 if (p.PlayableChampion?.Stats?.ActorID == actorId) {
                     p.PlayableChampion.Stats.Health.AllDamageDisabled = false;
-                    p.PlayableChampion.Stats.Health.RemoveInvisible();
+                    if (withInvisible) { p.PlayableChampion.Stats.Health.RemoveInvisible(); }
                     if (withImmune) { p.PlayableChampion.Stats.Health.RemoveImmune(); }
+                    if (speedBoostPct > 0f) { p.PlayableChampion.Stats.ClearTemporaryModifiedProperty(Property.MovementSpeed, speedBoostPct); }
                     break;
                 }
             }
@@ -250,9 +255,10 @@ namespace ThePit {
             float deadline = Time.time + RespawnInvincibilitySeconds;
             champ.Stats.Health.AddInvisible();
             champ.Stats.Health.AddImmune();
+            champ.Stats.ModifyPropertyForFrames(Property.MovementSpeed, RespawnSpeedBoostPct, 999999);
             FeralCore.GrantRespawnInvincibility(victimActorId, RespawnInvincibilitySeconds);
             champ.Stats.Health.AllDamageDisabled = true;
-            StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline, withImmune: true));
+            StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline, withImmune: true, withInvisible: true, speedBoostPct: RespawnSpeedBoostPct));
         }
     }
 }
