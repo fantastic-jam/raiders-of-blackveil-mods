@@ -102,7 +102,8 @@ namespace ThePit {
 
         // Clears AllDamageDisabled only if our deadline is still the current one.
         // If a new respawn fired in between, InvincibleUntil was updated and we bail.
-        private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline) {
+        // withImmune: true only for respawn grace — AddImmune was called and must be paired with RemoveImmune.
+        private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline, bool withImmune = false) {
             yield return new WaitUntil(() => Time.time >= deadline);
             if (!FeralCore.TryGetInvincibilityDeadline(actorId, out float current) || current != deadline) {
                 yield break;
@@ -112,6 +113,7 @@ namespace ThePit {
                 if (p.PlayableChampion?.Stats?.ActorID == actorId) {
                     p.PlayableChampion.Stats.Health.AllDamageDisabled = false;
                     p.PlayableChampion.Stats.Health.RemoveInvisible();
+                    if (withImmune) { p.PlayableChampion.Stats.Health.RemoveImmune(); }
                     break;
                 }
             }
@@ -244,9 +246,10 @@ namespace ThePit {
 
             float deadline = Time.time + RespawnInvincibilitySeconds;
             champ.Stats.Health.AddInvisible();
+            champ.Stats.Health.AddImmune();
             FeralCore.GrantRespawnInvincibility(victimActorId, RespawnInvincibilitySeconds);
             champ.Stats.Health.AllDamageDisabled = true;
-            StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline));
+            StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline, withImmune: true));
         }
     }
 }
