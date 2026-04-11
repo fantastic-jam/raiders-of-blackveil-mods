@@ -61,11 +61,9 @@ namespace ThePit {
             // Wait one frame so InitPlayerCharacterAtSpawnPoint has placed champions.
             yield return null;
             float deadline = Time.time + ArenaGracePeriodSeconds;
-            var doorGo = GameObject.Find("DoorSpawnPoint");
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
-                if (doorGo != null) { champ.LookToPosition(doorGo.transform.position); }
                 champ.Stats.Movement?.ResetRooted();
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
                 ThePitPatch.LockChampionAbilitiesFor(champ, ArenaGracePeriodSeconds);

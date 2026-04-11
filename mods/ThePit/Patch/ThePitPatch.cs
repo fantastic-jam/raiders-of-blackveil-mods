@@ -136,6 +136,18 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: LevelManager.CacheSpawnPoints not found — arena spawn positions unchanged.");
             }
 
+            // --- Face champions toward the door after the walk-in cutscene ends ---
+            // LookToPosition called during the cutscene is overridden every frame by
+            // CutsceneMovement() → _lookAngle = _cutsceneAngle. Patching StopChampionToMoveDirection
+            // fires exactly when _cutsceneMovement becomes false, so our write sticks.
+            var stopCutsceneMove = AccessTools.Method(typeof(NetworkChampionBase), "StopChampionToMoveDirection");
+            if (stopCutsceneMove != null) {
+                harmony.Patch(stopCutsceneMove,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(StopChampionToMoveDirectionPostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: NetworkChampionBase.StopChampionToMoveDirection not found — champions may not face center after arena entry.");
+            }
+
             // --- Despawn pre-placed enemies (MiniBoss room has Slash & Bash pre-placed in scene) ---
             var sceneInit = AccessTools.Method(typeof(EnemySpawnManager), "SceneInit");
             if (sceneInit != null) {
@@ -481,10 +493,19 @@ namespace ThePit.Patch {
                 if (sp == null) { continue; }
                 float angle = Mathf.PI * 2f / 3f * i;
                 // Position only — leave rotation untouched so the camera rig is unaffected.
-                // Player facing is handled in TeleportAllToCenter (arena entry) and
-                // RespawnCoroutine (post-respawn) directly on the champion.
+                // Player facing is handled via StopChampionToMoveDirectionPostfix (arena entry)
+                // and RespawnCoroutine (post-respawn) directly on the champion.
                 sp.transform.position = center + new Vector3(Mathf.Sin(angle) * radius, 0f, Mathf.Cos(angle) * radius);
             }
+        }
+
+        // Called when the arena walk-in cutscene finishes moving each champion.
+        // At this point _cutsceneMovement has just been set to false, so LookToPosition
+        // is no longer overridden by CutsceneMovement() on the next Render().
+        private static void StopChampionToMoveDirectionPostfix(NetworkChampionBase __instance) {
+            if (!ThePitState.ArenaEntered) { return; }
+            var doorGo = GameObject.Find("DoorSpawnPoint");
+            if (doorGo != null) { __instance.LookToPosition(doorGo.transform.position); }
         }
 
         // ── Spawn suppression ────────────────────────────────────────────────────
