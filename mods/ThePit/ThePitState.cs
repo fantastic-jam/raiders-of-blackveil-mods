@@ -87,11 +87,6 @@ namespace ThePit {
             CombatStarted = false;
             CachedDamageReductionFactor = 0f;
             KillCounts.Clear();
-            MatchDurationSecondsOverride = 0f;
-            DropIntervalMultiplier = 1.0f;
-            InitialChestRoundsOverride = -1;
-            InitialLevelOverride = 5;
-            DamageReductionMaxFactor = 0f;
         }
     }
 }
