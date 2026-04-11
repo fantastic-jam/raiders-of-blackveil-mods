@@ -6,9 +6,10 @@ using ThePit.FeralEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     // Manages immunity, triple move speed, and cooldown pause while Shameleon is in stealth in PvP.
-    // Uses InnerState == Active (2) instead of IsInvisible to avoid false-triggering during the
-    // arena grace period (which also calls AddInvisible on all champions).
-    // Immune, speed boost, and cooldown pause all run on HasStateAuthority (host).
+    // Immune lasts until Shameleon activates any non-defensive ability (attack, power, special,
+    // ultimate) or stealth ends naturally — after that Shameleon is hittable but speed continues.
+    // Speed boost and cooldown pause are tied to InnerState == Active (stealth active).
+    // All state changes run on HasStateAuthority (host).
     // Speed uses PropertyModifierTimeouts ([Networked]) so it replicates to all clients.
     internal class PvpShameleonEnterTheShadow {
         private const float SpeedBoostPct = 200f; // +200% on top of base = 3× total
@@ -19,6 +20,7 @@ namespace ThePit.FeralEngine.Abilities {
 
         private readonly ShameleonEnterTheShadowAbility _inst;
         private bool _wasInShadow;
+        private bool _immuneApplied;
 
         internal static void Init() {
             _innerStateProp = AccessTools.Property(typeof(ChampionAbility), "InnerState");
@@ -44,15 +46,35 @@ namespace ThePit.FeralEngine.Abilities {
 
             bool isInShadow = (int)_innerStateProp.GetValue(_inst) == InnerStateActive;
 
-            if (isInShadow != _wasInShadow && _inst.Object.HasStateAuthority) {
-                if (isInShadow) {
+            if (_inst.Object.HasStateAuthority) {
+                if (isInShadow && !_wasInShadow) {
+                    // Stealth entered: grant all modifiers.
                     stats.Health.AddImmune();
                     stats.ModifyPropertyForFrames(Property.MovementSpeed, SpeedBoostPct, 999999);
                     _pausedDueSapField?.SetValue(_inst, true);
-                } else {
-                    stats.Health.RemoveImmune();
+                    _immuneApplied = true;
+                } else if (!isInShadow && _wasInShadow) {
+                    // Stealth ended: clear all modifiers.
+                    if (_immuneApplied) {
+                        stats.Health.RemoveImmune();
+                        _immuneApplied = false;
+                    }
                     stats.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
                     _pausedDueSapField?.SetValue(_inst, false);
+                }
+
+                // Immune breaks the moment any non-defensive ability activates (stealth visual/speed continue).
+                // Defensive is excluded — that slot IS Enter the Shadow and is always active during stealth.
+                if (_immuneApplied && isInShadow) {
+                    var c = stats.Champion;
+                    if (c != null &&
+                        ((c.Attack != null && c.Attack.IsActive) ||
+                         (c.Power != null && c.Power.IsActive) ||
+                         (c.Special != null && c.Special.IsActive) ||
+                         (c.Ultimate != null && c.Ultimate.IsActive))) {
+                        stats.Health.RemoveImmune();
+                        _immuneApplied = false;
+                    }
                 }
             }
 
@@ -60,15 +82,22 @@ namespace ThePit.FeralEngine.Abilities {
         }
 
         // Called on match end / FeralCore deactivation to clean up any lingering modifiers.
+        // Sets _wasInShadow to the current actual state rather than false so that if one more
+        // FixedUpdateNetwork tick fires before patches are removed, no false re-entry is detected.
         internal void Reset() {
-            if (!_wasInShadow) { return; }
             var stats = _inst.Stats;
             if (_inst.Object.HasStateAuthority) {
-                stats?.Health.RemoveImmune();
-                stats?.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
-                _pausedDueSapField?.SetValue(_inst, false);
+                if (_immuneApplied) {
+                    stats?.Health.RemoveImmune();
+                    _immuneApplied = false;
+                }
+                if (_wasInShadow) {
+                    stats?.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
+                    _pausedDueSapField?.SetValue(_inst, false);
+                }
             }
-            _wasInShadow = false;
+            _immuneApplied = false;
+            _wasInShadow = _innerStateProp != null && (int)_innerStateProp.GetValue(_inst) == InnerStateActive;
         }
     }
 }
