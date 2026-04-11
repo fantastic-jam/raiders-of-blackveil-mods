@@ -41,7 +41,6 @@ namespace ThePit {
 
         public void Enable() {
             ThePitState.IsActive = true;
-            //FacingMethodDebug.CreateAndStart();
             PublicLogger.LogInfo($"{Name}: enabled.");
         }
 
