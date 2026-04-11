@@ -209,6 +209,14 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: StatsManager.TakeBasicDamage(DamageDescriptor,...) not found — level-based damage reduction inactive.");
             }
 
+            var takeDotDamage = AccessTools.Method(typeof(Health), "TakeDOTDamage");
+            if (takeDotDamage != null) {
+                harmony.Patch(takeDotDamage,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DotDamageReductionPrefix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: Health.TakeDOTDamage not found — DoT damage reduction inactive.");
+            }
+
             // --- Perk filter: exclude PvP-incompatible perks from the selectable pool ---
             // Patch IsItUnlocked (upstream of selection) so banned perks never enter the draw.
             // Patching the output of GetRandomPerkAmount would leave the shrine with fewer than
@@ -540,6 +548,29 @@ namespace ThePit.Patch {
             float divisor = Mathf.Lerp(1f, maxFactor, t);
             dmgDesc = dmgDesc.CloneAndMultiply(1f / divisor);
             return true;
+        }
+
+        private static void DotDamageReductionPrefix(Health __instance, ref float damage, StatsManager attacker) {
+            if (!ThePitState.IsDraftMode) { return; }
+            if (attacker == null || !attacker.IsChampion) { return; }
+            if (HealthStatsField == null) { return; }
+
+            var victimStats = HealthStatsField.GetValue(__instance) as StatsManager;
+            if (victimStats == null || !victimStats.IsChampion) { return; }
+
+            float maxFactor = ThePitState.CachedDamageReductionFactor;
+            if (maxFactor <= 1f) { return; }
+
+            var rdb = RewardDatabase.Instance;
+            if (rdb == null || victimStats.Champion == null) { return; }
+
+            const int MaxXpLevel = 20;
+            int level = rdb.GetXPLevel(victimStats.Champion.XP.Amount);
+            if (level <= 1) { return; }
+
+            float t = (float)(level - 1) / (MaxXpLevel - 1);
+            float divisor = Mathf.Lerp(1f, maxFactor, t);
+            damage /= divisor;
         }
 
         // ── Perk filter ──────────────────────────────────────────────────────────
