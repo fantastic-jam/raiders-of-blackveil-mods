@@ -93,9 +93,11 @@ namespace ThePit {
             ThePitState.CombatStarted = true;
         }
 
-        // 0.1 s after arena entry the bossintro cutscene is running; LookToPosition sticks at that point.
+        // 1 s after arena entry the bossintro cutscene is running; LookToPosition sticks at that point.
+        // Using 1 s (instead of 0.1 s) ensures the cutscene is still active on second run when
+        // scene assets are already cached and init completes faster.
         private IEnumerator FaceTowardDoorCoroutine() {
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(1f);
             var doorGo = GameObject.Find("DoorSpawnPoint");
             if (doorGo == null) { yield break; }
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
@@ -212,6 +214,7 @@ namespace ThePit {
                 p.PlayableChampion?.Stats?.ClearActualEffects();
             }
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
+            _instance = null;
             Destroy(gameObject);
         }
 
