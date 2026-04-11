@@ -106,7 +106,8 @@ namespace ThePit.FeralEngine.Abilities {
             float best = float.MaxValue;
             StatsManager result = null;
             foreach (var hit in hits) {
-                if (!hit.collider.TryGetComponent<StatsManager>(out var sm)) { continue; }
+                var sm = hit.collider.GetComponentInParent<StatsManager>();
+                if (sm == null) { continue; }
                 if (!sm.IsChampion || !sm.IsAlive || sm.IsImmuneOrInvincible) { continue; }
                 if (FeralCore.IsRespawnInvincible(sm.ActorID)) { continue; }
                 if (includes != null && System.Array.IndexOf(includes, sm) < 0) { continue; }
@@ -203,7 +204,10 @@ namespace ThePit.FeralEngine.Abilities {
             for (int i = 0; i < count; i++) {
                 var col = buffer[i];
                 if (col == null) { continue; }
-                if (!col.TryGetComponent<StatsManager>(out var sm)) { continue; }
+                // TryGetComponent only checks the exact GameObject; champion StatsManager is on the
+                // root while the Player-layer collider may be on a child — use GetComponentInParent.
+                var sm = col.GetComponentInParent<StatsManager>();
+                if (sm == null) { continue; }
                 if (!sm.IsChampion || !sm.IsAlive || sm.IsImmuneOrInvincible) { continue; }
                 if (FeralCore.IsRespawnInvincible(sm.ActorID)) { continue; }
                 if (includes != null && System.Array.IndexOf(includes, sm) < 0) { continue; }
