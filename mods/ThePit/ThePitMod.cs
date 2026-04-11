@@ -32,6 +32,7 @@ namespace ThePit {
         public static ConfigEntry<string> CfgInitialPerksOptions;
         public static ConfigEntry<string> CfgDamageReductionOptions;
 
+
         public string GetModType() => nameof(ModType.GameMode);
         public string GetModName() => Name;
         public string GetModDescription() => "A proving ground for raiders and newcomers. Test your mettle in brutal free-for-all brawls.";

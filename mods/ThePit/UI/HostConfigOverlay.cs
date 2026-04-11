@@ -50,13 +50,13 @@ namespace ThePit.UI {
             }
         }
 
-        // ── Saved session state (persists across overlay open/close) ──────────────
+        // ── Saved session state (persists across overlay open/close, seeded from config) ──
 
-        private static int _savedDurationIdx = 2;        // "10 min"
-        private static int _savedDropRateIdx = 2;        // "Normal"
-        private static int _savedInitialPerksIdx = 5;    // 6 rounds
-        private static int _savedDamageReductionIdx = 3; // "Strong:20"
-        private static int _savedInitialLevelIdx = 4;    // level 5
+        private static int _savedDurationIdx;
+        private static int _savedDropRateIdx;
+        private static int _savedInitialPerksIdx;
+        private static int _savedDamageReductionIdx;
+        private static int _savedInitialLevelIdx;
 
         // ── Instance ──────────────────────────────────────────────────────────────
 
@@ -83,11 +83,14 @@ namespace ThePit.UI {
             var damageReduction = StepperOptions.ParseFloat(
                 ThePitMod.CfgDamageReductionOptions?.Value ?? string.Empty, DefaultDamageReduction);
 
-            // Clamp saved indices to the (potentially changed) option list lengths.
-            _savedDurationIdx = StepperOptions.Clamp(_savedDurationIdx, durations.Length);
-            _savedDropRateIdx = StepperOptions.Clamp(_savedDropRateIdx, dropRates.Length);
-            _savedInitialPerksIdx = StepperOptions.Clamp(_savedInitialPerksIdx, initialPerks.Length);
-            _savedDamageReductionIdx = StepperOptions.Clamp(_savedDamageReductionIdx, damageReduction.Length);
+            // Resolve saved indices by matching the persisted value against the option list.
+            // Null means "not set" — falls back to the hard-coded default index.
+            var prefs = ThePitPrefs.Load();
+            _savedDurationIdx = prefs.DurationSeconds.HasValue ? FindIndex(durations, prefs.DurationSeconds.Value, 2) : 2;
+            _savedDropRateIdx = prefs.DropRateMultiplier.HasValue ? FindIndex(dropRates, prefs.DropRateMultiplier.Value, 2) : 2;
+            _savedInitialPerksIdx = prefs.InitialPerksCount.HasValue ? FindIndex(initialPerks, prefs.InitialPerksCount.Value, 5) : 5;
+            _savedDamageReductionIdx = prefs.DamageReductionFactor.HasValue ? FindIndex(damageReduction, prefs.DamageReductionFactor.Value, 3) : 3;
+            _savedInitialLevelIdx = prefs.InitialLevel.HasValue ? FindIndex(LevelOptions, prefs.InitialLevel.Value, 4) : 4;
 
             _durationStepper = new Stepper<float>("DURATION", durations, _savedDurationIdx);
             _dropRateStepper = new Stepper<float>("DROP RATE", dropRates, _savedDropRateIdx);
@@ -124,6 +127,14 @@ namespace ThePit.UI {
             _savedInitialPerksIdx = _initialPerksStepper.Index;
             _savedDamageReductionIdx = _damageReductionStepper.Index;
             _savedInitialLevelIdx = _initialLevelStepper.Index;
+
+            new ThePitPrefs {
+                DurationSeconds = _durationStepper.Value,
+                DropRateMultiplier = _dropRateStepper.Value,
+                InitialPerksCount = _initialPerksStepper.Value,
+                DamageReductionFactor = _damageReductionStepper.Value,
+                InitialLevel = _initialLevelStepper.Value,
+            }.Save();
 
             ThePitState.MatchDurationSecondsOverride = _durationStepper.Value;
             ThePitState.DropIntervalMultiplier = _dropRateStepper.Value;
@@ -204,7 +215,13 @@ namespace ThePit.UI {
             spacer.style.height = 22;
             card.Add(spacer);
 
-            card.Add(MakeOkButton());
+            var footer = new VisualElement();
+            footer.style.flexDirection = FlexDirection.Row;
+            footer.style.justifyContent = Justify.Center;
+            footer.Add(MakeDefaultButton());
+            footer.Add(MakeOkButton());
+            card.Add(footer);
+
             backdrop.Add(card);
             return backdrop;
         }
@@ -224,10 +241,52 @@ namespace ThePit.UI {
             return btn;
         }
 
+        private Button MakeDefaultButton() {
+            var btn = new Button(ResetToDefaults) { text = "Default" };
+            btn.pickingMode = PickingMode.Position;
+            btn.style.width = 100;
+            btn.style.height = 36;
+            btn.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+            btn.style.fontSize = 13;
+            btn.style.unityFontStyleAndWeight = FontStyle.Normal;
+            btn.style.unityTextAlign = TextAnchor.MiddleCenter;
+            btn.style.backgroundColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+            btn.style.borderTopColor = btn.style.borderRightColor =
+                btn.style.borderBottomColor = btn.style.borderLeftColor = new Color(0.25f, 0.25f, 0.25f, 1f);
+            btn.style.borderTopWidth = btn.style.borderRightWidth =
+                btn.style.borderBottomWidth = btn.style.borderLeftWidth = 1;
+            btn.style.borderTopLeftRadius = btn.style.borderTopRightRadius =
+                btn.style.borderBottomLeftRadius = btn.style.borderBottomRightRadius = 4;
+            btn.style.marginRight = 8;
+            return btn;
+        }
+
+        private void ResetToDefaults() {
+            _durationStepper.SetIndex(2);
+            _dropRateStepper.SetIndex(2);
+            _initialPerksStepper.SetIndex(5);
+            _damageReductionStepper.SetIndex(3);
+            _initialLevelStepper.SetIndex(4);
+        }
+
+        // Returns the index of the first entry whose Value matches target, or fallback if not found.
+        private static int FindIndex((string Label, float Value)[] options, float target, int fallback) {
+            for (int i = 0; i < options.Length; i++) {
+                if (Math.Abs(options[i].Value - target) < 1e-4f) { return i; }
+            }
+            return Math.Clamp(fallback, 0, options.Length - 1);
+        }
+
+        private static int FindIndex((string Label, int Value)[] options, int target, int fallback) {
+            for (int i = 0; i < options.Length; i++) {
+                if (options[i].Value == target) { return i; }
+            }
+            return Math.Clamp(fallback, 0, options.Length - 1);
+        }
+
         private Button MakeOkButton() {
             var btn = new Button(Confirm) { text = "OK" };
             btn.pickingMode = PickingMode.Position;
-            btn.style.alignSelf = Align.Center;
             btn.style.width = 120;
             btn.style.height = 36;
             btn.style.color = Color.white;
