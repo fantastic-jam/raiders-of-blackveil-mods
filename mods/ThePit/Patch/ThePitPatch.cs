@@ -21,7 +21,9 @@ namespace ThePit.Patch {
         private static MethodInfo _chargeActualSetter;
         internal static MethodInfo CombatTimePreciseSetter;
         internal static MethodInfo CombatTimeInSecSetter;
-
+        // True while SetupDoorInformation is executing — prevents NextToFinishPostfix from
+        // triggering the loop-door branch inside SetupDoorInformation itself.
+        private static bool _inSetupDoorInfo;
         private const string SlashBashScene = "Assets/Scenes/01_Meat_Factory_Scenes/MF_Boss_SlashBash.unity";
 
 
@@ -53,7 +55,8 @@ namespace ThePit.Patch {
             var setupDoorInfo = AccessTools.Method(typeof(DoorManager), "SetupDoorInformation");
             if (setupDoorInfo != null) {
                 harmony.Patch(setupDoorInfo,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(SetupDoorInformationPrefix))));
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(SetupDoorInformationPrefix))),
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(SetupDoorInformationPostfix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: DoorManager.SetupDoorInformation not found — door will show wrong type.");
             }
@@ -67,14 +70,6 @@ namespace ThePit.Patch {
                 ThePitMod.PublicLogger.LogWarning("ThePit: DoorManager.Activate not found — door may appear in SlashBash room.");
             }
 
-            // --- When winner steps on the trap door after match end, skip door-select UI and return to lobby immediately.
-            var doorCollected = AccessTools.Method(typeof(DoorPickup), nameof(DoorPickup.OnCardCollected));
-            if (doorCollected != null) {
-                harmony.Patch(doorCollected,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(DoorPickupCollectedPrefix))));
-            } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: DoorPickup.OnCardCollected not found — winner door step will show door-select.");
-            }
 
             // --- Health._stats field + LifeState setter — needed by kill tracking / respawn / die-prefix ---
             HealthStatsField = AccessTools.Field(typeof(Health), "_stats");
@@ -203,6 +198,18 @@ namespace ThePit.Patch {
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(ReturnToLobbyPostfix))));
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: GameManager.RPC_Handle_ReturnToLobby not found — state may not reset on hub return.");
+            }
+
+            // --- Make NextLevel take the stats-page + lobby path on match end ---
+            // NextToFinish=true causes NextLevel to call ShowGameEndPage + HandleEvent_GameEnd
+            // instead of loading a dungeon scene. LevelType.Lobby has no scene path, so without
+            // this the call to SceneRef.FromIndex would throw.
+            var nextToFinish = AccessTools.PropertyGetter(typeof(LevelProgressionHandler), "NextToFinish");
+            if (nextToFinish != null) {
+                harmony.Patch(nextToFinish,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ThePitPatch), nameof(NextToFinishPostfix))));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: LevelProgressionHandler.NextToFinish not found — arena exit will crash on lobby door.");
             }
 
             // --- Level-based damage reduction (Draft-specific) ---
@@ -343,8 +350,13 @@ namespace ThePit.Patch {
         // ── MiniBoss room redirect ───────────────────────────────────────────────
 
         // Always serve the Slash & Bash arena when the game randomises a MiniBoss scene.
+        // Guard on MatchEnded so the arena exit door doesn't loop back here.
         private static bool GetRandomizeScenePrefix(LevelType levelType, ref string __result) {
             if (!ThePitState.IsDraftMode) {
+                return true;
+            }
+
+            if (ThePitState.MatchEnded) {
                 return true;
             }
 
@@ -364,13 +376,27 @@ namespace ThePit.Patch {
                 return;
             }
 
-            if (ThePitState.MiniBossRedirected) {
-                return;
-            }
+            // Suppress NextToFinishPostfix while SetupDoorInformation runs so the
+            // game's loop-door branch (guarded by NextToFinish) doesn't add extra cards.
+            _inSetupDoorInfo = true;
 
             var lph = GameManager.Instance?.LevelProgressionHandler;
             var opts = lph?.NextStepOptions;
             if (opts == null || opts.Count == 0) {
+                return;
+            }
+
+            // Arena exit: offer a single Lobby door so the normal vote → animation → lobby path works.
+            if (ThePitState.MatchEnded) {
+                opts[0].Type = LevelType.Lobby;
+                while (opts.Count > 1) {
+                    opts.RemoveAt(opts.Count - 1);
+                }
+                ThePitMod.PublicLogger.LogInfo("ThePit: NextStepOptions overridden to Lobby (match ended).");
+                return;
+            }
+
+            if (ThePitState.MiniBossRedirected) {
                 return;
             }
 
@@ -384,6 +410,8 @@ namespace ThePit.Patch {
             ThePitState.MiniBossRedirected = true;
             ThePitMod.PublicLogger.LogInfo("ThePit: NextStepOptions overridden to Mystery.");
         }
+
+        private static void SetupDoorInformationPostfix() => _inSetupDoorInfo = false;
 
         // ── Death: skip KnockedOut, go straight to Dead ──────────────────────────
 
@@ -452,13 +480,12 @@ namespace ThePit.Patch {
 
         // ── Door handling ────────────────────────────────────────────────────────
 
-        // When the winner steps on the trap door after match end, immediately return to lobby
-        // instead of opening the door-select UI. Cancels the 10s fallback timer.
-        private static bool DoorPickupCollectedPrefix(ref bool __result) {
+        // When the winner steps on the trap door after match end, let the normal door flow run.
+        // SetupDoorInformationPrefix ensures DoorInfos[0] = Lobby, so the page shows one
+        // "Return to Lobby" option and the normal vote → animation → lobby path handles the rest.
+        private static bool DoorPickupCollectedPrefix() {
             if (!ThePitState.IsDraftMode || !ThePitState.MatchEnded) { return true; }
-            __result = false;
-            MatchController.TriggerEarlyLobbyReturn();
-            return false;
+            return true;
         }
 
         // Allow DoorManager.Activate only when:
@@ -550,6 +577,14 @@ namespace ThePit.Patch {
             if (!ThePitState.IsDraftMode) { return true; }
             if (reason != OutroManager.OutroReason.AllPlayerDead) { return true; }
             return ThePitState.MatchEnded;
+        }
+
+        // ── Arena exit: return to lobby instead of loading a dungeon scene ──────
+
+        // When MatchEnded, make NextLevel believe the run is finished so it takes the
+        // ShowGameEndPage + HandleEvent_GameEnd path instead of loading a dungeon scene.
+        private static void NextToFinishPostfix(ref bool __result) {
+            if (ThePitState.MatchEnded && !_inSetupDoorInfo) { __result = true; }
         }
 
         // ── Hub return: reset ThePit state on manual exit ────────────────────────

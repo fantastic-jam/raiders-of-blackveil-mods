@@ -122,7 +122,8 @@ namespace ThePit {
                 }
             }
 
-            StartCoroutine(ReturnToLobbyCoroutine());
+            // Open the arena door so the winner can exit (normally opens on enemies cleared).
+            DoorManager.Instance?.Activate();
         }
 
         private static int DetermineWinner() {
@@ -146,11 +147,6 @@ namespace ThePit {
             if (_instance == null) { return; }
             _instance.StopAllCoroutines();
             _instance.DoReturnToLobby();
-        }
-
-        private IEnumerator ReturnToLobbyCoroutine() {
-            yield return new WaitForSeconds(EndSequenceDelaySeconds);
-            DoReturnToLobby();
         }
 
         private void DoReturnToLobby() {
