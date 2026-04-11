@@ -47,7 +47,7 @@ namespace ThePit {
                 DamageReductionFactor = null;
             }
 
-            if (InitialPerksCount.HasValue && InitialPerksCount.Value < 1) {
+            if (InitialPerksCount.HasValue && InitialPerksCount.Value < 0) {
                 InitialPerksCount = null;
             }
 
@@ -57,29 +57,9 @@ namespace ThePit {
         }
 
         internal void Save() {
-            // Null out default values so they are omitted from the JSON (EmitDefaultValue = false).
-            // Defaults: DurationSeconds=600, DropRateMultiplier=1, InitialPerksCount=6,
-            //           DamageReductionFactor=20, InitialLevel=5.
-            if (DurationSeconds.HasValue && Math.Abs(DurationSeconds.Value - 600f) < 1e-4f) {
-                DurationSeconds = null;
-            }
-
-            if (DropRateMultiplier.HasValue && Math.Abs(DropRateMultiplier.Value - 1.0f) < 1e-4f) {
-                DropRateMultiplier = null;
-            }
-
-            if (DamageReductionFactor.HasValue && Math.Abs(DamageReductionFactor.Value - 20f) < 1e-4f) {
-                DamageReductionFactor = null;
-            }
-
-            if (InitialPerksCount.HasValue && InitialPerksCount.Value == 6) {
-                InitialPerksCount = null;
-            }
-
-            if (InitialLevel.HasValue && InitialLevel.Value == 5) {
-                InitialLevel = null;
-            }
-
+            // Note: EmitDefaultValue = false on Nullable<T> only suppresses null (never-set).
+            // Do NOT null out default values here — DataContractJsonSerializer compares against
+            // default(T) (e.g. 0 for int), so forcing null results in 0 being written to JSON.
             try {
                 var path = PrefsPath;
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);

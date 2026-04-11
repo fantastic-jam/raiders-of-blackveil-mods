@@ -84,13 +84,13 @@ namespace ThePit.UI {
                 ThePitMod.CfgDamageReductionOptions?.Value ?? string.Empty, DefaultDamageReduction);
 
             // Resolve saved indices by matching the persisted value against the option list.
-            // Null means "not set" — falls back to the hard-coded default index.
+            // Null means "not set" or "value no longer in list" — falls back to hard-coded default index.
             var prefs = ThePitPrefs.Load();
-            _savedDurationIdx = prefs.DurationSeconds.HasValue ? FindIndex(durations, prefs.DurationSeconds.Value, 2) : 2;
-            _savedDropRateIdx = prefs.DropRateMultiplier.HasValue ? FindIndex(dropRates, prefs.DropRateMultiplier.Value, 2) : 2;
-            _savedInitialPerksIdx = prefs.InitialPerksCount.HasValue ? FindIndex(initialPerks, prefs.InitialPerksCount.Value, 5) : 5;
-            _savedDamageReductionIdx = prefs.DamageReductionFactor.HasValue ? FindIndex(damageReduction, prefs.DamageReductionFactor.Value, 3) : 3;
-            _savedInitialLevelIdx = prefs.InitialLevel.HasValue ? FindIndex(LevelOptions, prefs.InitialLevel.Value, 4) : 4;
+            _savedDurationIdx = (prefs.DurationSeconds.HasValue ? FindIndex(durations, prefs.DurationSeconds.Value) : null) ?? 2;
+            _savedDropRateIdx = (prefs.DropRateMultiplier.HasValue ? FindIndex(dropRates, prefs.DropRateMultiplier.Value) : null) ?? 2;
+            _savedInitialPerksIdx = (prefs.InitialPerksCount.HasValue ? FindIndex(initialPerks, prefs.InitialPerksCount.Value) : null) ?? 5;
+            _savedDamageReductionIdx = (prefs.DamageReductionFactor.HasValue ? FindIndex(damageReduction, prefs.DamageReductionFactor.Value) : null) ?? 3;
+            _savedInitialLevelIdx = (prefs.InitialLevel.HasValue ? FindIndex(LevelOptions, prefs.InitialLevel.Value) : null) ?? 4;
 
             _durationStepper = new Stepper<float>("DURATION", durations, _savedDurationIdx);
             _dropRateStepper = new Stepper<float>("DROP RATE", dropRates, _savedDropRateIdx);
@@ -269,19 +269,19 @@ namespace ThePit.UI {
             _initialLevelStepper.SetIndex(4);
         }
 
-        // Returns the index of the first entry whose Value matches target, or fallback if not found.
-        private static int FindIndex((string Label, float Value)[] options, float target, int fallback) {
+        // Returns the index of the first entry whose Value matches target, or null if not found.
+        private static int? FindIndex((string Label, float Value)[] options, float target) {
             for (int i = 0; i < options.Length; i++) {
                 if (Math.Abs(options[i].Value - target) < 1e-4f) { return i; }
             }
-            return Math.Clamp(fallback, 0, options.Length - 1);
+            return null;
         }
 
-        private static int FindIndex((string Label, int Value)[] options, int target, int fallback) {
+        private static int? FindIndex((string Label, int Value)[] options, int target) {
             for (int i = 0; i < options.Length; i++) {
                 if (options[i].Value == target) { return i; }
             }
-            return Math.Clamp(fallback, 0, options.Length - 1);
+            return null;
         }
 
         private Button MakeOkButton() {

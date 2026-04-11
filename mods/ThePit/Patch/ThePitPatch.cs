@@ -4,7 +4,6 @@ using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
-using RR.Game.Pickups;
 using RR.Game.Perk;
 using RR.Game.Stats;
 using RR.Level;

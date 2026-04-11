@@ -41,6 +41,7 @@ namespace ThePit {
 
         public void Enable() {
             ThePitState.IsActive = true;
+            //FacingMethodDebug.CreateAndStart();
             PublicLogger.LogInfo($"{Name}: enabled.");
         }
 
@@ -117,7 +118,7 @@ namespace ThePit {
                 "Drop rate stepper options. Format: Label:intervalMultiplier,... (1.0 = base rate, 2.0 = half rate).");
             CfgInitialPerksOptions = Config.Bind(
                 "Steppers", "InitialPerksOptions",
-                "1,2,3,4,5,6,7,8,9,10,11,12",
+                "0,1,2,3,4,5,6,7,8,9,10,11,12",
                 "Initial perk chest round count options. Format: comma-separated integers, or Label:int pairs.");
             CfgDamageReductionOptions = Config.Bind(
                 "Steppers", "DamageReductionOptions",
