@@ -8,8 +8,8 @@ namespace ThePit.FeralEngine.Abilities {
     // Manages immunity, triple move speed, and cooldown pause while Shameleon is in stealth in PvP.
     // Uses InnerState == Active (2) instead of IsInvisible to avoid false-triggering during the
     // arena grace period (which also calls AddInvisible on all champions).
-    // Immune + cooldown pause: HasStateAuthority (networked state, runs on host for all objects).
-    // Speed boost: HasInputAuthority (each client applies locally for their own champion).
+    // Immune, speed boost, and cooldown pause all run on HasStateAuthority (host).
+    // Speed uses PropertyModifierTimeouts ([Networked]) so it replicates to all clients.
     internal class PvpShameleonEnterTheShadow {
         private const float SpeedBoostPct = 200f; // +200% on top of base = 3× total
         private const int InnerStateActive = 2;   // ShameleonEnterTheShadowAbility.InternalState.Active
@@ -44,18 +44,15 @@ namespace ThePit.FeralEngine.Abilities {
 
             bool isInShadow = (int)_innerStateProp.GetValue(_inst) == InnerStateActive;
 
-            if (isInShadow != _wasInShadow) {
-                if (_inst.Object.HasStateAuthority) {
-                    if (isInShadow) {
-                        stats.Health.AddImmune();
-                        _pausedDueSapField?.SetValue(_inst, true);
-                    } else {
-                        stats.Health.RemoveImmune();
-                        _pausedDueSapField?.SetValue(_inst, false);
-                    }
-                }
-                if (_inst.Object.HasInputAuthority) {
-                    if (isInShadow) { stats.ModifyPropertyForFrames(Property.MovementSpeed, SpeedBoostPct, 999999); } else { stats.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct); }
+            if (isInShadow != _wasInShadow && _inst.Object.HasStateAuthority) {
+                if (isInShadow) {
+                    stats.Health.AddImmune();
+                    stats.ModifyPropertyForFrames(Property.MovementSpeed, SpeedBoostPct, 999999);
+                    _pausedDueSapField?.SetValue(_inst, true);
+                } else {
+                    stats.Health.RemoveImmune();
+                    stats.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
+                    _pausedDueSapField?.SetValue(_inst, false);
                 }
             }
 
@@ -68,10 +65,8 @@ namespace ThePit.FeralEngine.Abilities {
             var stats = _inst.Stats;
             if (_inst.Object.HasStateAuthority) {
                 stats?.Health.RemoveImmune();
-                _pausedDueSapField?.SetValue(_inst, false);
-            }
-            if (_inst.Object.HasInputAuthority) {
                 stats?.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
+                _pausedDueSapField?.SetValue(_inst, false);
             }
             _wasInShadow = false;
         }

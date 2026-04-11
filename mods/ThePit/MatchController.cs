@@ -172,6 +172,7 @@ namespace ThePit {
                 ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
                 champ.Stats.Health.Resurrect(100f);
                 champ.Stats.Health.AllDamageDisabled = true;
+                champ.Stats.Health.AddImmune();
                 champ.Stats.Movement?.ResetRooted();
                 GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(p, onlyTeleport: true);
             }
