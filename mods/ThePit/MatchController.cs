@@ -17,7 +17,6 @@ namespace ThePit {
         private const float ArenaGracePeriodSeconds = 10f;
         private const float RespawnDelaySeconds = 3f;
         private const float RespawnInvincibilitySeconds = 10f;
-        private const float EndSequenceDelaySeconds = 20f;
 
         private static MatchController _instance;
 
@@ -36,6 +35,7 @@ namespace ThePit {
             // Champions spawned in the lobby before ArenaEntered was true — expand now.
             AbilityPatch.ExpandAllCasters();
             _instance.StartCoroutine(_instance.ArenaGraceCoroutine());
+            _instance.StartCoroutine(_instance.FaceTowardDoorCoroutine());
             _instance.StartCoroutine(_instance.MatchTimerCoroutine());
         }
 
@@ -65,6 +65,7 @@ namespace ThePit {
                 var champ = p.PlayableChampion;
                 if (champ == null) { continue; }
                 champ.Stats.Movement?.ResetRooted();
+                champ.Stats.Health.AddInvisible();
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
                 ThePitPatch.LockChampionAbilitiesFor(champ, ArenaGracePeriodSeconds);
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
@@ -78,6 +79,16 @@ namespace ThePit {
             ThePitState.CombatStarted = true;
         }
 
+        // 0.1 s after arena entry the bossintro cutscene is running; LookToPosition sticks at that point.
+        private IEnumerator FaceTowardDoorCoroutine() {
+            yield return new WaitForSeconds(0.1f);
+            var doorGo = GameObject.Find("DoorSpawnPoint");
+            if (doorGo == null) { yield break; }
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                p.PlayableChampion?.LookToPosition(doorGo.transform.position);
+            }
+        }
+
         // Clears AllDamageDisabled only if our deadline is still the current one.
         // If a new respawn fired in between, InvincibleUntil was updated and we bail.
         private IEnumerator ClearInvincibilityCoroutine(int actorId, float deadline) {
@@ -89,6 +100,7 @@ namespace ThePit {
             foreach (var p in PlayerManager.Instance.GetPlayers()) {
                 if (p.PlayableChampion?.Stats?.ActorID == actorId) {
                     p.PlayableChampion.Stats.Health.AllDamageDisabled = false;
+                    p.PlayableChampion.Stats.Health.RemoveInvisible();
                     break;
                 }
             }
@@ -196,6 +208,7 @@ namespace ThePit {
             ThePitPatch.LockChampionAbilitiesFor(champ, RespawnInvincibilitySeconds);
 
             float deadline = Time.time + RespawnInvincibilitySeconds;
+            champ.Stats.Health.AddInvisible();
             FeralCore.GrantRespawnInvincibility(victimActorId, RespawnInvincibilitySeconds);
             champ.Stats.Health.AllDamageDisabled = true;
             StartCoroutine(ClearInvincibilityCoroutine(victimActorId, deadline));
