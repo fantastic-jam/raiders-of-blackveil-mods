@@ -49,6 +49,9 @@ namespace ThePit.FeralEngine.Abilities {
             _sidecars.GetValue(__instance, inst => new PvpBeatriceEntanglingRootsAbility(inst)).TryExpand();
 
         // Block ApplyRoot when the projectile hits Beatrice herself or an invincible champion.
+        // Also blocks when AllDamageDisabled is true (covers the one-frame gap before grace
+        // invincibility is granted where the caster is already expanded but FeralCore hasn't
+        // registered the respawn invincibility yet).
         // WitheredSeed hits are always allowed through (the seed revive logic must not be skipped).
         private static bool ApplyRootPrefix(BeatriceEntanglingRootAbility __instance, Collider targetCol) {
             if (targetCol.CompareTag("WitheredSeed")) { return true; }
@@ -57,6 +60,7 @@ namespace ThePit.FeralEngine.Abilities {
             if (caster != null && stats.ActorID == caster.ActorID) { return false; }
             if (FeralCore.IsRespawnInvincible(stats.ActorID)) { return false; }
             if (caster != null && FeralCore.IsRespawnInvincible(caster.ActorID)) { return false; }
+            if (stats.Health != null && stats.Health.AllDamageDisabled) { return false; }
             return true;
         }
     }
