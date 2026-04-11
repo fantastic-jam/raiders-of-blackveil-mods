@@ -57,7 +57,7 @@ namespace ThePit {
         private static readonly List<GameModeVariant> _variants = new() {
             new GameModeVariant(
                 ThePitState.VariantDraft,
-                "The Pit — Beta",
+                "The Pit — PvP",
                 "Start bare. Earn perks over time. Last one standing wins.",
                 joinMessage: null,
                 runStartMessage: "The Pit is open. Survive."

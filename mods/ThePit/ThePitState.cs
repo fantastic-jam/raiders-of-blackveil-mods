@@ -2,7 +2,7 @@
 
 namespace ThePit {
     internal static class ThePitState {
-        internal const string VariantDraft = "beta";
+        internal const string VariantDraft = "pvp";
         internal const string VariantMoba = "moba";
 
         // Full compound IDs as stored by WMF: "{pluginGuid}::{variantId}".
