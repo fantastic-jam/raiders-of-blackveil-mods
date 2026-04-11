@@ -613,12 +613,14 @@ namespace ThePit.Patch {
 
         // ── Hub return: reset ThePit state on manual exit ────────────────────────
 
-        // Catches the path where the host presses "Return to Hub" before the match
-        // timer fires (bypassing ReturnToLobbyCoroutine). When the coroutine runs
-        // normally it sets IsActive = false first, so IsDraftMode is already false
-        // by the time this fires — making it a no-op in that case.
+        // Catches both the normal match-end path (via GameEndScreenExit after the stats page)
+        // and the mid-match manual hub return.
         private static void ReturnToLobbyPostfix() {
             if (!ThePitState.IsDraftMode) { return; }
+            _cutscenePostfixLogged = false;
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                p.PlayableChampion?.Stats?.ClearActualEffects();
+            }
             ThePitState.ResetMatchState();
             MatchController.Stop();
         }
