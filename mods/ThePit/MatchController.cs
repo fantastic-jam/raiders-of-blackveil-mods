@@ -148,11 +148,13 @@ namespace ThePit {
             }
 
             // Grant invincibility to all players — match is over, no more combat.
+            // AddImmune only for the winner (losers get it from RespawnCoroutine).
             foreach (var player in PlayerManager.Instance.GetPlayers()) {
                 var champ = player.PlayableChampion;
                 if (champ == null) { continue; }
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, 300f);
                 champ.Stats.Health.AllDamageDisabled = true;
+                if (champ.Stats.Health.IsAlive) { champ.Stats.Health.AddImmune(); }
             }
 
             // Open the arena door so the winner can exit (normally opens on enemies cleared).

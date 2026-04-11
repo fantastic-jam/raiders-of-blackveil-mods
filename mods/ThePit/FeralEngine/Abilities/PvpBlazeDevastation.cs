@@ -11,8 +11,10 @@ namespace ThePit.FeralEngine.Abilities {
     // Triggered once per ultimate use at the PrepareToTeleport → FollowThrough state transition.
     internal class PvpBlazeDevastation {
         // BlazeDevastation.InternalState enum values (Inactive=0, Aiming=1, WindUp=2, Prepare=3, Follow=4, Cancel=5)
+        private const int StateWindUp = 2;
         private const int StatePrepareToTeleport = 3;
         private const int StateFollowThrough = 4;
+        private const int StateCancelFrames = 5;
         private const float BurstRadius = 8f;
         private const float PushStrength = 20f;
 
@@ -22,6 +24,7 @@ namespace ThePit.FeralEngine.Abilities {
 
         private readonly BlazeDevastation _inst;
         private int _prevInnerState;
+        private bool _isRecast;
 
         internal PvpBlazeDevastation(BlazeDevastation inst) {
             _inst = inst;
@@ -48,10 +51,17 @@ namespace ThePit.FeralEngine.Abilities {
             if (!_inst.Object.HasStateAuthority) { return; }
 
             int currentState = (int)_innerStateProp.GetValue(_inst);
+
+            // Track whether PrepareToTeleport was entered from WindUp (first cast = arrive)
+            // or from CancelFrames (recast = move away). Only the first cast deals burst damage.
+            if (currentState == StatePrepareToTeleport) {
+                if (_prevInnerState == StateCancelFrames) { _isRecast = true; } else if (_prevInnerState == StateWindUp) { _isRecast = false; }
+            }
+
             bool justTeleported = currentState == StateFollowThrough && _prevInnerState == StatePrepareToTeleport;
             _prevInnerState = currentState;
 
-            if (justTeleported) { FireArrivalBurst(); }
+            if (justTeleported && !_isRecast) { FireArrivalBurst(); }
         }
 
         private void FireArrivalBurst() {
@@ -76,7 +86,9 @@ namespace ThePit.FeralEngine.Abilities {
 
                 var direction = diff.magnitude > 0.01f ? diff.normalized : Vector3.forward;
 
-                _takeBasicDamageMethod.Invoke(champ.Stats, new object[] { dmg.Value, casterStats, direction, userAction });
+                var burst = dmg.Value;
+                burst.damageValue *= 2f;
+                _takeBasicDamageMethod.Invoke(champ.Stats, new object[] { burst, casterStats, direction, userAction });
                 champ.AddPushForce(direction * PushStrength);
             }
         }

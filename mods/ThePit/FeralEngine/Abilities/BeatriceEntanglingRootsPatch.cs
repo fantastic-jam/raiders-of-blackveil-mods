@@ -56,6 +56,7 @@ namespace ThePit.FeralEngine.Abilities {
         private static bool ApplyRootPrefix(BeatriceEntanglingRootAbility __instance, Collider targetCol) {
             if (targetCol.CompareTag("WitheredSeed")) { return true; }
             if (!targetCol.TryGetComponent<StatsManager>(out var stats) || !stats.IsChampion) { return true; }
+            if (!ThePitState.IsDraftMode) { return false; }
             var caster = __instance.Stats;
             if (caster != null && stats.ActorID == caster.ActorID) { return false; }
             if (FeralCore.IsRespawnInvincible(stats.ActorID)) { return false; }

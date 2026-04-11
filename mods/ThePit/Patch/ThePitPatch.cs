@@ -18,6 +18,7 @@ namespace ThePit.Patch {
         private static MethodInfo _cooldownTimerSetter;
         private static MethodInfo _cooldownTimerGetter;
         private static MethodInfo _chargeActualSetter;
+        private static MethodInfo _chargeCountGetter;
         internal static MethodInfo CombatTimePreciseSetter;
         internal static MethodInfo CombatTimeInSecSetter;
         // True while SetupDoorInformation is executing — prevents NextToFinishPostfix from
@@ -99,6 +100,11 @@ namespace ThePit.Patch {
             _chargeActualSetter = AccessTools.PropertySetter(typeof(ChampionAbilityWithCooldown), "Charge_Actual");
             if (_chargeActualSetter == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.Charge_Actual setter not found — ability lock on respawn inactive.");
+            }
+
+            _chargeCountGetter = AccessTools.PropertyGetter(typeof(ChampionAbilityWithCooldown), "ChargeCount");
+            if (_chargeCountGetter == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.ChargeCount getter not found — full charge restore on grace end inactive.");
             }
 
             // --- Skip KnockedOut state: champions die immediately, no teammate-revive window ---
@@ -290,6 +296,10 @@ namespace ThePit.Patch {
             foreach (var ability in new ChampionAbility[] { champ.Power, champ.Special, champ.Defensive, champ.Ultimate }) {
                 if (ability is not ChampionAbilityWithCooldown cd) { continue; }
                 _cooldownTimerSetter.Invoke(cd, new object[] { default(PausableTickTimer) });
+                if (_chargeActualSetter != null && _chargeCountGetter != null) {
+                    var maxCharges = (byte)_chargeCountGetter.Invoke(cd, null);
+                    _chargeActualSetter.Invoke(cd, new object[] { maxCharges });
+                }
             }
         }
 

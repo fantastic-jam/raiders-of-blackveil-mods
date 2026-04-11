@@ -80,20 +80,23 @@ namespace ThePit.FeralEngine {
         }
 
         // ── Champion-vs-champion hitbox expansion ─────────────────────────────────
-        // Adds Target.Champions to any detector that targets enemies so the "Player"
-        // physics layer is included in the overlap scan, enabling champion-vs-champion hits.
+        // SetTarget is called at ability init time (before IsDraftMode is set) so we cannot
+        // guard on IsDraftMode here — the mask would never include the Player layer. Instead
+        // we always OR in Target.Champions when Target.Enemies is present; downstream effects
+        // (TakeBasicDamagePrefix, ApplyRootPrefix) block cross-champion interactions outside
+        // of draft mode so dungeon co-op is unaffected.
         private static void SetTargetPrefix(ref Target targetFlags) {
-            if (!ThePitState.IsDraftMode) { return; }
             if (targetFlags.HasFlag(Target.Enemies)) {
                 targetFlags |= Target.Champions;
             }
         }
 
         // ── Self-damage prevention + invincibility blocking ───────────────────────
-        // Guards stripped — patch only exists while FeralCore is active.
-        // Damage reduction is variant-specific and handled separately by ThePit.
+        // Cross-champion damage only allowed in draft mode — guards SetTargetPrefix's
+        // permanent Player-layer inclusion from having side-effects in dungeon runs.
         private static bool TakeBasicDamagePrefix(StatsManager __instance, ref DamageDescriptor dmgDesc, StatsManager attacker) {
             if (attacker == null || !attacker.IsChampion || !__instance.IsChampion) { return true; }
+            if (!ThePitState.IsDraftMode) { return false; }
             if (attacker.ActorID == __instance.ActorID) { return false; }
             if (FeralCore.IsRespawnInvincible(__instance.ActorID)) { return false; }
             if (FeralCore.IsRespawnInvincible(attacker.ActorID)) { return false; }
@@ -109,14 +112,21 @@ namespace ThePit.FeralEngine {
             return healer.ActorID == targetStats.ActorID;
         }
 
-        // ── Ability block while respawn-invincible ────────────────────────────────
+        // ── Ability block while respawn-invincible or rooted (for dash) ──────────
         private static bool CanActivatePrefix(ChampionAbility __instance, ref bool __result) {
             var stats = __instance.Stats;
             if (stats == null || !stats.IsChampion) { return true; }
-            if (!FeralCore.IsRespawnInvincible(stats.ActorID)) { return true; }
-            __result = false;
-            return false;
+            if (FeralCore.IsRespawnInvincible(stats.ActorID)) {
+                __result = false;
+                return false;
+            }
+            if (ThePitState.IsDraftMode && __instance is DashAbility && stats.IsRooted) {
+                __result = false;
+                return false;
+            }
+            return true;
         }
+
 
         // ── Passive perk suppression during grace / death ─────────────────────────
         // Blocks all perk function execution (Thunder, Flame Daggers, health gen, etc.)
