@@ -2,12 +2,15 @@
 using HarmonyLib;
 using RR.Game;
 using RR.Game.Character;
+using RR.Game.Perk;
 using RR.Game.Stats;
 using ThePit.FeralEngine.Abilities;
 
 namespace ThePit.FeralEngine {
     internal static class FeralCorePatches {
         private static FieldInfo _healthStatsField;
+
+        private static MethodInfo _triggerPerkFuncMethod;
 
         internal static void Apply(Harmony harmony) {
             // ── Reflection setup ──────────────────────────────────────────────────
@@ -48,6 +51,15 @@ namespace ThePit.FeralEngine {
                 ThePitMod.PublicLogger.LogWarning("FeralCore: ChampionAbility.CanActivate not found — invincible ability block inactive.");
             }
 
+            // ── Passive perk suppression during grace / death ─────────────────────
+            _triggerPerkFuncMethod = AccessTools.Method(typeof(PerkHandler), "TriggerPerkFunc");
+            if (_triggerPerkFuncMethod != null) {
+                harmony.Patch(_triggerPerkFuncMethod,
+                    prefix: new HarmonyMethod(typeof(FeralCorePatches), nameof(TriggerPerkFuncPrefix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("FeralCore: PerkHandler.TriggerPerkFunc not found — passive perk guard inactive.");
+            }
+
             // ── Ability coverage ──────────────────────────────────────────────────
             AbilityPatch.Apply(harmony);
 
@@ -81,6 +93,18 @@ namespace ThePit.FeralEngine {
             if (!FeralCore.IsRespawnInvincible(stats.ActorID)) { return true; }
             __result = false;
             return false;
+        }
+
+        // ── Passive perk suppression during grace / death ─────────────────────────
+        // Blocks all perk function execution (Thunder, Flame Daggers, health gen, etc.)
+        // when the perk owner is dead, respawn-invincible, or in a grace-period window.
+        private static bool TriggerPerkFuncPrefix(PerkHandler __instance) {
+            var stats = __instance.Stats;
+            if (stats == null || !stats.IsChampion) { return true; }
+            if (!stats.IsAlive) { return false; }
+            if (FeralCore.IsRespawnInvincible(stats.ActorID)) { return false; }
+            if (stats.Health != null && stats.Health.AllDamageDisabled) { return false; }
+            return true;
         }
     }
 }
