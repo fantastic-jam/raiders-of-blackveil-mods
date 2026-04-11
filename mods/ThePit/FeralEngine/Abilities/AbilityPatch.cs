@@ -8,6 +8,7 @@ namespace ThePit.FeralEngine.Abilities {
             ShameleonShadowStrikePatch.Apply(harmony);
             ShameleonShadowDancePatch.Apply(harmony);
             ShameleonTongueLeapPatch.Apply(harmony);
+            ShameleonEnterTheShadowPatch.Apply(harmony);
             BlazeAttackPatch.Apply(harmony);
             BlazeBlastWavePatch.Apply(harmony);
             BlazeSpecialAreaPatch.Apply(harmony);
@@ -37,6 +38,7 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal static void ResetAll() {
             ShameleonShadowDancePatch.Reset();
+            ShameleonEnterTheShadowPatch.Reset();
             ShameleonTongueLeapPatch.Reset();
             BlazeBlastWavePatch.Reset();
             SunStrikeAreaPatch.Reset();
