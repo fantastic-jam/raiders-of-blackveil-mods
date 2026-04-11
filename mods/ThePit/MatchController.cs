@@ -156,6 +156,9 @@ namespace ThePit {
         private void DoReturnToLobby() {
             FeralCore.Deactivate();
             ThePitState.ResetMatchState();
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                p.PlayableChampion?.Stats?.ClearActualEffects();
+            }
             GameManager.Instance.RPC_Handle_ReturnToLobby(runIsWin: true, isFromEndScreen: true);
             Destroy(gameObject);
         }
@@ -190,6 +193,7 @@ namespace ThePit {
             var champ = target.PlayableChampion;
             ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
             champ.Stats.Health.Resurrect(100f);
+            champ.Stats.Movement?.ResetRooted();
             GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
             var respawnDoorGo = GameObject.Find("DoorSpawnPoint");
             if (respawnDoorGo != null) { champ.LookToPosition(respawnDoorGo.transform.position); }
