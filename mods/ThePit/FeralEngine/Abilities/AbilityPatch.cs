@@ -11,6 +11,7 @@ namespace ThePit.FeralEngine.Abilities {
             BlazeAttackPatch.Apply(harmony);
             BlazeBlastWavePatch.Apply(harmony);
             BlazeSpecialAreaPatch.Apply(harmony);
+            BlazeDevastaionPatch.Apply(harmony);
             SunStrikeAreaPatch.Apply(harmony);
             BeatriceAttackPatch.Apply(harmony);
             BeatriceEntanglingRootsPatch.Apply(harmony);
