@@ -67,10 +67,21 @@ namespace ThePit {
                 champ.Stats.Movement?.ResetRooted();
                 champ.Stats.Health.AddInvisible();
                 FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, ArenaGracePeriodSeconds);
-                ThePitPatch.LockChampionAbilitiesFor(champ, ArenaGracePeriodSeconds);
                 StartCoroutine(ClearInvincibilityCoroutine(champ.Stats.ActorID, deadline));
             }
-            yield return new WaitForSeconds(ArenaGracePeriodSeconds);
+            // Abilities aren't fully initialised on the first frame — delay like FaceTowardDoorCoroutine.
+            yield return new WaitForSeconds(0.1f);
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                var champ = p.PlayableChampion;
+                if (champ == null) { continue; }
+                ThePitPatch.LockChampionAbilitiesFor(champ, deadline - Time.time);
+            }
+            yield return new WaitUntil(() => Time.time >= deadline);
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                var champ = p.PlayableChampion;
+                if (champ == null) { continue; }
+                ThePitPatch.UnlockChampionAbilities(champ);
+            }
             var dm = DifficultyManager.Instance;
             if (dm != null) {
                 ThePitPatch.CombatTimePreciseSetter?.Invoke(dm, new object[] { MatchDurationSeconds });
@@ -134,8 +145,32 @@ namespace ThePit {
                 }
             }
 
+            // Grant invincibility to all players — match is over, no more combat.
+            foreach (var player in PlayerManager.Instance.GetPlayers()) {
+                var champ = player.PlayableChampion;
+                if (champ == null) { continue; }
+                FeralCore.GrantRespawnInvincibility(champ.Stats.ActorID, 300f);
+                champ.Stats.Health.AllDamageDisabled = true;
+            }
+
             // Open the arena door so the winner can exit (normally opens on enemies cleared).
             DoorManager.Instance?.Activate();
+
+            // Resurrect dead players after 5 s so they can reach the door and participate in the vote.
+            StartCoroutine(ResurrectForLobbyCoroutine());
+        }
+
+        private IEnumerator ResurrectForLobbyCoroutine() {
+            yield return new WaitForSeconds(5f);
+            foreach (var p in PlayerManager.Instance.GetPlayers()) {
+                var champ = p.PlayableChampion;
+                if (champ == null || champ.Stats.Health.IsAlive) { continue; }
+                ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
+                champ.Stats.Health.Resurrect(100f);
+                champ.Stats.Health.AllDamageDisabled = true;
+                champ.Stats.Movement?.ResetRooted();
+                GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(p, onlyTeleport: true);
+            }
         }
 
         private static int DetermineWinner() {

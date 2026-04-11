@@ -285,6 +285,14 @@ namespace ThePit.Patch {
         // skill bar shows the cooldown timer during the invincibility window.
         // FixedUpdateNetwork auto-restores Charge_Actual when the timer expires —
         // no EnableAllAbilities() needed.
+        internal static void UnlockChampionAbilities(NetworkChampionBase champ) {
+            if (_cooldownTimerSetter == null) { return; }
+            foreach (var ability in new ChampionAbility[] { champ.Power, champ.Special, champ.Defensive, champ.Ultimate }) {
+                if (ability is not ChampionAbilityWithCooldown cd) { continue; }
+                _cooldownTimerSetter.Invoke(cd, new object[] { default(PausableTickTimer) });
+            }
+        }
+
         internal static void LockChampionAbilitiesFor(NetworkChampionBase champ, float seconds) {
             if (_cooldownTimerSetter == null || _chargeActualSetter == null) { return; }
             var runner = champ.Runner;
