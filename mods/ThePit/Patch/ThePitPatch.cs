@@ -8,6 +8,7 @@ using RR.Game.Perk;
 using RR.Game.Stats;
 using RR.Level;
 using RR.Utility;
+using ThePit.FeralEngine;
 using UnityEngine;
 
 namespace ThePit.Patch {
@@ -456,6 +457,7 @@ namespace ThePit.Patch {
             }
 
             ThePitState.MiniBossRedirected = true;
+            FeralCore.Activate();
             ThePitMod.PublicLogger.LogInfo("ThePit: NextStepOptions overridden to Mystery.");
         }
 

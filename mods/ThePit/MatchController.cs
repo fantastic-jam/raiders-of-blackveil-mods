@@ -34,7 +34,6 @@ namespace ThePit {
         // Called when EventBeginLevel fires for the SlashBash room.
         internal static void StartArena() {
             if (_instance == null) { return; }
-            FeralCore.Activate();
             ThePitState.CachedDamageReductionFactor = ThePitState.ResolvedDamageReductionFactor;
             // Champions spawned in the lobby before ArenaEntered was true — expand now.
             AbilityPatch.ExpandAllCasters();
