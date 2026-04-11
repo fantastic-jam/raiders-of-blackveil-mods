@@ -92,6 +92,8 @@ These are enforced on every task — no exceptions:
 3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TSidecar>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/dev/patterns/sidecar.md`](docs/dev/patterns/sidecar.md).
 4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md).
 5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
+6. **Never `git commit`, `pnpm run deploy`, or `pnpm run release` unless the user explicitly asks.** Do not stage, commit, or deploy as a side-effect of completing a task.
+7. **Before any implementation task, read the relevant pattern docs first.** For any C# mod work: read `docs/dev/patterns/` (harmony-patching.md, patch-extraction.md, sidecar.md, networking.md, state.md). For ThePit work: also read the ThePit-specific docs in `docs/dev/ThePit/`. Only go to `game-src/` after understanding the patterns.
 
 ## Harmony patches
 

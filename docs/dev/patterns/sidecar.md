@@ -54,6 +54,35 @@ new PvpActorColliderDetector(new[] { col1, col2 }, excludes: new[] { self })
 new PvpActorColliderDetector(col, ActorColliderDetector.AllTargetForChampions, excludes: new[] { self })
 ```
 
+## Patch every overridden public method
+
+When the target class overrides multiple lifecycle methods, patch **all of them** and forward each to the matching sidecar method. Do not try to infer state from polling — let the sidecar react to the same events vanilla does.
+
+```csharp
+// Patch.cs — one postfix per override, each a one-liner
+harmony.Patch(spawned,      postfix: new HarmonyMethod(..., nameof(SpawnedPostfix)));
+harmony.Patch(fixedUpdate,  postfix: new HarmonyMethod(..., nameof(FixedUpdateNetworkPostfix)));
+harmony.Patch(onCharEvent,  postfix: new HarmonyMethod(..., nameof(OnCharacterEventPostfix)));
+
+private static void SpawnedPostfix(MyAbility __instance) {
+    _sidecars.Remove(__instance);
+    _sidecars.Add(__instance, new PvpMyAbility(__instance));
+}
+private static void FixedUpdateNetworkPostfix(MyAbility __instance) {
+    if (_sidecars.TryGetValue(__instance, out var s)) { s.OnFixedUpdate(); }
+}
+private static void OnCharacterEventPostfix(MyAbility __instance) {
+    if (_sidecars.TryGetValue(__instance, out var s)) { s.OnCharacterEvent(); }
+}
+
+// Sidecar.cs — matching method per patched override
+internal void OnSpawned()       { }               // sidecar was just created fresh
+internal void OnFixedUpdate()   { /* logic */ }
+internal void OnCharacterEvent() { }              // vanilla handles most of it; stub if no extra work
+```
+
+`Spawned` uses `Remove + Add` (eager creation). All other methods use `TryGetValue` — the sidecar is guaranteed to exist once Spawned has fired.
+
 ## Lifecycle safety
 
 - `DoHit` fires as a postfix on the instance's own method → instance is alive while it runs.
