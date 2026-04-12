@@ -10,6 +10,7 @@ import {
   modDllPath,
   modOutputDir,
   readModMetadata,
+  readModPluginId,
   readUserPaths,
 } from './lib/mod.mts'
 
@@ -66,10 +67,13 @@ for (const mod of mods) {
   fs.mkdirSync(pluginDir, { recursive: true })
 
   if (isDebug) {
-    // Copy mod DLLs from the debug output; UnityHotReload.dll goes to game root instead
+    // Copy mod DLLs from the debug output; excluded DLLs are managed externally:
+    //   UnityHotReload.dll — installed once by setup into BepInEx/plugins
+    //   ModRegistry.dll    — deployed by WMF into BepInEx/patchers
+    const EXTERNALLY_MANAGED = new Set(['UnityHotReload.dll', 'ModRegistry.dll'])
     const dlls = fs
       .readdirSync(outputDir)
-      .filter((f) => f.endsWith('.dll') && f !== 'UnityHotReload.dll')
+      .filter((f) => f.endsWith('.dll') && !EXTERNALLY_MANAGED.has(f))
     for (const dll of dlls) {
       fs.copyFileSync(path.join(outputDir, dll), path.join(pluginDir, dll))
     }
@@ -110,6 +114,25 @@ for (const mod of mods) {
           console.log(`Config deployed: ${dest}`)
         }
       }
+    }
+  }
+
+  if (isDebug) {
+    const pluginId = readModPluginId(mod)
+    if (pluginId) {
+      const hotReloadCfgPath = path.join(configDir, `${pluginId}.cfg`)
+      const line = `DllPath = ${dllPath}`
+      let content = fs.existsSync(hotReloadCfgPath) ? fs.readFileSync(hotReloadCfgPath, 'utf8') : ''
+      if (/^\[DevHotReload\]/m.test(content)) {
+        content = /^DllPath\s*=/m.test(content)
+          ? content.replace(/^DllPath\s*=.*$/m, line)
+          : content.replace(/^(\[DevHotReload\])/m, `$1\n\n${line}`)
+      } else {
+        content += `${content ? '\n' : ''}[DevHotReload]\n\n${line}\n`
+      }
+      fs.mkdirSync(configDir, { recursive: true })
+      fs.writeFileSync(hotReloadCfgPath, content, 'utf8')
+      console.log(`HotReload config: ${hotReloadCfgPath}`)
     }
   }
 }
