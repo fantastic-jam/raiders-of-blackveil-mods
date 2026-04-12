@@ -41,7 +41,7 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal static void ExpandAllCasters() {
             foreach (var a in Object.FindObjectsOfType<BeatriceEntanglingRootAbility>()) {
-                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Expand(); }
+                _proxies.GetValue(a, inst => new PvpBeatriceEntanglingRootsAbility(inst)).Expand();
             }
         }
 
