@@ -98,6 +98,53 @@ private void Awake() {
 }
 ```
 
+## Calling a base-class method non-virtually from a prefix
+
+`MethodInfo.Invoke` on Mono/CLR **always uses virtual dispatch** — it walks the vtable of the runtime type. If you obtain `AccessTools.Method(typeof(BaseClass), "VirtualMethod")` and call `.Invoke(derivedInstance, ...)`, the derived override is called, not the base. In a prefix this causes Harmony's reentrancy guard to skip the prefix on the second call, running the vanilla body you meant to block.
+
+**Wrong — triggers virtual dispatch into the patched override:**
+
+```csharp
+private static MethodInfo _baseFixedUpdate;
+// Apply(): _baseFixedUpdate = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "FixedUpdateNetwork");
+
+static bool MyPrefix(DerivedAbility __instance) {
+    _baseFixedUpdate?.Invoke(__instance, null);  // dispatches to DerivedAbility.FixedUpdateNetwork — re-enters patch
+    ...
+}
+```
+
+**Right — emit `OpCodes.Call` (non-virtual) via `DynamicMethod`:**
+
+```csharp
+using System.Reflection.Emit;
+
+private static Action<ChampionAbilityWithCooldown> _baseFixedUpdateCall;
+
+// In Apply():
+var baseMethod = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "FixedUpdateNetwork");
+if (baseMethod != null) {
+    var dm = new DynamicMethod(
+        "__BaseFixedUpdate",
+        typeof(void),
+        new[] { typeof(ChampionAbilityWithCooldown) },
+        typeof(MyPatch).Module,
+        skipVisibility: true);
+    var il = dm.GetILGenerator();
+    il.Emit(OpCodes.Ldarg_0);
+    il.Emit(OpCodes.Call, baseMethod);   // non-virtual — calls ChampionAbilityWithCooldown directly
+    il.Emit(OpCodes.Ret);
+    _baseFixedUpdateCall = (Action<ChampionAbilityWithCooldown>)dm.CreateDelegate(typeof(Action<ChampionAbilityWithCooldown>));
+}
+
+static bool MyPrefix(DerivedAbility __instance) {
+    _baseFixedUpdateCall?.Invoke(__instance);   // safe — non-virtual, no re-entry
+    ...
+}
+```
+
+For methods with parameters, declare a matching `private delegate` and use `Ldarg_1`, `Ldarg_2`, etc. The delegate's first parameter type must be assignment-compatible with the method's declaring type.
+
 ## Re-entrant guard — use `[ThreadStatic]`, not `static bool`
 
 ```csharp

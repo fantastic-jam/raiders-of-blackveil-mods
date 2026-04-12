@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR.Game;
@@ -9,27 +11,57 @@ using UnityEngine;
 namespace ThePit.FeralEngine.Abilities {
     // Proxy pattern: in PvP draft mode ShameleonEnterTheShadowAbility is a thin proxy.
     // FixedUpdateNetwork and OnCharacterEvent are prefixed and return false, handing all
-    // logic to PvpShameleonEnterTheShadow. Base-class FixedUpdateNetwork is invoked
-    // explicitly so cooldown management still runs.
+    // logic to PvpShameleonEnterTheShadow. Base-class methods are invoked via DynamicMethod
+    // stubs that emit OpCodes.Call (non-virtual) so cooldown management still runs without
+    // re-entering the patched override and triggering Harmony's reentrancy guard.
     internal static class ShameleonEnterTheShadowPatch {
         private static readonly ConditionalWeakTable<ShameleonEnterTheShadowAbility, PvpShameleonEnterTheShadow> _proxies = new();
 
-        private static MethodInfo _baseFixedUpdate;
-        private static MethodInfo _baseOnCharEvent;
+        private static Action<ChampionAbilityWithCooldown> _baseFixedUpdateCall;
+
+        private delegate void BaseOnCharEventCall(ChampionAbilityWithCooldown self, StatsManager owner, CharacterEvent gameplayEvent, TriggerParams triggerParam);
+        private static BaseOnCharEventCall _baseOnCharEventCall;
 
         internal static void Apply(Harmony harmony) {
             PvpShameleonEnterTheShadow.Init();
 
-            _baseFixedUpdate = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "FixedUpdateNetwork");
-            if (_baseFixedUpdate == null) {
+            var baseFixedUpdateMethod = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "FixedUpdateNetwork");
+            if (baseFixedUpdateMethod != null) {
+                var dm = new DynamicMethod(
+                    "__ShameleonBaseFixedUpdate",
+                    typeof(void),
+                    new[] { typeof(ChampionAbilityWithCooldown) },
+                    typeof(ShameleonEnterTheShadowPatch).Module,
+                    skipVisibility: true);
+                var il = dm.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Call, baseFixedUpdateMethod);
+                il.Emit(OpCodes.Ret);
+                _baseFixedUpdateCall = (Action<ChampionAbilityWithCooldown>)dm.CreateDelegate(typeof(Action<ChampionAbilityWithCooldown>));
+            } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.FixedUpdateNetwork not found — Shameleon cooldown inactive in PvP.");
             }
 
-            _baseOnCharEvent = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "OnCharacterEvent",
+            var baseOnCharEventMethod = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "OnCharacterEvent",
                 new[] { typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) })
                 ?? AccessTools.Method(typeof(ChampionAbility), "OnCharacterEvent",
                     new[] { typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) });
-            if (_baseOnCharEvent == null) {
+            if (baseOnCharEventMethod != null) {
+                var dm2 = new DynamicMethod(
+                    "__ShameleonBaseOnCharEvent",
+                    typeof(void),
+                    new[] { typeof(ChampionAbilityWithCooldown), typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) },
+                    typeof(ShameleonEnterTheShadowPatch).Module,
+                    skipVisibility: true);
+                var il2 = dm2.GetILGenerator();
+                il2.Emit(OpCodes.Ldarg_0);
+                il2.Emit(OpCodes.Ldarg_1);
+                il2.Emit(OpCodes.Ldarg_2);
+                il2.Emit(OpCodes.Ldarg_3);
+                il2.Emit(OpCodes.Call, baseOnCharEventMethod);
+                il2.Emit(OpCodes.Ret);
+                _baseOnCharEventCall = (BaseOnCharEventCall)dm2.CreateDelegate(typeof(BaseOnCharEventCall));
+            } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbility.OnCharacterEvent not found — hit-count tracking inactive in PvP.");
             }
 
@@ -66,20 +98,20 @@ namespace ThePit.FeralEngine.Abilities {
 
         private static bool FixedUpdateNetworkPrefix(ShameleonEnterTheShadowAbility __instance) {
             if (!ThePitState.IsDraftMode) { return true; }
-            _baseFixedUpdate?.Invoke(__instance, null);
+            _baseFixedUpdateCall?.Invoke(__instance);
             if (_proxies.TryGetValue(__instance, out var s)) { s.OnFixedUpdate(); }
             return false;
         }
 
         private static bool OnCharacterEventPrefix(ShameleonEnterTheShadowAbility __instance, StatsManager owner, CharacterEvent gameplayEvent, TriggerParams triggerParam) {
             if (!ThePitState.IsDraftMode) { return true; }
-            _baseOnCharEvent?.Invoke(__instance, new object[] { owner, gameplayEvent, triggerParam });
+            _baseOnCharEventCall?.Invoke(__instance, owner, gameplayEvent, triggerParam);
             if (_proxies.TryGetValue(__instance, out var s)) { s.OnCharacterEvent(gameplayEvent); }
             return false;
         }
 
         internal static void Reset() {
-            foreach (var a in Object.FindObjectsOfType<ShameleonEnterTheShadowAbility>()) {
+            foreach (var a in UnityEngine.Object.FindObjectsOfType<ShameleonEnterTheShadowAbility>()) {
                 if (_proxies.TryGetValue(a, out var s)) { s.Reset(); }
             }
         }
