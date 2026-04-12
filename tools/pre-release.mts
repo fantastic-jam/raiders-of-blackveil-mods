@@ -60,9 +60,20 @@ if (all) {
 }
 
 function runPreRelease(name: string, kind: ProjectKind): void {
+  if (dryRun) {
+    try {
+      const out = execSync(`frelease --pkg ${name} --dry-run`, { cwd: REPO_ROOT, encoding: 'utf8' })
+      process.stdout.write(out)
+    } catch (e) {
+      console.error(`  frelease failed: ${(e as Error).message}`)
+      process.exit(1)
+    }
+    return
+  }
+
   let version: string
   try {
-    version = execSync(`frelease --pkg ${name}${dryRun ? ' --dry-run' : ''}`, {
+    version = execSync(`frelease --pkg ${name}`, {
       cwd: REPO_ROOT,
       encoding: 'utf8',
     }).trim()
@@ -87,12 +98,6 @@ function runPreRelease(name: string, kind: ProjectKind): void {
   }
 
   const currentVersion = readProjectVersion(name, kind)
-
-  if (dryRun) {
-    console.log(`  version  : ${currentVersion} → ${version}  (dry-run, no writes)`)
-    return
-  }
-
   writeProjectVersion(name, kind, version)
   console.log(`  version  : ${currentVersion} → ${version}  (${projectVersionFile(name, kind)})`)
 }
