@@ -15,9 +15,9 @@ namespace ThePit {
             ThePitState.MatchDurationSecondsOverride > 0f
                 ? ThePitState.MatchDurationSecondsOverride
                 : (ThePitMod.CfgMatchDurationSeconds?.Value ?? 600f);
-        private const float ArenaGracePeriodSeconds = 10f;
+        private const float ArenaGracePeriodSeconds = 8f;
         private const float RespawnDelaySeconds = 3f;
-        private const float RespawnInvincibilitySeconds = 10f;
+        private const float RespawnInvincibilitySeconds = 3f;
 
         private const float ArenaGraceSpeedBoostPct = 100f; // +100% on top of base = 2× total during arena grace
         private const float RespawnSpeedBoostPct = 200f;   // +200% on top of base = 3× total during respawn grace
