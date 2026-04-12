@@ -1,10 +1,11 @@
 ﻿using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR.Game.Character;
+using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     // Adds an arrival burst (instant damage + radial push) when Blaze teleports in PvP.
-    internal static class BlazeDevastaionPatch {
+    internal static class BlazeDevastationPatch {
         private static readonly ConditionalWeakTable<BlazeDevastation, PvpBlazeDevastation> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
@@ -22,13 +23,23 @@ namespace ThePit.FeralEngine.Abilities {
                 return;
             }
 
-            harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(BlazeDevastaionPatch), nameof(SpawnedPostfix)));
-            harmony.Patch(fixedUpdate, postfix: new HarmonyMethod(typeof(BlazeDevastaionPatch), nameof(FixedUpdateNetworkPostfix)));
+            harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(BlazeDevastationPatch), nameof(SpawnedPostfix)));
+            harmony.Patch(fixedUpdate, postfix: new HarmonyMethod(typeof(BlazeDevastationPatch), nameof(FixedUpdateNetworkPostfix)));
+
+            // Backfill proxies for instances that were already spawned before Apply() ran
+            // (Spawned() fires at match-start upgrades, before FeralCore patches are applied).
+            foreach (var a in Object.FindObjectsOfType<BlazeDevastation>()) {
+                InitProxy(a);
+            }
+        }
+
+        private static void InitProxy(BlazeDevastation inst) {
+            _proxies.Remove(inst);
+            _proxies.Add(inst, new PvpBlazeDevastation(inst));
         }
 
         private static void SpawnedPostfix(BlazeDevastation __instance) {
-            _proxies.Remove(__instance);
-            _proxies.Add(__instance, new PvpBlazeDevastation(__instance));
+            InitProxy(__instance);
         }
 
         private static void FixedUpdateNetworkPostfix(BlazeDevastation __instance) {
