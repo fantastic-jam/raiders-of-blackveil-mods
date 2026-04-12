@@ -89,11 +89,27 @@ namespace ThePit.FeralEngine.Abilities {
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.OnCharacterEvent not found — proxy inactive.");
             }
+
+            // Backfill proxies for instances that were already spawned before Apply() ran
+            // (Spawned() fires at match-start upgrades, before FeralCore patches are applied).
+            foreach (var a in UnityEngine.Object.FindObjectsOfType<ShameleonEnterTheShadowAbility>()) {
+                InitProxy(a);
+            }
+        }
+
+        private static void InitProxy(ShameleonEnterTheShadowAbility inst) {
+            _proxies.Remove(inst);
+            _proxies.Add(inst, new PvpShameleonEnterTheShadow(inst));
+            // Register for ability-use events — stealth breaks on any attack use.
+            // Vanilla Spawned() already covers OnHitWithAttack/OnHitWithPower.
+            inst.Stats.Events.RegisterToEvent(CharacterEvent.OnAttackUsed, inst);
+            inst.Stats.Events.RegisterToEvent(CharacterEvent.OnPowerUsed, inst);
+            inst.Stats.Events.RegisterToEvent(CharacterEvent.OnSpecialUsed, inst);
+            inst.Stats.Events.RegisterToEvent(CharacterEvent.OnUltimateUsed, inst);
         }
 
         private static void SpawnedPostfix(ShameleonEnterTheShadowAbility __instance) {
-            _proxies.Remove(__instance);
-            _proxies.Add(__instance, new PvpShameleonEnterTheShadow(__instance));
+            InitProxy(__instance);
         }
 
         private static bool FixedUpdateNetworkPrefix(ShameleonEnterTheShadowAbility __instance) {

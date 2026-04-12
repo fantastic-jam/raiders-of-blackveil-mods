@@ -12,9 +12,12 @@ namespace ThePit.FeralEngine.Abilities {
     // Full PvP implementation of ShameleonEnterTheShadowAbility (proxy pattern).
     // Vanilla FixedUpdateNetwork and OnCharacterEvent are blocked by proxy prefixes in
     // ShameleonEnterTheShadowPatch; this class owns all ability logic.
-    // Replicates the vanilla state machine with immune + 3× speed instead of invisible.
+    // Replicates the vanilla state machine with invisibility + 2× speed + evasion boost.
+    // Stealth breaks on any ability use (attack/power/special/ultimate) or on being hit.
     internal class PvpShameleonEnterTheShadow {
-        private const float SpeedBoostPct = 200f;
+        private const float SpeedBoostPct = 100f;
+        private const float DodgeBoostPct = 25f;
+        private const float MaxDurationCooldownRatio = 0.9f;
 
         // Ordinals mirror ShameleonEnterTheShadowAbility.InternalState (private enum)
         private const int Inactive = 0;
@@ -36,8 +39,7 @@ namespace ThePit.FeralEngine.Abilities {
         private static MethodInfo _windupValueForUISetter;
 
         private readonly ShameleonEnterTheShadowAbility _inst;
-        private bool _immuneApplied;
-        private bool _speedApplied;
+        private bool _stealthApplied;
 
         internal static void Init() {
             var absType = typeof(ShameleonEnterTheShadowAbility);
@@ -130,15 +132,21 @@ namespace ThePit.FeralEngine.Abilities {
         }
 
         private void ApplyStealth() {
+            if (_stealthApplied) { return; }
             var stats = _inst.Stats;
-            if (!_immuneApplied) { stats.Health.AddImmune(); _immuneApplied = true; }
-            if (!_speedApplied) { stats.ModifyPropertyForFrames(Property.MovementSpeed, SpeedBoostPct, 999999); _speedApplied = true; }
+            stats.Health.AddInvisible();
+            stats.ModifyPropertyForFrames(Property.MovementSpeed, SpeedBoostPct, 999999);
+            stats.ModifyPropertyForFrames(Property.DodgeChance, DodgeBoostPct, 999999);
+            _stealthApplied = true;
         }
 
         private void RemoveStealth() {
+            if (!_stealthApplied) { return; }
             var stats = _inst.Stats;
-            if (_immuneApplied) { stats?.Health.RemoveImmune(); _immuneApplied = false; }
-            if (_speedApplied) { stats?.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct); _speedApplied = false; }
+            stats?.Health.RemoveInvisible();
+            stats?.ClearTemporaryModifiedProperty(Property.MovementSpeed, SpeedBoostPct);
+            stats?.ClearTemporaryModifiedProperty(Property.DodgeChance, DodgeBoostPct);
+            _stealthApplied = false;
         }
 
         internal void OnFixedUpdate() {
@@ -170,8 +178,9 @@ namespace ThePit.FeralEngine.Abilities {
                         }
                     }
                     if (!StealthTimer.IsRunning) { ApplyStealth(); }
-                    StealthTimer = TickTimer.CreateFromSeconds(_inst.Runner,
-                        stealthDuration * _inst.ActualDurationMultiplier);
+                    float rawDuration = stealthDuration * _inst.ActualDurationMultiplier;
+                    float cappedDuration = Mathf.Min(rawDuration, _inst.CooldownTime * MaxDurationCooldownRatio);
+                    StealthTimer = TickTimer.CreateFromSeconds(_inst.Runner, cappedDuration);
                     break;
                 case WindUp:
                     if (windUpFrames > 0f) {
@@ -195,8 +204,14 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal void OnCharacterEvent(CharacterEvent gameplayEvent) {
             if (!_inst.Object.HasStateAuthority) { return; }
-            if (StealthTimer.IsRunning
-                && (gameplayEvent == CharacterEvent.OnHitWithAttack || gameplayEvent == CharacterEvent.OnHitWithPower)) {
+            if (!StealthTimer.IsRunning) { return; }
+            // Break on any attack use or on being hit.
+            if (gameplayEvent == CharacterEvent.OnAttackUsed
+                || gameplayEvent == CharacterEvent.OnPowerUsed
+                || gameplayEvent == CharacterEvent.OnSpecialUsed
+                || gameplayEvent == CharacterEvent.OnUltimateUsed
+                || gameplayEvent == CharacterEvent.OnHitWithAttack
+                || gameplayEvent == CharacterEvent.OnHitWithPower) {
                 RemoveStealth();
                 StealthTimer = TickTimer.None;
             }
