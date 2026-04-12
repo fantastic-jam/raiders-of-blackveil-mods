@@ -1,0 +1,39 @@
+[size=5]ThePit[/size]
+
+The Pit is where raiders test their skills (and gear) against each other — a free-for-all brawl where players draft perks, earn XP passively, and fight for the most kills before time runs out.
+
+Host-only mod. Other players join without installing anything.
+
+[line]
+
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2060990/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[*][url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework]WildguardModFramework[/url]
+[/list]
+
+[heading]Installation[/heading]
+[list]
+[*]Install BepInEx 5 into your Raiders of Blackveil game folder.
+[*]Download the latest ThePit ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ThePit]releases page[/url].
+[*]Extract the ZIP directly into your game folder — the [b]plugins/[/b] folder inside the ZIP maps to [b]BepInEx/plugins/[/b].
+[/list]
+
+[heading]Selecting the game mode[/heading]
+
+In the lobby, the host opens the game mode selector (provided by WildguardModFramework), selects [b]The Pit — PvP[/b], then interacts with the planning table to configure and start the match.
+
+[line]
+
+[heading]Host Configuration[/heading]
+
+[list]
+[*][b]Duration[/b] — 2, 5, 10, 15, or 20 minutes (default: 5 min)
+[*][b]Drop Speed[/b] — scales how fast perks are granted and XP ticks: Sluggish / Slow / Normal / Fast / Rapid / Frenzy. XP stops at level 20; perks continue.
+[*][b]Initial Perks[/b] — perk chest rounds before the arena door opens, 0 – 12 (default: 6)
+[*][b]Initial Level[/b] — starting XP level for all players, 1 – 20 (default: 5)
+[*][b]Dmg Reduction[/b] — reduces champion-to-champion damage at higher XP levels: Off / Gentle / Medium / Strong / Extreme (default: Off)
+[/list]
+
+Advanced rebalancing options (drop intervals, stepper choices) are editable in the BepInEx config file.

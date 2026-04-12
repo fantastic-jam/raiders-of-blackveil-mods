@@ -10,6 +10,7 @@ import {
   modDllPath,
   modOutputDir,
   readModMetadata,
+  readModPluginId,
   readUserPaths,
 } from './lib/mod.mts'
 
@@ -18,10 +19,11 @@ const { values } = parseArgs({
   options: {
     mod: { type: 'string', short: 'm' },
     all: { type: 'boolean' },
+    debug: { type: 'boolean' },
   },
 })
 
-const { mod: modName, all } = values
+const { mod: modName, all, debug: isDebug } = values
 
 if (!modName && !all) {
   console.error(`Usage: deploy --mod <name> | --all\nValid mods: ${listMods().join(', ')}`)
@@ -36,29 +38,49 @@ if (modName && !listMods().includes(modName)) {
   process.exit(1)
 }
 
+const config = isDebug ? 'Debug' : 'Release'
 const gameRoot = readUserPaths()
 const mods: string[] = all ? listMods() : []
 if (!all && modName) mods.push(modName)
 
+function resolveOutputDir(mod: string): string {
+  return isDebug ? path.join(modDir(mod), 'bin', 'Debug') : modOutputDir(mod)
+}
+
 for (const mod of mods) {
-  const outputDir = modOutputDir(mod)
+  const outputDir = resolveOutputDir(mod)
   if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true })
 }
 
-console.log('Building solution...')
+console.log(`Building solution (${config})...`)
 const sln = path.join(REPO_ROOT, 'mods', 'raiders-of-blackveil-mods.sln')
-execSync(`dotnet build "${sln}" -c Release`, { cwd: REPO_ROOT, stdio: 'inherit' })
+execSync(`dotnet build "${sln}" -c ${config}`, { cwd: REPO_ROOT, stdio: 'inherit' })
 
 for (const mod of mods) {
   const pluginDir = path.join(gameRoot, 'BepInEx', 'plugins', `fantastic-jam-${mod}`)
   const configDir = path.join(gameRoot, 'BepInEx', 'config')
+  const outputDir = resolveOutputDir(mod)
 
-  const dllPath = modDllPath(mod)
+  const dllPath = isDebug ? path.join(outputDir, `${mod}.dll`) : modDllPath(mod)
   if (!fs.existsSync(dllPath)) throw new Error(`Built DLL not found: ${dllPath}`)
 
   fs.mkdirSync(pluginDir, { recursive: true })
-  fs.copyFileSync(dllPath, path.join(pluginDir, `${mod}.dll`))
-  console.log(`Deployed ${mod} to: ${pluginDir}`)
+
+  if (isDebug) {
+    // Copy mod DLLs from the debug output; excluded DLLs are managed externally:
+    //   UnityHotReload.dll — installed once by setup into BepInEx/plugins
+    //   ModRegistry.dll    — deployed by WMF into BepInEx/patchers
+    const EXTERNALLY_MANAGED = new Set(['UnityHotReload.dll', 'ModRegistry.dll'])
+    const dlls = fs
+      .readdirSync(outputDir)
+      .filter((f) => f.endsWith('.dll') && !EXTERNALLY_MANAGED.has(f))
+    for (const dll of dlls) {
+      fs.copyFileSync(path.join(outputDir, dll), path.join(pluginDir, dll))
+    }
+  } else {
+    fs.copyFileSync(dllPath, path.join(pluginDir, `${mod}.dll`))
+  }
+  console.log(`Deployed ${mod} (${config}) to: ${pluginDir}`)
 
   const meta = readModMetadata(mod)
   if (meta.patchers?.length) {
@@ -92,6 +114,25 @@ for (const mod of mods) {
           console.log(`Config deployed: ${dest}`)
         }
       }
+    }
+  }
+
+  if (isDebug) {
+    const pluginId = readModPluginId(mod)
+    if (pluginId) {
+      const hotReloadCfgPath = path.join(configDir, `${pluginId}.cfg`)
+      const line = `DllPath = ${dllPath}`
+      let content = fs.existsSync(hotReloadCfgPath) ? fs.readFileSync(hotReloadCfgPath, 'utf8') : ''
+      if (/^\[DevHotReload\]/m.test(content)) {
+        content = /^DllPath\s*=/m.test(content)
+          ? content.replace(/^DllPath\s*=.*$/m, line)
+          : content.replace(/^(\[DevHotReload\])/m, `$1\n\n${line}`)
+      } else {
+        content += `${content ? '\n' : ''}[DevHotReload]\n\n${line}\n`
+      }
+      fs.mkdirSync(configDir, { recursive: true })
+      fs.writeFileSync(hotReloadCfgPath, content, 'utf8')
+      console.log(`HotReload config: ${hotReloadCfgPath}`)
     }
   }
 }

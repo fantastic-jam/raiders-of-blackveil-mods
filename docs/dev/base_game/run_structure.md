@@ -1,5 +1,7 @@
 # Run Structure
 
+For player-facing names of locations, biomes, and room types see [locations.md](locations.md).
+
 ## Overview
 
 A full run spans **two biomes, 19 rooms each = 38 rooms total**. Players choose the starting biome at session start. The second biome is always the other one. After the second BiomeBoss dies, the run ends (or players can loop — see Loops).

@@ -17,6 +17,17 @@ pnpm run release -- --mod [ModName] --skip-push --skip-release  # local only
 pnpm run setup                                        # dev environment setup
 ```
 
+## Documentation
+
+`docs/` contains design and developer documentation. **Read the relevant doc before diving into `game-src/`.** Docs capture intent, call chains, and mod patterns that are not obvious from decompiled code alone.
+
+| Topic | File |
+|---|---|
+| Lobby plan table — full E-interact → run-start flow | [`docs/dev/base_game/lobby_plan_table.md`](docs/dev/base_game/lobby_plan_table.md) |
+| Run structure, rooms, level progression | [`docs/dev/base_game/run_structure.md`](docs/dev/base_game/run_structure.md) |
+| Key game classes quick-reference | [`docs/dev/base_game/key_classes.md`](docs/dev/base_game/key_classes.md) |
+| Fusion networking facts | [`docs/dev/base_game/fusion_networking.md`](docs/dev/base_game/fusion_networking.md) |
+
 ## Game source
 
 `game-src/` is ILSpy-decompiled game source — read it to understand APIs, types, namespaces. Do not edit it. Key namespaces:
@@ -76,11 +87,13 @@ mods/[ModName]/
 
 These are enforced on every task — no exceptions:
 
-1. **Patch methods are one-liners.** All logic goes in a Controller / Sidecar / Orchestrator class. See [`docs/dev/patterns/patch-extraction.md`](docs/dev/patterns/patch-extraction.md).
+1. **Patch methods are one-liners.** All logic goes in a Controller / Proxify / Orchestrator class. See [`docs/dev/patterns/patch-extraction.md`](docs/dev/patterns/patch-extraction.md).
 2. **Reflection handles resolved once in `Apply()`, stored as `private static` fields.** Never inline `AccessTools.Field/Method` inside a patch method. See [`docs/dev/patterns/harmony-patching.md`](docs/dev/patterns/harmony-patching.md).
-3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TSidecar>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/dev/patterns/sidecar.md`](docs/dev/patterns/sidecar.md).
+3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TProxy>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/dev/patterns/proxify.md`](docs/dev/patterns/proxify.md).
 4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md).
 5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
+6. **Never `git commit`, `pnpm run deploy`, or `pnpm run release` unless the user explicitly asks.** Do not stage, commit, or deploy as a side-effect of completing a task.
+7. **Before any implementation task, read the relevant pattern docs first.** For any C# mod work: read `docs/dev/patterns/` (harmony-patching.md, patch-extraction.md, proxify.md, networking.md, state.md). For ThePit work: also read the ThePit-specific docs in `docs/dev/ThePit/`. Only go to `game-src/` after understanding the patterns.
 
 ## Harmony patches
 
@@ -101,7 +114,7 @@ Focused pattern docs (with code examples):
 |---|---|
 | Harmony patching mechanics, `Apply()`, naming, coroutines | [`docs/dev/patterns/harmony-patching.md`](docs/dev/patterns/harmony-patching.md) |
 | Patch extraction — Controllers, Orchestrators, one-liner rule | [`docs/dev/patterns/patch-extraction.md`](docs/dev/patterns/patch-extraction.md) |
-| Sidecar pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/dev/patterns/sidecar.md`](docs/dev/patterns/sidecar.md) |
+| Proxify pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/dev/patterns/proxify.md`](docs/dev/patterns/proxify.md) |
 | Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md) |
 | State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](docs/dev/patterns/state.md) |
 
@@ -110,6 +123,8 @@ ThePit-specific:
 | Topic | File |
 |---|---|
 | Ability PvP coverage — which pattern to use per ability type | [`docs/dev/ThePit/abilities.md`](docs/dev/ThePit/abilities.md) |
+| Arena systems — respawn, timer, grace period | [`docs/dev/ThePit/arena-systems.md`](docs/dev/ThePit/arena-systems.md) |
+| Terminology — Beta/Draft/Moba variant naming | [`docs/dev/ThePit/terminology.md`](docs/dev/ThePit/terminology.md) |
 
 ## Localization
 

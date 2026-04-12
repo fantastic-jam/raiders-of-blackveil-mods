@@ -33,6 +33,12 @@ export function modDllPath(modName: string): string {
   return path.join(modOutputDir(modName), `${modName}.dll`)
 }
 
+export function readModPluginId(modName: string): string | null {
+  const src = fs.readFileSync(modSourceFile(modName), 'utf8')
+  const m = src.match(/\bId\s*=\s*"([^"]+)"/)
+  return m ? m[1] : null
+}
+
 export function readModVersion(modName: string): string {
   const src = fs.readFileSync(modSourceFile(modName), 'utf8')
   const m = src.match(/Version\s*=\s*"([^"]+)"/)

@@ -2,7 +2,7 @@
 
 ## Rule: patch methods must be one-liners
 
-Every Harmony patch method body is a single delegating call. Any logic beyond a guard check belongs in a Controller, Sidecar, Orchestrator, or Protocol class.
+Every Harmony patch method body is a single delegating call. Any logic beyond a guard check belongs in a Controller, Proxify, Orchestrator, or Protocol class.
 
 ```csharp
 // Good
@@ -28,7 +28,7 @@ The exception is `Apply()` (wires hooks, logs warnings) and the mode guard at th
 | `*Injector` | One-time UI injection, owns overlay/page state | `ModsButtonInjector` |
 | `*Lifecycle` | Plugin-level lifecycle (startup, shutdown) | `ModLifecycle` |
 | `*Protocol` | Network protocol state and dispatch | `GameModeProtocol` |
-| `Pvp*Ability` | Per-instance PvP sidecar for a game ability class | `PvpRhinoAttackAbility` |
+| `Pvp*Ability` | Per-instance PvP proxify for a game ability class | `PvpRhinoAttackAbility` |
 
 ## Controller vs. static class — choose by lifetime
 

@@ -55,6 +55,59 @@ function copyGameAssemblies(gameRoot: string): void {
   console.log('Copied Assembly-CSharp.dll to game-lib/')
 }
 
+async function promptYesNo(question: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise((resolve) => {
+    rl.question(`${question} [y/N] `, (answer: string) => {
+      rl.close()
+      resolve(answer.trim().toLowerCase() === 'y')
+    })
+  })
+}
+
+async function installUnityHotReload(gameRoot: string): Promise<void> {
+  const devDll = path.join(REPO_ROOT, 'dev', 'UnityHotReload', 'UnityHotReload.dll')
+  const pluginsDest = path.join(gameRoot, 'BepInEx', 'plugins', 'UnityHotReload.dll')
+
+  if (!fs.existsSync(devDll)) {
+    const yes = await promptYesNo('Install UnityHotReload for hot-reload dev (F9 in-game)?')
+    if (!yes) return
+
+    console.log('Downloading UnityHotReload (latest)...')
+    const releasesRes = await fetch(
+      'https://api.github.com/repos/xiaoxiao921/UnityHotReload/releases',
+      {
+        headers: { 'User-Agent': 'setup-script' },
+      },
+    )
+    const releases = (await releasesRes.json()) as {
+      prerelease: boolean
+      assets: { name: string; browser_download_url: string }[]
+    }[]
+    const rel = releases.find((r) => !r.prerelease)
+    if (!rel) throw new Error('Cannot find UnityHotReload release')
+    const asset = rel.assets.find((a) => a.name.endsWith('.zip'))
+    if (!asset) throw new Error('Cannot find UnityHotReload zip asset')
+
+    const zipPath = path.join(os.tmpdir(), 'unity_hot_reload.zip')
+    const res = await fetch(asset.browser_download_url)
+    fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
+
+    const devDir = path.join(REPO_ROOT, 'dev', 'UnityHotReload')
+    fs.mkdirSync(devDir, { recursive: true })
+    await extractZip(zipPath, devDir)
+    fs.unlinkSync(zipPath)
+
+    // Remove non-DLL files extracted from the zip
+    for (const f of fs.readdirSync(devDir)) {
+      if (!f.endsWith('.dll')) fs.rmSync(path.join(devDir, f))
+    }
+  }
+
+  fs.copyFileSync(devDll, pluginsDest)
+  console.log(`UnityHotReload installed to ${pluginsDest}`)
+}
+
 async function installBepInEx(): Promise<void> {
   const bepinexDir = path.join(REPO_ROOT, 'bepinex')
   const coreDll = path.join(bepinexDir, 'BepInEx', 'core', 'BepInEx.dll')
@@ -128,6 +181,7 @@ const gameRoot = await promptGameRoot()
 console.log(`Game: ${gameRoot}`)
 writeUserPaths(gameRoot)
 await installBepInEx()
+await installUnityHotReload(gameRoot)
 copyGameAssemblies(gameRoot)
 decompileIfNeeded(gameRoot)
 console.log('\nSetup complete. Next: pnpm run build')
