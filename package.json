@@ -6,7 +6,9 @@
   },
   "scripts": {
     "build": "node --experimental-strip-types tools/build.mts",
+    "build:debug": "node --experimental-strip-types tools/build.mts --debug",
     "deploy": "node --experimental-strip-types tools/deploy.mts",
+    "deploy:debug": "node --experimental-strip-types tools/deploy.mts --debug",
     "package": "node --experimental-strip-types tools/package.mts",
     "release": "node --experimental-strip-types tools/release.mts",
     "setup": "node --experimental-strip-types tools/setup.mts",

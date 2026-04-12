@@ -32,6 +32,10 @@ namespace ThePit {
         public static ConfigEntry<string> CfgInitialPerksOptions;
         public static ConfigEntry<string> CfgDamageReductionOptions;
 
+#if DEV_HOTRELOAD
+        public static ConfigEntry<string> CfgDevHotReloadDllPath;
+#endif
+
 
         public string GetModType() => nameof(ModType.GameMode);
         public string GetModName() => Name;
@@ -131,6 +135,18 @@ namespace ThePit {
             catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
+
+#if DEV_HOTRELOAD
+            CfgDevHotReloadDllPath = Config.Bind(
+                "DevHotReload", "DllPath", "",
+                "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/ThePit/bin/Debug/ThePit.dll");
+            Dev.HotReloadController.Initialize(CfgDevHotReloadDllPath.Value);
+            PublicLogger.LogWarning($"[HotReload] DEV BUILD. Press F9 to reload. DLL: {CfgDevHotReloadDllPath.Value}");
+#endif
         }
+
+#if DEV_HOTRELOAD
+        private void Update() => Dev.HotReloadController.OnUpdate();
+#endif
     }
 }
