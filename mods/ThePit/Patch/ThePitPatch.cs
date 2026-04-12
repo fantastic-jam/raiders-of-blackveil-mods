@@ -351,19 +351,6 @@ namespace ThePit.Patch {
             champ.XP.Amount = targetXP;
             champ.XP.AbilityPoints = rdb.GetXPUpgradePoints(0, targetXP);
 
-            int healthBoosts = targetLevel / 2;
-            if (healthBoosts > 0) {
-                var filter = champ.Player?.PlayerFilter ?? PlayerFilter.AnyPlayer;
-                var rm = RewardManager.Instance;
-                if (rm != null && filter != PlayerFilter.AnyPlayer) {
-                    var pos = champ.transform.position;
-                    var dropPos = new DropPos(pos, pos);
-                    for (int i = 0; i < healthBoosts; i++) {
-                        rm.RegisterDropStat(LevelRewardBase.Stat_MaxHealth, dropPos, filter);
-                    }
-                }
-            }
-
             if (targetLevel < limits.Count) { return; }
 
             // Max level: auto-spend all ability points. Attack is already at level 1 from

@@ -41,6 +41,8 @@ namespace ThePit {
         private IEnumerator PerkCoroutine() {
             // Wait for RewardManager.SceneInit and spawn teleport before starting chests.
             yield return new WaitForSeconds(SceneInitDelaySecs);
+            // Grant health boosts for the starting level before the chest phase.
+            GrantInitialHealthBoosts();
             // Run 6 sequential perk chest rounds; door opens only after all are done.
             yield return StartCoroutine(RunInitialChestRounds());
             DoorManager.Instance?.Activate(string.Empty);
@@ -139,6 +141,21 @@ namespace ThePit {
             }
         }
 
+        private static void GrantInitialHealthBoosts() {
+            var rdb = RewardDatabase.Instance;
+            var healthPerk = rdb?.StatMaxHealth?.Perk;
+            if (healthPerk == null) { return; }
+            int boosts = ThePitState.InitialLevelOverride / 2;
+            if (boosts <= 0) { return; }
+            foreach (var filter in _allFilters) {
+                var player = PlayerManager.Instance?.GetPlayerByPlayerFilter(filter);
+                if (player?.PlayableChampion?.PerkHandler == null) { continue; }
+                for (int i = 0; i < boosts; i++) {
+                    player.PlayableChampion.PerkHandler.CollectPerkOnHost(healthPerk);
+                }
+            }
+        }
+
         private static void GrantPerksToAllPlayers(int count, Rarity rarity) {
             var db = PerkDatabase.Instance;
             if (db == null) { return; }
@@ -191,9 +208,14 @@ namespace ThePit {
 
                     if (newXP <= currentXP) { continue; }
 
-                    // Grant ability points the moment a level boundary is crossed.
+                    // Grant ability points and health boosts the moment a level boundary is crossed.
                     if (rdb.GetXPLevel(newXP) > currentLevel) {
                         champ.XP.AbilityPoints += rdb.GetXPUpgradePoints(currentXP, newXP);
+                        int newLevel = rdb.GetXPLevel(newXP);
+                        if (newLevel % 2 == 0) {
+                            var healthPerk = rdb.StatMaxHealth?.Perk;
+                            if (healthPerk != null) { champ.PerkHandler?.CollectPerkOnHost(healthPerk); }
+                        }
                     }
 
                     champ.XP.Amount = newXP;
