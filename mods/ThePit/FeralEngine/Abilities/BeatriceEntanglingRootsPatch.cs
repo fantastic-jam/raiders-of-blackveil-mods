@@ -5,9 +5,9 @@ using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     // Beatrice's Entangling Roots fires projectiles via ProjectileCaster. Same fix as BlazeAttackPatch.
-    // ApplyRoot prefix: expanding the caster to the Player layer lets the projectile hit Beatrice
-    // herself. TakeBasicDamage is already blocked globally, but GetRooted runs before it — so we
-    // guard ApplyRoot against self-hits and invincible targets explicitly.
+    // ApplyRoot prefix: guards self-hits and invincible targets.
+    // ApplyRoot postfix: registers the newly-rooted victim for death-cleanup.
+    // FixedUpdateNetwork postfix: if the tracked victim dies, clears their root immediately.
     internal static class BeatriceEntanglingRootsPatch {
         private static readonly ConditionalWeakTable<BeatriceEntanglingRootAbility, PvpBeatriceEntanglingRootsAbility> _proxies = new();
 
@@ -31,12 +31,20 @@ namespace ThePit.FeralEngine.Abilities {
             }
             harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(SpawnedPostfix)));
 
+            var fixedUpdate = AccessTools.Method(typeof(BeatriceEntanglingRootAbility), "FixedUpdateNetwork");
+            if (fixedUpdate != null) {
+                harmony.Patch(fixedUpdate, postfix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(FixedUpdateNetworkPostfix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceEntanglingRootAbility.FixedUpdateNetwork not found — death-root cleanup inactive.");
+            }
+
             var applyRoot = AccessTools.Method(typeof(BeatriceEntanglingRootAbility), "ApplyRoot");
             if (applyRoot == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceEntanglingRootAbility.ApplyRoot not found — self-root on launch not blocked.");
                 return;
             }
             harmony.Patch(applyRoot, prefix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(ApplyRootPrefix)));
+            harmony.Patch(applyRoot, postfix: new HarmonyMethod(typeof(BeatriceEntanglingRootsPatch), nameof(ApplyRootPostfix)));
         }
 
         internal static void ExpandAllCasters() {
@@ -56,7 +64,17 @@ namespace ThePit.FeralEngine.Abilities {
             _proxies.Add(__instance, new PvpBeatriceEntanglingRootsAbility(__instance));
         }
 
-        private static bool ApplyRootPrefix(BeatriceEntanglingRootAbility __instance, Collider targetCol) =>
-            PvpBeatriceEntanglingRootsAbility.ShouldApplyRoot(__instance, targetCol);
+        private static void FixedUpdateNetworkPostfix(BeatriceEntanglingRootAbility __instance) {
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.OnFixedUpdate(); }
+        }
+
+        private static bool ApplyRootPrefix(BeatriceEntanglingRootAbility __instance, Collider targetCol) {
+            if (!_proxies.TryGetValue(__instance, out var proxy)) { return true; }
+            return proxy.OnApplyRootPrefix(targetCol);
+        }
+
+        private static void ApplyRootPostfix(BeatriceEntanglingRootAbility __instance, Collider targetCol) {
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.OnApplyRootPostfix(targetCol); }
+        }
     }
 }

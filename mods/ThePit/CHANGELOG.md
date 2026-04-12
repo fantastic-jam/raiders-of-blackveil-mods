@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+- patch: Arena grace period reduced from 10 s to 8 s; respawn invincibility reduced from 10 s to 3 s
+- patch: Players respawn at full HP
+- patch: Beatrice attacks now deal damage to opponents
+- patch: Beatrice projectiles now pass through her own aura
+- patch: Jamera no longer chains ultimates after a kill
+- patch: Root damage now stops when the victim respawns
+
 ## [0.1.0] - 2026-04-12
 
 - minor: Initial release — Perk Draft PvP arena mode for Raiders of Blackveil

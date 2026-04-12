@@ -74,13 +74,13 @@ namespace ThePit {
                 joinMessage: null,
                 runStartMessage: "The Pit is open. Survive."
             ),
-            new GameModeVariant(
-                ThePitState.VariantMoba,
-                "The Pit — Protect the Core",
-                "Defend your Core. Destroy the others. Minions march, coins flow.",
-                joinMessage: null,
-                runStartMessage: "Defend the Core. Destroy all others."
-            ),
+            // new GameModeVariant( // not yet exposed
+            //     ThePitState.VariantMoba,
+            //     "The Pit — Protect the Core",
+            //     "Defend your Core. Destroy the others. Minions march, coins flow.",
+            //     joinMessage: null,
+            //     runStartMessage: "Defend the Core. Destroy all others."
+            // ),
         };
 
         public IReadOnlyList<GameModeVariant> GameModeVariants => _variants;

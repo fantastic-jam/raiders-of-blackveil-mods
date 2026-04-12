@@ -67,10 +67,12 @@ namespace ThePit.FeralEngine.Abilities {
         }
 
         internal void OnFixedUpdate() {
-            if (!_inst.Object.HasStateAuthority) { return; }
+            if (_inst.Object == null || !_inst.Object.HasStateAuthority) { return; }
 
             var casterStats = _inst.areaCaster?.Stats;
             if (casterStats == null) { return; }
+            if (!casterStats.IsAlive || FeralCore.IsRespawnInvincible(casterStats.ActorID)) { return; }
+            if (casterStats.Health != null && casterStats.Health.AllDamageDisabled) { return; }
 
             if (!_burnTimerSet || _burnTimer.Expired(_inst.Runner)) {
                 _burnTimer = TickTimer.CreateFromSeconds(_inst.Runner, _inst.burnEffectRepeatTime);

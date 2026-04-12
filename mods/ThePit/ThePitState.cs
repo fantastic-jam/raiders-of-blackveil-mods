@@ -3,18 +3,18 @@
 namespace ThePit {
     internal static class ThePitState {
         internal const string VariantDraft = "pvp";
-        internal const string VariantMoba = "moba";
+        // internal const string VariantMoba = "moba"; // not yet exposed
 
         // Full compound IDs as stored by WMF: "{pluginGuid}::{variantId}".
         // We own both parts, so these are constants, not runtime string ops.
         internal const string WmfVariantIdBeta = ThePitMod.Id + "::" + VariantDraft;
-        internal const string WmfVariantIdMoba = ThePitMod.Id + "::" + VariantMoba;
+        // internal const string WmfVariantIdMoba = ThePitMod.Id + "::" + VariantMoba; // not yet exposed
 
         internal static bool IsActive { get; set; }
         internal static string ActiveVariant { get; set; }
 
         internal static bool IsDraftMode => IsActive && ActiveVariant == VariantDraft;
-        internal static bool IsMobaMode => IsActive && ActiveVariant == VariantMoba;
+        // internal static bool IsMobaMode => IsActive && ActiveVariant == VariantMoba; // not yet exposed
 
         // Set true after the first EventBeginLevel of a match — prevents re-init on room transitions.
         internal static bool MatchStarted { get; set; }
