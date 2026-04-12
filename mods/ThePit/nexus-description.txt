@@ -2,9 +2,53 @@
 
 A proving ground for raiders and newcomers. The Pit hosts brutal free-for-all brawls — an honoured tradition used to test the mettle of those who want to earn their place among the crew.
 
-[b]Perk Draft[/b] — Enter the arena bare. Perks drop near you over time and XP builds passively. Survive 10 minutes — the player with the most kills wins.
-
 Only the host needs this mod installed.
+
+[line]
+
+[heading]The Pit — PvP[/heading]
+
+A free-for-all arena match where everyone starts bare and grows more powerful as the clock runs down. The player with the most kills when time expires wins.
+
+[b]Before the arena[/b]
+
+When the host interacts with the planning table in the lobby, a match settings overlay appears. Configure your match, hit OK, and the session begins. The run passes through one room where a series of perk chest rounds play out — six by default — so every player picks up starting perks before combat begins. The door only opens once all chest rounds are complete.
+
+[b]Entering the arena[/b]
+
+On arrival, a 10-second grace period begins. Everyone is invincible and abilities are locked. Movement speed is doubled so you can spread out from spawn. When the grace period ends the match timer starts and combat opens.
+
+[b]Perks and XP[/b]
+
+Perks drop automatically near each player throughout the match. Rarity escalates as time goes on — early drops are mostly Common, late-match drops can be Epic or Legendary. XP accumulates passively and continuously, unlocking ability points and max health boosts as you level up. All players start at level 5 by default so skills are available from the first second of combat.
+
+[b]Death and respawn[/b]
+
+Death is not elimination. You respawn after 3 seconds with 10 seconds of invincibility, invisibility, and a speed boost to get clear of spawn safely.
+
+[b]End of match[/b]
+
+When the timer reaches zero, the player with the most kills wins. All other players die and are resurrected 5 seconds later so everyone can reach the exit door together. The team then votes on continuing the run or returning to lobby.
+
+[b]All four champions supported in PvP[/b]
+
+Attacks, projectiles, area effects, summons, and special abilities for Blaze, Rhino, Beatrice, and Shameleon all correctly target opposing players.
+
+[line]
+
+[heading]Host Configuration[/heading]
+
+Interact with the planning table in the lobby to configure the match. Settings are saved between sessions.
+
+[list]
+[*][b]Duration[/b] — 5, 8, 10, 15, or 20 minutes (default: 10 min)
+[*][b]Drop Rate[/b] — scales how fast perks and XP arrive: Trickle / Slow / Normal / Fast / Rapid / Frenzy (default: Normal)
+[*][b]Initial Perks[/b] — number of perk chest rounds before the arena door opens, 1 – 12 (default: 6)
+[*][b]Initial Level[/b] — starting XP level for all players, 1 – 20 (default: 5)
+[*][b]Dmg Reduction[/b] — reduces champion-to-champion damage at higher XP levels to protect recently respawned players: Off / Gentle / Medium / Strong / Extreme (default: Strong)
+[/list]
+
+Advanced options (drop intervals, stepper choices) are editable in the BepInEx config file.
 
 [line]
 
@@ -22,4 +66,9 @@ Only the host needs this mod installed.
 [*]Install BepInEx 5 into your Raiders of Blackveil game folder.
 [*]Download the latest ThePit ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=ThePit]releases page[/url].
 [*]Extract the ZIP directly into your game folder — the [b]plugins/[/b] folder inside the ZIP maps to [b]BepInEx/plugins/[/b].
+[*]Only the host needs the mod. Other players can join without installing anything.
 [/list]
+
+[heading]Selecting the game mode[/heading]
+
+In the lobby, the host opens the game mode selector (provided by WildguardModFramework), selects [b]The Pit — PvP[/b], then interacts with the planning table to configure and start the match.
