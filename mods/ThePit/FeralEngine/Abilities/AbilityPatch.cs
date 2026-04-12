@@ -35,6 +35,11 @@ namespace ThePit.FeralEngine.Abilities {
             BeatriceAttackPatch.ExpandAllCasters();
             BeatriceEntanglingRootsPatch.ExpandAllCasters();
             BeatriceLotusFlowerPatch.ExpandAllCasters();
+            RhinoAttackPatch.SeedAllProxies();
+            RhinoEarthquakePatch.SeedAllProxies();
+            RhinoShieldsUpPatch.SeedAllProxies();
+            RhinoSpinPatch.SeedAllProxies();
+            RhinoStampedePatch.SeedAllProxies();
         }
 
         internal static void ResetAll() {

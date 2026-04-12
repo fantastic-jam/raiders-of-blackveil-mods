@@ -4,32 +4,47 @@ using RR.Game.Character;
 using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
+    // Augmentation pattern: vanilla FixedUpdateNetwork runs; we expand tongueHitMask in a
+    // prefix so the original raycast can connect with champions, then apply PvP damage in the
+    // postfix and restore the mask.
     internal static class ShameleonTongueLeapPatch {
-        private static readonly ConditionalWeakTable<ShameleonTongueLeapAbility, PvpShameleonTongueLeapAbility> _sidecars = new();
+        private static readonly ConditionalWeakTable<ShameleonTongueLeapAbility, PvpShameleonTongueLeapAbility> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
-            var fun = AccessTools.Method(typeof(ShameleonTongueLeapAbility), "FixedUpdateNetwork");
-            if (fun == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonTongueLeapAbility.FixedUpdateNetwork not found — Tongue Leap PvP inactive.");
-                return;
+            var spawned = AccessTools.Method(typeof(ShameleonTongueLeapAbility), "Spawned");
+            if (spawned != null) {
+                harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(SpawnedPostfix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonTongueLeapAbility.Spawned not found — Tongue Leap proxy inactive.");
             }
-            harmony.Patch(fun,
-                prefix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(FunPrefix)),
-                postfix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(FunPostfix)));
+
+            var fixedUpdate = AccessTools.Method(typeof(ShameleonTongueLeapAbility), "FixedUpdateNetwork");
+            if (fixedUpdate != null) {
+                harmony.Patch(fixedUpdate,
+                    prefix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(FixedUpdateNetworkPrefix)),
+                    postfix: new HarmonyMethod(typeof(ShameleonTongueLeapPatch), nameof(FixedUpdateNetworkPostfix)));
+            } else {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonTongueLeapAbility.FixedUpdateNetwork not found — Tongue Leap PvP inactive.");
+            }
         }
 
         internal static void Reset() {
             foreach (var a in Object.FindObjectsOfType<ShameleonTongueLeapAbility>()) {
-                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Reset(); }
             }
         }
 
-        private static void FunPrefix(ShameleonTongueLeapAbility __instance) {
-            _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Prefix();
+        private static void SpawnedPostfix(ShameleonTongueLeapAbility __instance) {
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpShameleonTongueLeapAbility(__instance));
         }
 
-        private static void FunPostfix(ShameleonTongueLeapAbility __instance) {
-            _sidecars.GetValue(__instance, inst => new PvpShameleonTongueLeapAbility(inst)).Postfix();
+        private static void FixedUpdateNetworkPrefix(ShameleonTongueLeapAbility __instance) {
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.Prefix(); }
+        }
+
+        private static void FixedUpdateNetworkPostfix(ShameleonTongueLeapAbility __instance) {
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.Postfix(); }
         }
     }
 }

@@ -1,9 +1,9 @@
 ﻿using RR.Game.Character;
 
 namespace ThePit.FeralEngine.Abilities {
-    // Sidecar for RhinoAttackAbility that owns PvP-aware detectors and handles DoHit.
+    // Proxy for RhinoAttackAbility that owns PvP-aware detectors and handles DoHit.
     // One instance is created per RhinoAttackAbility in Spawned() and stored via
-    // RhinoAttackPatch._sidecars.
+    // RhinoAttackPatch._proxies.
     internal class PvpRhinoAttackAbility {
         private readonly RhinoAttackAbility _inst;
         private readonly PvpActorColliderDetector _normalDetector;

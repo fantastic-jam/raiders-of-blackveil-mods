@@ -10,7 +10,7 @@ The five most-violated rules are in `CLAUDE.md § Rules` and enforced on every t
 |---|---|
 | Harmony patching mechanics — reflection handles, `Apply()`, visibility, naming, coroutines, re-entrant guards | [`docs/dev/patterns/harmony-patching.md`](patterns/harmony-patching.md) |
 | Patch extraction — one-liner rule, Controllers, Orchestrators, Protocols | [`docs/dev/patterns/patch-extraction.md`](patterns/patch-extraction.md) |
-| Sidecar pattern — `ConditionalWeakTable`, `PvpActorColliderDetector`, lifecycle safety | [`docs/dev/patterns/sidecar.md`](patterns/sidecar.md) |
+| Proxify pattern — `ConditionalWeakTable`, `PvpActorColliderDetector`, lifecycle safety | [`docs/dev/patterns/proxify.md`](patterns/proxify.md) |
 | Networking — `IsServer` guards, Fusion host mode, `PlayerManager` null-safety | [`docs/dev/patterns/networking.md`](patterns/networking.md) |
 | State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](patterns/state.md) |
 

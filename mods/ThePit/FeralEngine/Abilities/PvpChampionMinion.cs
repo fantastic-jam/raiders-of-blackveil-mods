@@ -2,15 +2,23 @@
 using HarmonyLib;
 using RR;
 using RR.Game.Character;
+using RR.Game.Enemies;
 using RR.Game.Stats;
 using ThePit.FeralEngine;
 using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     internal class PvpChampionMinion {
-        internal static readonly FieldInfo TargetCharacterField =
-            AccessTools.Field(typeof(NetworkChampionMinion).BaseType, "_targetCharacter") ??
-            AccessTools.Field(typeof(NetworkChampionMinion), "_targetCharacter");
+        internal static FieldInfo TargetCharacterField { get; private set; }
+
+        internal static void Init() {
+            TargetCharacterField =
+                AccessTools.Field(typeof(NetworkChampionMinion).BaseType, "_targetCharacter") ??
+                AccessTools.Field(typeof(NetworkChampionMinion), "_targetCharacter");
+            if (TargetCharacterField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: NetworkChampionMinion._targetCharacter not found — minion champion targeting inactive.");
+            }
+        }
 
         private readonly NetworkChampionMinion _inst;
 
@@ -39,6 +47,16 @@ namespace ThePit.FeralEngine.Abilities {
 
             TargetCharacterField?.SetValue(_inst, closestChamp.Character);
             return true;
+        }
+
+        // OnDead casts _targetCharacter to NetworkEnemyBase and passes it to RemoveMeAsTargetter.
+        // When we set _targetCharacter to a champion, the cast returns null and RemoveMeAsTargetter
+        // crashes on enemy.Stats. Clear the field before OnDead runs if it holds a non-enemy target.
+        internal void ClearNonEnemyTarget() {
+            var target = TargetCharacterField?.GetValue(_inst);
+            if (target != null && target is not NetworkEnemyBase) {
+                TargetCharacterField.SetValue(_inst, null);
+            }
         }
 
         internal bool GeneralAttackConditions() {

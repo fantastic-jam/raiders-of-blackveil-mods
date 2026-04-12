@@ -9,7 +9,14 @@ using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     internal class PvpManEaterPlantBrain {
-        internal static readonly FieldInfo HasTargetField = AccessTools.Field(typeof(ManEaterPlantBrain), "hasTarget");
+        private static FieldInfo _hasTargetField;
+
+        internal static void Init() {
+            _hasTargetField = AccessTools.Field(typeof(ManEaterPlantBrain), "hasTarget");
+            if (_hasTargetField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ManEaterPlantBrain.hasTarget not found — Man-Eater Plant won't target champions.");
+            }
+        }
 
         private readonly ManEaterPlantBrain _inst;
 
@@ -41,7 +48,7 @@ namespace ThePit.FeralEngine.Abilities {
             float maxRad = _inst.aimSpeed * Time.deltaTime;
             Vector3 forward = Vector3.RotateTowards(_inst.transform.forward, dir, maxRad, 0f);
             _inst.transform.rotation = Quaternion.LookRotation(forward);
-            HasTargetField?.SetValue(_inst, true);
+            _hasTargetField?.SetValue(_inst, true);
         }
 
         internal void HitEnemiesInArch() {

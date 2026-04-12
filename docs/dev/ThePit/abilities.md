@@ -12,7 +12,7 @@ ThePit cannot modify game ability classes directly. Instead, every ability that 
 
 | Ability type | Pattern | When |
 |---|---|---|
-| Collider-based attack (`ActorColliderDetector`) | **Sidecar** | `DoHit` uses `_normalHitDetector.DoDetection()` |
+| Collider-based attack (`ActorColliderDetector`) | **Proxify** | `DoHit` uses `_normalHitDetector.DoDetection()` |
 | Projectile-based attack (`ProjectileCaster`) | **Mask expansion** | Ability has a `_projectileCaster` field |
 | Single-fire area / special | **Direct postfix** | Fires once, has a `HitCollider` or explicit overlap |
 | Perk area (`AreaCharacterSelector`) | **AreaCharacterSelector patch** | Ability spawns an area that uses `AreaCharacterSelector` |
@@ -20,17 +20,17 @@ ThePit cannot modify game ability classes directly. Instead, every ability that 
 
 ---
 
-## Pattern 1 — Sidecar (`PvpActorColliderDetector` + `Pvp[X]Ability`)
+## Pattern 1 — Proxify (`PvpActorColliderDetector` + `Pvp[X]Ability`)
 
-For abilities whose `DoHit` calls `ActorColliderDetector.DoDetection()`. The game's detector never includes the Player layer, so the sidecar creates its own `PvpActorColliderDetector` (which always uses `PvpDetector.PvpLayerMask`) and replays detection after the original fires.
+For abilities whose `DoHit` calls `ActorColliderDetector.DoDetection()`. The game's detector never includes the Player layer, so the proxify creates its own `PvpActorColliderDetector` (which always uses `PvpDetector.PvpLayerMask`) and replays detection after the original fires.
 
 **Files involved:** `[X]AttackPatch.cs`, `Pvp[X]Ability.cs`, `PvpActorColliderDetector.cs`
 
-See `docs/mod_best_practices.md` §13 for the full sidecar implementation guide.
+See `docs/mod_best_practices.md` §13 for the full proxify implementation guide.
 
 **Current abilities using this pattern:**
 
-| Ability class | Patch | Sidecar |
+| Ability class | Patch | Proxify |
 |---|---|---|
 | `RhinoAttackAbility` | `RhinoAttackPatch` | `PvpRhinoAttackAbility` |
 
@@ -109,7 +109,7 @@ Minions use `NetworkNPCBase.SelectEnemyTarget` which only scans `AllEnemies`. Tw
 
 | Champion | Normal attack | Special | Ultimate | Other |
 |---|---|---|---|---|
-| Rhino | Sidecar (Pattern 1) | — | — | Earthquake, ShieldsUp, Spin, Stampede: Pattern 3 |
+| Rhino | Proxify (Pattern 1) | — | — | Earthquake, ShieldsUp, Spin, Stampede: Pattern 3 |
 | Blaze | Mask expansion (Pattern 2) | BlazeBlastWave: Pattern 3 | BlazeSpecialArea: Pattern 3 | — |
 | Beatrice | Mask expansion (Pattern 2) | EntanglingRoots: Pattern 2 + ApplyRoot self-root guard | LotusFlower: Pattern 2 | SpecialObject: Pattern 3; WitheredSeedBrain: Pattern 2+5 |
 | Shameleon | ShameleonAttack: Pattern 3 | ShadowDance: Pattern 3 | TongueLeap: Pattern 3 | ShadowStrike: Pattern 3 |

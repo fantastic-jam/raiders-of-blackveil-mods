@@ -10,24 +10,36 @@ using ThePit.FeralEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     internal class PvpBlazeSpecialArea {
-        internal static readonly FieldInfo AlliesInsideField = AccessTools.Field(typeof(BlazeSpecialArea), "AlliesInside");
-        internal static readonly FieldInfo TempStatsListField = AccessTools.Field(typeof(BlazeSpecialArea), "_tempStatsList");
+        private static FieldInfo _alliesInsideField;
+        private static FieldInfo _tempStatsListField;
 
         private readonly BlazeSpecialArea _inst;
         private bool _burnTimerSet;
         private TickTimer _burnTimer;
 
+        internal static void Init() {
+            _alliesInsideField = AccessTools.Field(typeof(BlazeSpecialArea), "AlliesInside");
+            if (_alliesInsideField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeSpecialArea.AlliesInside not found — Heat Aura ally buff fix inactive.");
+            }
+
+            _tempStatsListField = AccessTools.Field(typeof(BlazeSpecialArea), "_tempStatsList");
+            if (_tempStatsListField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeSpecialArea._tempStatsList not found — Heat Aura ally buff fix inactive.");
+            }
+        }
+
         internal PvpBlazeSpecialArea(BlazeSpecialArea inst) { _inst = inst; }
 
-        // Returns false to skip the original (PvP mode handled), true to run original (fallback).
+        // Returns false to block the original (PvP mode handled), true to run original (fallback).
         internal bool UpdateAuraEffect(bool checkWhoIsInside) {
-            if (AlliesInsideField == null || TempStatsListField == null) { return true; }
+            if (_alliesInsideField == null || _tempStatsListField == null) { return true; }
 
             var casterStats = _inst.areaCaster?.Stats;
             if (casterStats == null) { return true; }
 
-            var alliesInside = AlliesInsideField.GetValue(_inst) as List<StatsManager>;
-            var tempStats = TempStatsListField.GetValue(_inst) as List<StatsManager>;
+            var alliesInside = _alliesInsideField.GetValue(_inst) as List<StatsManager>;
+            var tempStats = _tempStatsListField.GetValue(_inst) as List<StatsManager>;
             if (alliesInside == null || tempStats == null) { return true; }
 
             tempStats.Clear();

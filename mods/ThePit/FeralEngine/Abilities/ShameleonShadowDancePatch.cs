@@ -4,15 +4,19 @@ using RR.Game.Character;
 using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
+    // Proxy pattern: LetsDance is replaced in PvP draft mode; vanilla runs outside PvP.
+    // Spawned is postfixed to register the per-instance proxy (Fusion reuses CLR objects).
     internal static class ShameleonShadowDancePatch {
-        private static readonly ConditionalWeakTable<ShameleonShadowDanceAbility, PvpShameleonShadowDanceAbility> _sidecars = new();
+        private static readonly ConditionalWeakTable<ShameleonShadowDanceAbility, PvpShameleonShadowDanceAbility> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
-            if (PvpShameleonShadowDanceAbility.DamagePerAttackField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonShadowDanceAbility.damagePerAttack not found — Shadow Dance PvP inactive.");
-            }
-            if (PvpShameleonShadowDanceAbility.SpawnedShadowCountField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonShadowDanceAbility._spawnedShadowCount not found — Shadow Dance may not exit.");
+            PvpShameleonShadowDanceAbility.Init();
+
+            var spawned = AccessTools.Method(typeof(ShameleonShadowDanceAbility), "Spawned");
+            if (spawned == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonShadowDanceAbility.Spawned not found — Shadow Dance proxy inactive.");
+            } else {
+                harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(ShameleonShadowDancePatch), nameof(SpawnedPostfix)));
             }
 
             var letsDance = AccessTools.Method(typeof(ShameleonShadowDanceAbility), "LetsDance");
@@ -25,15 +29,19 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal static void Reset() {
             foreach (var a in Object.FindObjectsOfType<ShameleonShadowDanceAbility>()) {
-                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Reset(); }
             }
         }
 
+        private static void SpawnedPostfix(ShameleonShadowDanceAbility __instance) {
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpShameleonShadowDanceAbility(__instance));
+        }
+
         private static bool LetsDancePrefix(ShameleonShadowDanceAbility __instance, ref bool __result) {
-            (bool skip, bool result) = _sidecars.GetValue(__instance, inst => new PvpShameleonShadowDanceAbility(inst)).LetsDance();
-            if (!skip) { return true; }
-            __result = result;
-            return false;
+            if (!ThePitState.IsDraftMode) { return true; }
+            if (!_proxies.TryGetValue(__instance, out var proxy)) { return true; }
+            return proxy.LetsDance(ref __result);
         }
     }
 }

@@ -7,13 +7,21 @@ namespace ThePit.FeralEngine.Abilities {
     // Beatrice's attack fires projectiles via ProjectileCaster. Same fix as BlazeAttackPatch.
     // Self-damage is blocked globally by ThePitPatch.TakeBasicDamagePrefix.
     internal static class BeatriceAttackPatch {
-        private static readonly ConditionalWeakTable<BeatriceAttackAbility, PvpBeatriceAttackAbility> _sidecars = new();
+        private static readonly ConditionalWeakTable<BeatriceAttackAbility, PvpBeatriceAttackAbility> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
-            if (!ProjectileCasterExpander.IsReady || PvpBeatriceAttackAbility.CasterField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceAttackAbility/_projectileCaster fields not found — Beatrice attack PvP inactive.");
+            PvpBeatriceAttackAbility.Init();
+
+            if (!ProjectileCasterExpander.IsReady) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ProjectileCasterExpander not ready — Beatrice attack PvP inactive.");
                 return;
             }
+
+            if (PvpBeatriceAttackAbility.CasterField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceAttackAbility._projectileCaster not found — Beatrice attack PvP inactive.");
+                return;
+            }
+
             var spawned = AccessTools.Method(typeof(BeatriceAttackAbility), "Spawned");
             if (spawned == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceAttackAbility.Spawned not found — Beatrice attack PvP inactive.");
@@ -24,17 +32,19 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal static void ExpandAllCasters() {
             foreach (var a in Object.FindObjectsOfType<BeatriceAttackAbility>()) {
-                _sidecars.GetValue(a, inst => new PvpBeatriceAttackAbility(inst)).Expand();
+                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Expand(); }
             }
         }
 
         internal static void ResetAllCasters() {
             foreach (var a in Object.FindObjectsOfType<BeatriceAttackAbility>()) {
-                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Reset(); }
             }
         }
 
-        private static void SpawnedPostfix(BeatriceAttackAbility __instance) =>
-            _sidecars.GetValue(__instance, inst => new PvpBeatriceAttackAbility(inst)).TryExpand();
+        private static void SpawnedPostfix(BeatriceAttackAbility __instance) {
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpBeatriceAttackAbility(__instance));
+        }
     }
 }

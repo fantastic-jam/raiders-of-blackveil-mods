@@ -6,31 +6,49 @@ using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     internal class PvpRhinoShieldsUpAbility {
-        internal static readonly FieldInfo BaseDamageField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "baseDamage");
-        internal static readonly FieldInfo DealDamageAngleField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "dealDamageAngle");
-        internal static readonly FieldInfo PushStrengthField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "pushStrength");
+        private static FieldInfo _baseDamageField;
+        private static FieldInfo _dealDamageAngleField;
+        private static FieldInfo _pushStrengthField;
 
         private readonly RhinoShieldsUpAbility _inst;
+
+        internal static void Init() {
+            _baseDamageField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "baseDamage");
+            if (_baseDamageField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: RhinoShieldsUpAbility.baseDamage not found — Shields Up damage inactive.");
+            }
+
+            _dealDamageAngleField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "dealDamageAngle");
+            if (_dealDamageAngleField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: RhinoShieldsUpAbility.dealDamageAngle not found — Shields Up angle will use fallback.");
+            }
+
+            _pushStrengthField = AccessTools.Field(typeof(RhinoShieldsUpAbility), "pushStrength");
+            if (_pushStrengthField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: RhinoShieldsUpAbility.pushStrength not found — Shields Up push inactive.");
+            }
+        }
 
         internal PvpRhinoShieldsUpAbility(RhinoShieldsUpAbility inst) { _inst = inst; }
 
         internal void HitEnemies() {
             if (_inst.Runner?.IsServer != true) { return; }
-            if (_inst.dealDamageCollider == null || BaseDamageField == null) { return; }
+            if (_inst.dealDamageCollider == null) { return; }
+            if (_baseDamageField == null) { return; }
 
             var self = _inst.Stats;
             var hits = PvpDetector.Overlap(_inst.dealDamageCollider, excludes: new[] { self });
             if (hits.Count == 0) { return; }
 
-            var dmg = (DamageDescriptor)BaseDamageField.GetValue(_inst);
-            float angle = DealDamageAngleField != null ? (float)DealDamageAngleField.GetValue(_inst) : 75f;
+            var dmg = (DamageDescriptor)_baseDamageField.GetValue(_inst);
+            float angle = _dealDamageAngleField != null ? (float)_dealDamageAngleField.GetValue(_inst) : 75f;
             float cosAngle = Mathf.Cos(angle * Mathf.Deg2Rad);
             var forward = _inst.transform.forward;
             var origin = _inst.transform.position;
 
             float pushStr = 0f;
-            if (PushStrengthField != null) {
-                var pct = PushStrengthField.GetValue(_inst);
+            if (_pushStrengthField != null) {
+                var pct = _pushStrengthField.GetValue(_inst);
                 var valProp = pct?.GetType().GetProperty("Value");
                 if (valProp != null) { pushStr = (float)valProp.GetValue(pct); }
             }

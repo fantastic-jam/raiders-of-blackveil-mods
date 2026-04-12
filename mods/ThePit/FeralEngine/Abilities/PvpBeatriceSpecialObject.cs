@@ -8,8 +8,9 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal PvpBeatriceSpecialObject(BeatriceSpecialObject inst) { _inst = inst; }
 
-        // Returns false to skip the original (PvP mode active), true to run it (PvE fallback).
+        // Returns false to skip the original (PvP mode active on server), true to run it (PvE fallback).
         internal bool FlowerEffect() {
+            if (!ThePitState.IsDraftMode) { return true; }
             if (_inst.Runner?.IsServer != true) { return true; }
             _inst._charRef?.Stats?.Protection?.AddArmorPlate();
             return false;

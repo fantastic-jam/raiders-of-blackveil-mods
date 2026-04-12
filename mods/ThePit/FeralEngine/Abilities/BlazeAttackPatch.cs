@@ -8,17 +8,25 @@ namespace ThePit.FeralEngine.Abilities {
     // are set in the Unity Editor and don't include the Player layer, so projectiles
     // pass through other champions.
     //
-    // Fix: sidecar expands masks at arena entry via TryExpand()/Expand().
+    // Fix: proxy expands masks at arena entry via Expand().
     // Self-damage is blocked globally by ThePitPatch.TakeBasicDamagePrefix.
     // On match reset masks are restored via ResetAllCasters().
     internal static class BlazeAttackPatch {
-        private static readonly ConditionalWeakTable<BlazeAttackAbility, PvpBlazeAttackAbility> _sidecars = new();
+        private static readonly ConditionalWeakTable<BlazeAttackAbility, PvpBlazeAttackAbility> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
-            if (!ProjectileCasterExpander.IsReady || PvpBlazeAttackAbility.CasterField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeAttackAbility/_projectileCaster fields not found — Blaze attack PvP inactive.");
+            PvpBlazeAttackAbility.Init();
+
+            if (!ProjectileCasterExpander.IsReady) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ProjectileCasterExpander not ready — Blaze attack PvP inactive.");
                 return;
             }
+
+            if (PvpBlazeAttackAbility.CasterField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeAttackAbility._projectileCaster not found — Blaze attack PvP inactive.");
+                return;
+            }
+
             var spawned = AccessTools.Method(typeof(BlazeAttackAbility), "Spawned");
             if (spawned == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: BlazeAttackAbility.Spawned not found — Blaze attack PvP inactive.");
@@ -29,17 +37,19 @@ namespace ThePit.FeralEngine.Abilities {
 
         internal static void ExpandAllCasters() {
             foreach (var a in Object.FindObjectsOfType<BlazeAttackAbility>()) {
-                _sidecars.GetValue(a, inst => new PvpBlazeAttackAbility(inst)).Expand();
+                _proxies.GetValue(a, inst => new PvpBlazeAttackAbility(inst)).Expand();
             }
         }
 
         internal static void ResetAllCasters() {
             foreach (var a in Object.FindObjectsOfType<BlazeAttackAbility>()) {
-                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+                if (_proxies.TryGetValue(a, out var proxy)) { proxy.Reset(); }
             }
         }
 
-        private static void SpawnedPostfix(BlazeAttackAbility __instance) =>
-            _sidecars.GetValue(__instance, inst => new PvpBlazeAttackAbility(inst)).TryExpand();
+        private static void SpawnedPostfix(BlazeAttackAbility __instance) {
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpBlazeAttackAbility(__instance));
+        }
     }
 }

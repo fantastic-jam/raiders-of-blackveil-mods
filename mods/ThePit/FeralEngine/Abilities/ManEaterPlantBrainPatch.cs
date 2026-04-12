@@ -10,34 +10,47 @@ namespace ThePit.FeralEngine.Abilities {
     // turns toward champions and never starts an attack.  We add a postfix to also
     // consider champions as targets.
     internal static class ManEaterPlantBrainPatch {
-        private static readonly ConditionalWeakTable<ManEaterPlantBrain, PvpManEaterPlantBrain> _sidecars = new();
+        private static readonly ConditionalWeakTable<ManEaterPlantBrain, PvpManEaterPlantBrain> _proxies = new();
 
         internal static void Apply(Harmony harmony) {
-            if (PvpManEaterPlantBrain.HasTargetField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ManEaterPlantBrain.hasTarget not found — Man-Eater Plant won't target champions.");
+            PvpManEaterPlantBrain.Init();
+
+            var spawned = AccessTools.Method(typeof(ManEaterPlantBrain), "Spawned");
+            if (spawned == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ManEaterPlantBrain.Spawned not found — Man-Eater Plant PvP inactive.");
+                return;
             }
 
             var aim = AccessTools.Method(typeof(ManEaterPlantBrain), "Aim");
             if (aim == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ManEaterPlantBrain.Aim not found — Man-Eater Plant won't target champions.");
-            } else {
-                harmony.Patch(aim, postfix: new HarmonyMethod(typeof(ManEaterPlantBrainPatch), nameof(AimPostfix)));
             }
 
             var hitArch = AccessTools.Method(typeof(ManEaterPlantBrain), "HitEnemiesInArch");
             if (hitArch == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ManEaterPlantBrain.HitEnemiesInArch not found — Man-Eater Plant PvP inactive.");
-                return;
             }
-            harmony.Patch(hitArch, postfix: new HarmonyMethod(typeof(ManEaterPlantBrainPatch), nameof(HitEnemiesInArchPostfix)));
+
+            harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(ManEaterPlantBrainPatch), nameof(SpawnedPostfix)));
+            if (aim != null) {
+                harmony.Patch(aim, postfix: new HarmonyMethod(typeof(ManEaterPlantBrainPatch), nameof(AimPostfix)));
+            }
+            if (hitArch != null) {
+                harmony.Patch(hitArch, postfix: new HarmonyMethod(typeof(ManEaterPlantBrainPatch), nameof(HitEnemiesInArchPostfix)));
+            }
+        }
+
+        private static void SpawnedPostfix(ManEaterPlantBrain __instance) {
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpManEaterPlantBrain(__instance));
         }
 
         private static void AimPostfix(ManEaterPlantBrain __instance) {
-            _sidecars.GetValue(__instance, inst => new PvpManEaterPlantBrain(inst)).Aim();
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.Aim(); }
         }
 
         private static void HitEnemiesInArchPostfix(ManEaterPlantBrain __instance) {
-            _sidecars.GetValue(__instance, inst => new PvpManEaterPlantBrain(inst)).HitEnemiesInArch();
+            if (_proxies.TryGetValue(__instance, out var proxy)) { proxy.HitEnemiesInArch(); }
         }
     }
 }

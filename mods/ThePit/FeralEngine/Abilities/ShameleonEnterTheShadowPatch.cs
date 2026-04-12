@@ -1,26 +1,36 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
+using RR.Game;
 using RR.Game.Character;
 using RR.Game.Stats;
 using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
-    // In PvP: Enter the Shadow grants immune + 3× speed instead of vanilla invisible.
-    // AddInvisible is blocked so the stealth material never shows.
-    // Each public override on ShameleonEnterTheShadowAbility is patched and forwarded
-    // to the sidecar so it reacts to the same events vanilla does.
+    // Proxy pattern: in PvP draft mode ShameleonEnterTheShadowAbility is a thin proxy.
+    // FixedUpdateNetwork and OnCharacterEvent are prefixed and return false, handing all
+    // logic to PvpShameleonEnterTheShadow. Base-class FixedUpdateNetwork is invoked
+    // explicitly so cooldown management still runs.
     internal static class ShameleonEnterTheShadowPatch {
-        private static readonly ConditionalWeakTable<ShameleonEnterTheShadowAbility, PvpShameleonEnterTheShadow> _sidecars = new();
+        private static readonly ConditionalWeakTable<ShameleonEnterTheShadowAbility, PvpShameleonEnterTheShadow> _proxies = new();
+
+        private static MethodInfo _baseFixedUpdate;
+        private static MethodInfo _baseOnCharEvent;
 
         internal static void Apply(Harmony harmony) {
             PvpShameleonEnterTheShadow.Init();
 
-            var addInvisible = AccessTools.Method(typeof(Health), "AddInvisible");
-            if (addInvisible != null) {
-                harmony.Patch(addInvisible,
-                    prefix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(AddInvisiblePrefix)));
-            } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: Health.AddInvisible not found — stealth invisible suppression inactive.");
+            _baseFixedUpdate = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "FixedUpdateNetwork");
+            if (_baseFixedUpdate == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbilityWithCooldown.FixedUpdateNetwork not found — Shameleon cooldown inactive in PvP.");
+            }
+
+            _baseOnCharEvent = AccessTools.Method(typeof(ChampionAbilityWithCooldown), "OnCharacterEvent",
+                new[] { typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) })
+                ?? AccessTools.Method(typeof(ChampionAbility), "OnCharacterEvent",
+                    new[] { typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) });
+            if (_baseOnCharEvent == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: ChampionAbility.OnCharacterEvent not found — hit-count tracking inactive in PvP.");
             }
 
             var spawned = AccessTools.Method(typeof(ShameleonEnterTheShadowAbility), "Spawned");
@@ -28,44 +38,49 @@ namespace ThePit.FeralEngine.Abilities {
                 harmony.Patch(spawned,
                     postfix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(SpawnedPostfix)));
             } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.Spawned not found — stealth buff inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.Spawned not found — proxy inactive.");
             }
 
             var fixedUpdate = AccessTools.Method(typeof(ShameleonEnterTheShadowAbility), "FixedUpdateNetwork");
             if (fixedUpdate != null) {
                 harmony.Patch(fixedUpdate,
-                    postfix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(FixedUpdateNetworkPostfix)));
+                    prefix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(FixedUpdateNetworkPrefix)));
             } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.FixedUpdateNetwork not found — stealth buff inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.FixedUpdateNetwork not found — proxy inactive.");
             }
 
-            var onCharEvent = AccessTools.Method(typeof(ShameleonEnterTheShadowAbility), "OnCharacterEvent");
+            var onCharEvent = AccessTools.Method(typeof(ShameleonEnterTheShadowAbility), "OnCharacterEvent",
+                new[] { typeof(StatsManager), typeof(CharacterEvent), typeof(TriggerParams) });
             if (onCharEvent != null) {
                 harmony.Patch(onCharEvent,
-                    postfix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(OnCharacterEventPostfix)));
+                    prefix: new HarmonyMethod(typeof(ShameleonEnterTheShadowPatch), nameof(OnCharacterEventPrefix)));
             } else {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.OnCharacterEvent not found — stealth event handling inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonEnterTheShadowAbility.OnCharacterEvent not found — proxy inactive.");
             }
         }
 
-        private static bool AddInvisiblePrefix() => !ThePitState.IsDraftMode;
-
         private static void SpawnedPostfix(ShameleonEnterTheShadowAbility __instance) {
-            _sidecars.Remove(__instance);
-            _sidecars.Add(__instance, new PvpShameleonEnterTheShadow(__instance));
+            _proxies.Remove(__instance);
+            _proxies.Add(__instance, new PvpShameleonEnterTheShadow(__instance));
         }
 
-        private static void FixedUpdateNetworkPostfix(ShameleonEnterTheShadowAbility __instance) {
-            if (_sidecars.TryGetValue(__instance, out var s)) { s.OnFixedUpdate(); }
+        private static bool FixedUpdateNetworkPrefix(ShameleonEnterTheShadowAbility __instance) {
+            if (!ThePitState.IsDraftMode) { return true; }
+            _baseFixedUpdate?.Invoke(__instance, null);
+            if (_proxies.TryGetValue(__instance, out var s)) { s.OnFixedUpdate(); }
+            return false;
         }
 
-        private static void OnCharacterEventPostfix(ShameleonEnterTheShadowAbility __instance) {
-            if (_sidecars.TryGetValue(__instance, out var s)) { s.OnCharacterEvent(); }
+        private static bool OnCharacterEventPrefix(ShameleonEnterTheShadowAbility __instance, StatsManager owner, CharacterEvent gameplayEvent, TriggerParams triggerParam) {
+            if (!ThePitState.IsDraftMode) { return true; }
+            _baseOnCharEvent?.Invoke(__instance, new object[] { owner, gameplayEvent, triggerParam });
+            if (_proxies.TryGetValue(__instance, out var s)) { s.OnCharacterEvent(gameplayEvent); }
+            return false;
         }
 
         internal static void Reset() {
             foreach (var a in Object.FindObjectsOfType<ShameleonEnterTheShadowAbility>()) {
-                if (_sidecars.TryGetValue(a, out var s)) { s.Reset(); }
+                if (_proxies.TryGetValue(a, out var s)) { s.Reset(); }
             }
         }
     }

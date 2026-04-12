@@ -11,16 +11,36 @@ namespace ThePit.FeralEngine.Abilities {
     // enemy champion so the seed turret can transition to SeedState.Shoot.
     // Also returns true (fully aimed) when within 0.1 degrees, matching WitheredSeedBrain.Aim().
     internal class PvpWitheredSeedBrain {
-        internal static readonly FieldInfo HasTargetField = AccessTools.Field(typeof(WitheredSeedBrain), "_hasTarget");
-        internal static readonly FieldInfo ReviverField = AccessTools.Field(typeof(WitheredSeedBrain), "_reviver");
-        internal static readonly FieldInfo CasterField = AccessTools.Field(typeof(WitheredSeedBrain), "_projectileCaster");
+        private static FieldInfo _hasTargetField;
+        private static FieldInfo _reviverField;
+        internal static FieldInfo CasterField { get; private set; }
+
+        internal static void Init() {
+            _hasTargetField = AccessTools.Field(typeof(WitheredSeedBrain), "_hasTarget");
+            if (_hasTargetField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: WitheredSeedBrain._hasTarget not found — seed turret champion targeting inactive.");
+            }
+
+            _reviverField = AccessTools.Field(typeof(WitheredSeedBrain), "_reviver");
+            if (_reviverField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: WitheredSeedBrain._reviver not found — seed turret champion targeting inactive.");
+            }
+
+            CasterField = AccessTools.Field(typeof(WitheredSeedBrain), "_projectileCaster");
+            if (CasterField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: WitheredSeedBrain._projectileCaster not found — seed turret PvP projectiles inactive.");
+            }
+        }
 
         private readonly WitheredSeedBrain _inst;
         private bool _expanded;
         private ProjectileCaster _caster;
         private ProjectileCasterExpander.SavedMasks _saved;
 
-        internal PvpWitheredSeedBrain(WitheredSeedBrain inst) { _inst = inst; }
+        internal PvpWitheredSeedBrain(WitheredSeedBrain inst) {
+            _inst = inst;
+            TryExpand();
+        }
 
         internal void TryExpand() {
             if (ThePitState.IsDraftMode && ThePitState.ArenaEntered) { Expand(); }
@@ -43,7 +63,7 @@ namespace ThePit.FeralEngine.Abilities {
         internal bool Aim() {
             if (!_inst.Object.HasStateAuthority) { return false; }
 
-            var reviver = ReviverField?.GetValue(_inst) as StatsManager;
+            var reviver = _reviverField?.GetValue(_inst) as StatsManager;
             if (reviver == null) { return false; }
 
             float closestDist = float.PositiveInfinity;
@@ -68,7 +88,7 @@ namespace ThePit.FeralEngine.Abilities {
             float maxRad = _inst.aimSpeed * Time.deltaTime;
             Vector3 forward = Vector3.RotateTowards(_inst.transform.forward, dir, maxRad, 0f);
             _inst.transform.rotation = Quaternion.LookRotation(forward);
-            HasTargetField?.SetValue(_inst, true);
+            _hasTargetField?.SetValue(_inst, true);
 
             return Vector3.Angle(forward, dir) < 0.1f;
         }

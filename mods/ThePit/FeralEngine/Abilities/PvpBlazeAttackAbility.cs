@@ -4,17 +4,29 @@ using RR.Game.Character;
 
 namespace ThePit.FeralEngine.Abilities {
     internal class PvpBlazeAttackAbility {
-        internal static readonly FieldInfo CasterField = AccessTools.Field(typeof(BlazeAttackAbility), "_projectileCaster");
-        internal static readonly FieldInfo CasterLastField = AccessTools.Field(typeof(BlazeAttackAbility), "_projectileCasterLastShot");
+        internal static FieldInfo CasterField;
+        internal static FieldInfo CasterLastField;
 
         private readonly BlazeAttackAbility _inst;
         private bool _expanded;
         private ProjectileCaster _caster, _casterLast;
         private ProjectileCasterExpander.SavedMasks _saved, _savedLast;
 
-        internal PvpBlazeAttackAbility(BlazeAttackAbility inst) { _inst = inst; }
+        internal static void Init() {
+            CasterField = AccessTools.Field(typeof(BlazeAttackAbility), "_projectileCaster");
+            if (CasterField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeAttackAbility._projectileCaster not found — Blaze attack PvP inactive.");
+            }
 
-        internal void TryExpand() {
+            CasterLastField = AccessTools.Field(typeof(BlazeAttackAbility), "_projectileCasterLastShot");
+            if (CasterLastField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: BlazeAttackAbility._projectileCasterLastShot not found — Blaze last-shot PvP inactive.");
+            }
+        }
+
+        internal PvpBlazeAttackAbility(BlazeAttackAbility inst) {
+            _inst = inst;
+            // Expand immediately if arena is already active (e.g. spawned mid-match).
             if (ThePitState.IsDraftMode && ThePitState.ArenaEntered) { Expand(); }
         }
 
