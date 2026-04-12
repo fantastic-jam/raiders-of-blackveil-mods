@@ -725,6 +725,7 @@ namespace ThePit.Patch {
         // to incoming damage — prevents high-level players from out-healing reduced damage.
         private static void HealReductionPrefix(Health __instance, ref float value) {
             if (!ThePitState.IsDraftMode) { return; }
+            if (ThePitState.ResurrectInProgress) { return; }
             if (HealthStatsField == null) { return; }
             var stats = HealthStatsField.GetValue(__instance) as StatsManager;
             if (stats == null || !stats.IsChampion || stats.Champion == null) { return; }

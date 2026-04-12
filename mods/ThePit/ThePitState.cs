@@ -59,6 +59,10 @@ namespace ThePit {
         // parsing on every damage event. Reset to 0 by ResetMatchState().
         internal static float CachedDamageReductionFactor { get; set; }
 
+        // Set true around Health.Resurrect() calls so HealReductionPrefix skips them.
+        // Resurrect must restore full HP regardless of level-based reduction.
+        internal static bool ResurrectInProgress { get; set; }
+
         // Resolved damage reduction factor: uses the overlay override if set, otherwise parses
         // the default from the cfg option list (index 3 = "Strong:20" in the default list).
         internal static float ResolvedDamageReductionFactor {

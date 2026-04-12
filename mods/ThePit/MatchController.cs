@@ -175,7 +175,9 @@ namespace ThePit {
                 var champ = p.PlayableChampion;
                 if (champ == null || champ.Stats.Health.IsAlive) { continue; }
                 ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
+                ThePitState.ResurrectInProgress = true;
                 champ.Stats.Health.Resurrect(100f);
+                ThePitState.ResurrectInProgress = false;
                 champ.Stats.Health.AllDamageDisabled = true;
                 champ.Stats.Health.AddImmune();
                 champ.Stats.Movement?.ResetRooted();
@@ -246,7 +248,9 @@ namespace ThePit {
 
             var champ = target.PlayableChampion;
             ThePitPatch.HealthInjurySetter?.Invoke(champ.Stats.Health, new object[] { 0f });
+            ThePitState.ResurrectInProgress = true;
             champ.Stats.Health.Resurrect(100f);
+            ThePitState.ResurrectInProgress = false;
             champ.Stats.Movement?.ResetRooted();
             GameManager.Instance.GetLevelManager()?.InitPlayerCharacterAtSpawnPoint(target, onlyTeleport: true);
             var respawnDoorGo = GameObject.Find("DoorSpawnPoint");
