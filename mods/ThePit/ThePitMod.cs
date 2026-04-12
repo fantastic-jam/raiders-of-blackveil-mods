@@ -45,6 +45,9 @@ namespace ThePit {
 
         public void Enable() {
             ThePitState.IsActive = true;
+#if DEV_HOTRELOAD
+            Dev.HotReloadController.Enable();
+#endif
             PublicLogger.LogInfo($"{Name}: enabled.");
         }
 
@@ -56,6 +59,9 @@ namespace ThePit {
                 _draftHarmony?.UnpatchSelf();
                 _draftPatchesApplied = false;
             }
+#if DEV_HOTRELOAD
+            Dev.HotReloadController.Disable();
+#endif
             PublicLogger.LogInfo($"{Name}: disabled.");
         }
 
@@ -97,6 +103,9 @@ namespace ThePit {
 
         private Harmony _draftHarmony;
         private bool _draftPatchesApplied;
+#if DEV_HOTRELOAD
+        private Harmony _devHarmony;
+#endif
 
         private void Awake() {
             PublicLogger = Logger;
@@ -140,13 +149,11 @@ namespace ThePit {
             CfgDevHotReloadDllPath = Config.Bind(
                 "DevHotReload", "DllPath", "",
                 "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/ThePit/bin/Debug/ThePit.dll");
-            Dev.HotReloadController.Initialize(CfgDevHotReloadDllPath.Value);
-            PublicLogger.LogWarning($"[HotReload] DEV BUILD. Press F9 to reload. DLL: {CfgDevHotReloadDllPath.Value}");
+            _devHarmony = new Harmony(Id + ".dev");
+            Dev.HotReloadController.Initialize(_devHarmony, CfgDevHotReloadDllPath.Value);
+            PublicLogger.LogWarning($"[HotReload] DEV BUILD. DLL: {CfgDevHotReloadDllPath.Value}");
 #endif
         }
 
-#if DEV_HOTRELOAD
-        private void Update() => Dev.HotReloadController.OnUpdate();
-#endif
     }
 }

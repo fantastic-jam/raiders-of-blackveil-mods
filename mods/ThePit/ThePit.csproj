@@ -32,6 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Fusion.Log">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Log.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>False</Private>
