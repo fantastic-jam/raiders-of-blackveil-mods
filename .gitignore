@@ -3,7 +3,7 @@ bin/
 obj/
 /packages/
 game-lib/*.dll
-dev/
+/dev/
 *.iml
 *.user
 .idea
