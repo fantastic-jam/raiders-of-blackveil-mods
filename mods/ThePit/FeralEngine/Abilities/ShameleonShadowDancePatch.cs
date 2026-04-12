@@ -25,6 +25,12 @@ namespace ThePit.FeralEngine.Abilities {
                 return;
             }
             harmony.Patch(letsDance, prefix: new HarmonyMethod(typeof(ShameleonShadowDancePatch), nameof(LetsDancePrefix)));
+
+            // Backfill proxies for instances that were already spawned before Apply() ran
+            // (Spawned() fires at match-start upgrades, before FeralCore patches are applied).
+            foreach (var a in Object.FindObjectsOfType<ShameleonShadowDanceAbility>()) {
+                InitProxy(a);
+            }
         }
 
         internal static void Reset() {
@@ -33,9 +39,13 @@ namespace ThePit.FeralEngine.Abilities {
             }
         }
 
+        private static void InitProxy(ShameleonShadowDanceAbility inst) {
+            _proxies.Remove(inst);
+            _proxies.Add(inst, new PvpShameleonShadowDanceAbility(inst));
+        }
+
         private static void SpawnedPostfix(ShameleonShadowDanceAbility __instance) {
-            _proxies.Remove(__instance);
-            _proxies.Add(__instance, new PvpShameleonShadowDanceAbility(__instance));
+            InitProxy(__instance);
         }
 
         private static bool LetsDancePrefix(ShameleonShadowDanceAbility __instance, ref bool __result) {

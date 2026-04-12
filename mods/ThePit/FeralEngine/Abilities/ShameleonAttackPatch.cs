@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR.Game.Character;
+using UnityEngine;
 
 namespace ThePit.FeralEngine.Abilities {
     // Augmentation pattern: vanilla DoHit runs for PvE; we layer PvP detection on top in a postfix.
@@ -21,11 +22,21 @@ namespace ThePit.FeralEngine.Abilities {
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonAttackAbility.DoHit not found — Shameleon attack PvP inactive.");
             }
+
+            // Backfill proxies for instances that were already spawned before Apply() ran
+            // (Spawned() fires at match-start upgrades, before FeralCore patches are applied).
+            foreach (var a in Object.FindObjectsOfType<ShameleonAttackAbility>()) {
+                InitProxy(a);
+            }
+        }
+
+        private static void InitProxy(ShameleonAttackAbility inst) {
+            _proxies.Remove(inst);
+            _proxies.Add(inst, new PvpShameleonAttackAbility(inst));
         }
 
         private static void SpawnedPostfix(ShameleonAttackAbility __instance) {
-            _proxies.Remove(__instance);
-            _proxies.Add(__instance, new PvpShameleonAttackAbility(__instance));
+            InitProxy(__instance);
         }
 
         private static void DoHitPostfix(ShameleonAttackAbility __instance) {

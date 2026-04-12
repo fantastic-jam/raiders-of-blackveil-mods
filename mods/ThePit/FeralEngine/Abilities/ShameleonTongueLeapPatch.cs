@@ -26,6 +26,12 @@ namespace ThePit.FeralEngine.Abilities {
             } else {
                 ThePitMod.PublicLogger.LogWarning("ThePit: ShameleonTongueLeapAbility.FixedUpdateNetwork not found — Tongue Leap PvP inactive.");
             }
+
+            // Backfill proxies for instances that were already spawned before Apply() ran
+            // (Spawned() fires at match-start upgrades, before FeralCore patches are applied).
+            foreach (var a in Object.FindObjectsOfType<ShameleonTongueLeapAbility>()) {
+                InitProxy(a);
+            }
         }
 
         internal static void Reset() {
@@ -34,9 +40,13 @@ namespace ThePit.FeralEngine.Abilities {
             }
         }
 
+        private static void InitProxy(ShameleonTongueLeapAbility inst) {
+            _proxies.Remove(inst);
+            _proxies.Add(inst, new PvpShameleonTongueLeapAbility(inst));
+        }
+
         private static void SpawnedPostfix(ShameleonTongueLeapAbility __instance) {
-            _proxies.Remove(__instance);
-            _proxies.Add(__instance, new PvpShameleonTongueLeapAbility(__instance));
+            InitProxy(__instance);
         }
 
         private static void FixedUpdateNetworkPrefix(ShameleonTongueLeapAbility __instance) {
