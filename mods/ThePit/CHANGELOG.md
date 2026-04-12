@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.1] - 2026-04-12
 - patch: Arena grace period reduced from 10 s to 8 s; respawn invincibility reduced from 10 s to 3 s
 - patch: Players respawn at full HP
 - patch: Beatrice attacks now deal damage to opponents
