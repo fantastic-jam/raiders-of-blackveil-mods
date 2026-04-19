@@ -7,6 +7,7 @@ using ModRegistry;
 
 namespace CheatManager {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class CheatManagerMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.cheatmanager";
         public const string Name = "CheatManager";

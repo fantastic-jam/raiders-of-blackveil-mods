@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+
 ## [0.3.1] - 2026-04-06
 
 *new*: Added ModManagerDescription
