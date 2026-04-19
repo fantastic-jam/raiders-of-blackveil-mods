@@ -8,6 +8,7 @@ using RogueRun.Patch;
 
 namespace RogueRun {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class RogueRunMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.roguerun";
         public const string Name = "RogueRun";

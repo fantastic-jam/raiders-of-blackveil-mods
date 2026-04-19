@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+
 ## [0.1.0] - 2026-04-08
 
 *new*: Add RogueRun game-mode mod
