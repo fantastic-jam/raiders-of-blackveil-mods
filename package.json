@@ -32,16 +32,6 @@
       "mods",
       "libs"
     ],
-    "types": [
-      "fix",
-      "new",
-      "chore",
-      "tidy"
-    ],
-    "scopes": [
-      "Repo",
-      "All"
-    ],
     "commitFormat": "{type}({pkg}): {message}"
   },
   "devDependencies": {
