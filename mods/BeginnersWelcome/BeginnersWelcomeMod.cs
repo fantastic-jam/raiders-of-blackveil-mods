@@ -11,6 +11,7 @@ using UnityEngine.UIElements;
 
 namespace BeginnersWelcome {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class BeginnersWelcomeMod : BaseUnityPlugin, IModRegistrant, IModMenuProvider {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.beginnerswelcome";
         public const string Name = "BeginnersWelcome";
