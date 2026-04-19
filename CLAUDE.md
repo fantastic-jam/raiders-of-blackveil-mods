@@ -15,7 +15,13 @@ pnpm run release -- --mod [ModName]                   # commit version+changelog
 pnpm run release -- --mod [ModName] --dry-run         # preview release without modifying anything
 pnpm run release -- --mod [ModName] --skip-push --skip-release  # local only
 pnpm run setup                                        # dev environment setup
+
+fchange <type> "message" --pkg [ModName]              # prepend entry to mods/[ModName]/CHANGELOG.md
+fcommit <type> "message" --pkg [ModName]              # conventional commit scoped to mod
 ```
+
+Types for `fchange`/`fcommit`: `added`, `changed`, `deprecated`, `removed`, `fixed`, `security`.
+`--pkg` targets a folder under `mods/` or `libs/` (e.g. `--pkg BeginnersWelcome`).
 
 ## Documentation
 
@@ -93,7 +99,8 @@ These are enforced on every task — no exceptions:
 3. **Per-instance patch state uses `ConditionalWeakTable<TBehaviour, TProxy>`.** Never a static dictionary keyed by `NetworkId`. See [`docs/dev/patterns/proxify.md`](docs/dev/patterns/proxify.md).
 4. **`IsServer` guard before any damage/state write, at collection level, not per-item.** See [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md).
 5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
-6. **Never `git commit`, `pnpm run deploy`, or `pnpm run release` unless the user explicitly asks.** Do not stage, commit, or deploy as a side-effect of completing a task.
+6. **Never commit or deploy unless the user explicitly asks.** Use `fcommit` (not `git commit`) to commit. Never use `pnpm run deploy` or `pnpm run release` as a side-effect of completing a task.
+8. **Never edit `CHANGELOG.md` files manually.** Use `fchange <type> "message" --pkg [ModName]` instead.
 7. **Before any implementation task, read the relevant pattern docs first.** For any C# mod work: read `docs/dev/patterns/` (harmony-patching.md, patch-extraction.md, proxify.md, networking.md, state.md). For ThePit work: also read the ThePit-specific docs in `docs/dev/ThePit/`. Only go to `game-src/` after understanding the patterns.
 
 ## Harmony patches
