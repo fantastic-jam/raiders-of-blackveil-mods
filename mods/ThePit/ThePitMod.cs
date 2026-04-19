@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -9,11 +10,13 @@ using ThePit.Patch;
 
 namespace ThePit {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class ThePitMod : BaseUnityPlugin, IModRegistrant, IGameModeProvider {
         public const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.thepit";
         public const string Name = "ThePit";
         public const string Version = "0.1.1";
         public const string Author = "christphe";
+        private const string TargetGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
 
         public static ManualLogSource PublicLogger;
 
@@ -38,7 +41,7 @@ namespace ThePit {
 #endif
 
 
-        public string GetModType() => nameof(ModType.GameMode);
+        public string GetModType() => _gameVersionSupported ? nameof(ModType.GameMode) : nameof(ModType.Mod);
         public string GetModName() => Name;
         public string GetModDescription() => "A proving ground for raiders and newcomers. Test your mettle in brutal free-for-all brawls.";
         public bool IsClientRequired => false;
@@ -104,12 +107,34 @@ namespace ThePit {
 
         private Harmony _draftHarmony;
         private bool _draftPatchesApplied;
+        private bool _gameVersionSupported = true;
 #if DEV_HOTRELOAD
         private Harmony _devHarmony;
 #endif
 
-        private void Awake() {
+        private void CheckGameVersion() {
+            try {
+                var versionFile = Path.Combine(Paths.GameRootPath, "version.txt");
+                if (!File.Exists(versionFile)) {
+                    return;
+                }
+
+                var gameVersion = File.ReadAllText(versionFile).Trim();
+                if (gameVersion == TargetGameVersion) {
+                    return;
+                }
+
+                _gameVersionSupported = false;
+                PublicLogger.LogWarning($"{Name} v{Version}: unsupported game version '{gameVersion}' (expected '{TargetGameVersion}'). Game mode not available.");
+            }
+            catch {
+                // can't read version file — let patch reflection checks catch real breakage
+            }
+        }
+
+        public void Awake() {
             PublicLogger = Logger;
+            CheckGameVersion();
 
             CfgPerkIntervalSeconds = Config.Bind(
                 "Rebalancing", "PerkIntervalSeconds", 30f,

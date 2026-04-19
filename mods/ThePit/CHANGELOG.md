@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+
+*new*: Game version check on startup — if the running game build does not match the tested version, ThePit registers as a plain `Mod` instead of `GameMode`, hiding it from the session picker and logging a warning rather than patching an unknown game.
+
 ## [0.1.1] - 2026-04-12
 - patch: Arena grace period reduced from 10 s to 8 s; respawn invincibility reduced from 10 s to 3 s
 - patch: Players respawn at full HP
