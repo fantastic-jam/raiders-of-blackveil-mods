@@ -4,6 +4,7 @@
 
 ## [0.0.2] - 2026-04-08
 
-*new*: Added ModManager integration
+### Added
+- Added ModManager integration
 
 ## [0.0.1] - 2026-04-04

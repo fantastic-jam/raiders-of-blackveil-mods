@@ -1,22 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] - minor
 
-*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+### Added
+- Game version check on startup — if the running game build does not match the tested version,
+  ThePit registers as a plain `Mod` instead of `GameMode`, hiding it from the session picker
+  and logging a warning rather than patching an unknown game.
 
-*new*: Game version check on startup — if the running game build does not match the tested version, ThePit registers as a plain `Mod` instead of `GameMode`, hiding it from the session picker and logging a warning rather than patching an unknown game.
+### Changed
+- Declare WMF as a BepInEx dependency for correct load ordering.
 
 ## [0.1.1] - 2026-04-12
-- patch: Arena grace period reduced from 10 s to 8 s; respawn invincibility reduced from 10 s to 3 s
-- patch: Players respawn at full HP
-- patch: Beatrice attacks now deal damage to opponents
-- patch: Beatrice projectiles now pass through her own aura
-- patch: Jamera no longer chains ultimates after a kill
-- patch: Root damage now stops when the victim respawns
+
+### Changed
+- Arena grace period reduced from 10 s to 8 s; respawn invincibility reduced from 10 s to 3 s
+- Players respawn at full HP
+- Beatrice attacks now deal damage to opponents
+- Beatrice projectiles now pass through her own aura
+- Jamera no longer chains ultimates after a kill
+- Root damage now stops when the victim respawns
 
 ## [0.1.0] - 2026-04-12
 
-- minor: Initial release — Perk Draft PvP arena mode for Raiders of Blackveil
+### Added
+- Initial release — Perk Draft PvP arena mode for Raiders of Blackveil.
   Only the host needs the mod installed.
 
   Perk Draft match:
