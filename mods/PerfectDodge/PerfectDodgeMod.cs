@@ -8,6 +8,7 @@ using PerfectDodge.Patch;
 
 namespace PerfectDodge {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class PerfectDodgeMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.perfectdodge";
         public const string Name = "PerfectDodge";

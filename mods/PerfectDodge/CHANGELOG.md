@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+
 ## [0.4.2] - 2026-04-08
 
 *fix*: Breaking-change unpatch and HasStateAuthority guards
