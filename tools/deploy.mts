@@ -61,16 +61,17 @@ for (const mod of mods) {
   const configDir = path.join(gameRoot, 'BepInEx', 'config')
   const outputDir = resolveOutputDir(mod)
 
+  const meta = readModMetadata(mod)
   const dllPath = isDebug ? path.join(outputDir, `${mod}.dll`) : modDllPath(mod)
   if (!fs.existsSync(dllPath)) throw new Error(`Built DLL not found: ${dllPath}`)
 
   fs.mkdirSync(pluginDir, { recursive: true })
 
   if (isDebug) {
-    // Copy mod DLLs from the debug output; excluded DLLs are managed externally:
-    //   UnityHotReload.dll — installed once by setup into BepInEx/plugins
-    //   ModRegistry.dll    — deployed by WMF into BepInEx/patchers
+    // Copy mod DLLs from the debug output; some DLLs are managed externally:
     const EXTERNALLY_MANAGED = new Set(['UnityHotReload.dll', 'ModRegistry.dll'])
+    // A mod's own plugin_dlls are not externally managed — include them here
+    for (const dll of meta.plugin_dlls ?? []) EXTERNALLY_MANAGED.delete(dll)
     const dlls = fs
       .readdirSync(outputDir)
       .filter((f) => f.endsWith('.dll') && !EXTERNALLY_MANAGED.has(f))
@@ -79,10 +80,15 @@ for (const mod of mods) {
     }
   } else {
     fs.copyFileSync(dllPath, path.join(pluginDir, `${mod}.dll`))
+    for (const dll of meta.plugin_dlls ?? []) {
+      const src = path.join(outputDir, dll)
+      if (!fs.existsSync(src)) throw new Error(`Plugin DLL not found: ${src}`)
+      fs.copyFileSync(src, path.join(pluginDir, dll))
+      console.log(`Deployed plugin DLL ${dll} to: ${pluginDir}`)
+    }
   }
   console.log(`Deployed ${mod} (${config}) to: ${pluginDir}`)
 
-  const meta = readModMetadata(mod)
   if (meta.patchers?.length) {
     const patcherDir = path.join(gameRoot, 'BepInEx', 'patchers', `fantastic-jam-${mod}`)
     fs.mkdirSync(patcherDir, { recursive: true })

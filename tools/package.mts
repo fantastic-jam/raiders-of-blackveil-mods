@@ -75,8 +75,15 @@ async function packageMod(name: string): Promise<void> {
 
   if (!fs.existsSync(dllPath)) throw new Error(`Expected build output not found: ${dllPath}`)
 
+  const meta = readModMetadata(name)
+
   fs.mkdirSync(pluginDir, { recursive: true })
   fs.copyFileSync(dllPath, path.join(pluginDir, `${name}.dll`))
+  for (const dll of meta.plugin_dlls ?? []) {
+    const src = path.join(outputDir, dll)
+    if (!fs.existsSync(src)) throw new Error(`Plugin DLL not found: ${src}`)
+    fs.copyFileSync(src, path.join(pluginDir, dll))
+  }
 
   const assetsDir = path.join(modOutputDir(name), 'Assets')
   if (fs.existsSync(assetsDir)) fsExtra.copySync(assetsDir, path.join(pluginDir, 'Assets'))
@@ -88,7 +95,6 @@ async function packageMod(name: string): Promise<void> {
   if (fs.existsSync(changelogPath))
     fs.copyFileSync(changelogPath, path.join(pluginDir, 'CHANGELOG.md'))
 
-  const meta = readModMetadata(name)
   if (meta.patchers?.length) {
     const patcherDir = path.join(stagingRoot, 'patchers', `fantastic-jam-${name}`)
     fs.mkdirSync(patcherDir, { recursive: true })

@@ -120,6 +120,7 @@ export interface ModMetadata {
   nexus_mod_id: string | null
   nexus_file_group_id: string | null
   patchers?: string[]
+  plugin_dlls?: string[]
   deprecated?: boolean
 }
 
