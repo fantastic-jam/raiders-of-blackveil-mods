@@ -27,6 +27,7 @@ pnpm run setup                                        # dev environment setup
 | Run structure, rooms, level progression | [`docs/dev/base_game/run_structure.md`](docs/dev/base_game/run_structure.md) |
 | Key game classes quick-reference | [`docs/dev/base_game/key_classes.md`](docs/dev/base_game/key_classes.md) |
 | Fusion networking facts | [`docs/dev/base_game/fusion_networking.md`](docs/dev/base_game/fusion_networking.md) |
+| NetworkRunner — properties, methods, lifecycle callbacks | [`docs/dev/base_game/network_runner.md`](docs/dev/base_game/network_runner.md) |
 
 ## Game source
 
