@@ -84,37 +84,49 @@ namespace WildguardModFramework.Network {
 
         internal static void OnPlayerJoined(PlayerManager playerManager, NetworkRunner runner, PlayerRef playerRef) {
             if (!runner.IsServer) { return; }
+
             if (playerRef == runner.LocalPlayer) {
                 ConfirmedPlayers.Add(playerRef);
+                WmfNetwork.RaisePlayerJoined(playerRef, isModded: true);
+                WmfNetwork.RaisePlayerConfirmed(playerRef, isModded: true);
                 return;
             }
 
             _serverRunner = runner;
 
-            var selectedId = ModScanner.SelectedGameModeVariantId;
-            if (selectedId == null) { return; }
-
-            var activeMode = ModScanner.GameModes.FirstOrDefault(g => g.VariantId == selectedId);
-            if (activeMode == null || !activeMode.IsClientRequired) { return; }
-
             var token = runner.GetPlayerConnectionToken(playerRef);
-            if (!HasWmfToken(token)) {
-                // Unmodded client: inform them and disconnect after a short delay so they can read the popup.
-                WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} has no token — sending error and disconnecting.");
-                var gm = GameManager.Instance;
-                if (gm != null) {
-                    FusionRpcHelper.SendErrorMessageTo(runner, gm, playerRef,
-                        $"@This session is running a community mod: \"{activeMode.DisplayName}\".\n\nTo play modded sessions, install WMF from the Raiders of Blackveil Nexus page.");
-                }
-                playerManager.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef));
-                return;
-            }
+            bool isModded = HasWmfToken(token);
 
-            // Modded client: start handshake.
-            _moddedPlayers.Add(playerRef);
-            WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is modded — sending handshake for \"{activeMode.DisplayName}\".");
-            var payload = Encoding.UTF8.GetBytes(selectedId + "\n" + (activeMode.JoinMessage ?? ""));
-            NetworkManager.Instance?.SendReliableData(playerRef, StreamTypeJoinMsg, payload);
+            WmfNetwork.RaisePlayerJoined(playerRef, isModded);
+
+            var selectedId = ModScanner.SelectedGameModeVariantId;
+            var activeMode = selectedId != null
+                ? ModScanner.GameModes.FirstOrDefault(g => g.VariantId == selectedId)
+                : null;
+
+            if (activeMode?.IsClientRequired == true) {
+                if (!isModded) {
+                    // Unmodded client: inform them and disconnect after a short delay so they can read the popup.
+                    WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} has no token — sending error and disconnecting.");
+                    var gm = GameManager.Instance;
+                    if (gm != null) {
+                        FusionRpcHelper.SendErrorMessageTo(runner, gm, playerRef,
+                            $"@This session is running a community mod: \"{activeMode.DisplayName}\".\n\nTo play modded sessions, install WMF from the Raiders of Blackveil Nexus page.");
+                    }
+                    playerManager.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef));
+                    return;
+                }
+
+                // Modded client: start handshake — OnPlayerConfirmed fires in HandleAck.
+                _moddedPlayers.Add(playerRef);
+                WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is modded — sending handshake for \"{activeMode.DisplayName}\".");
+                var payload = Encoding.UTF8.GetBytes(selectedId + "\n" + (activeMode.JoinMessage ?? ""));
+                NetworkManager.Instance?.SendReliableData(playerRef, StreamTypeJoinMsg, payload);
+            } else {
+                // No client-required handshake — confirm immediately.
+                if (isModded) { ConfirmedPlayers.Add(playerRef); }
+                WmfNetwork.RaisePlayerConfirmed(playerRef, isModded);
+            }
         }
 
         private static IEnumerator DisconnectAfterDelayCoroutine(NetworkRunner runner, PlayerRef playerRef) {
@@ -126,6 +138,7 @@ namespace WildguardModFramework.Network {
         internal static void OnPlayerLeft(PlayerRef playerRef) {
             _moddedPlayers.Remove(playerRef);
             ConfirmedPlayers.Remove(playerRef);
+            WmfNetwork.RaisePlayerLeft(playerRef);
         }
 
         // ── Shared reliable data handler ───────────────────────────────────────────
@@ -138,7 +151,7 @@ namespace WildguardModFramework.Network {
             key.GetInts(out var key2, out _, out _, out _);
             var streamType = (DataStreamType)key2;
 
-            if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(player, data); }
+            if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(runner, data); }
             if (streamType == StreamTypeAck) { return HandleAck(runner, player, data); }
             if (streamType == WmfNetwork.StreamTypeMux) { return WmfNetwork.TryDispatch(player, data); }
 
@@ -188,7 +201,7 @@ namespace WildguardModFramework.Network {
         // ── Private protocol handlers ──────────────────────────────────────────────
 
         // Client: enable the game mode and show the join popup, then ACK back.
-        private static bool HandleJoinMessage(PlayerRef player, ArraySegment<byte> data) {
+        private static bool HandleJoinMessage(NetworkRunner runner, ArraySegment<byte> data) {
             var raw = Encoding.UTF8.GetString(data.Array, data.Offset, data.Count);
             var nl = raw.IndexOf('\n');
             var variantId = nl >= 0 ? raw.Substring(0, nl) : raw;
@@ -203,11 +216,10 @@ namespace WildguardModFramework.Network {
                 }
 
                 var ackPayload = Encoding.UTF8.GetBytes(variantId);
-                NetworkManager.Instance?.SendReliableDataToHost(
-                    PlayerManager.Instance.LocalPlayerRef, StreamTypeAck, ackPayload);
+                NetworkManager.Instance?.SendReliableDataToHost(runner.LocalPlayer, StreamTypeAck, ackPayload);
                 WmfMod.PublicLogger.LogInfo($"WMF: sent ACK for \"{mode.DisplayName}\".");
             } else {
-                WmfMod.PublicLogger.LogWarning($"WMF: join message for unknown variant \"{variantId}\" — not found locally.");
+                WmfMod.PublicLogger.LogError($"WMF: cannot send handshake — variant \"{variantId}\" not found locally. You will be disconnected when the run starts.");
             }
 
             if (!string.IsNullOrEmpty(joinMessage)) {
@@ -222,6 +234,7 @@ namespace WildguardModFramework.Network {
             var variantId = Encoding.UTF8.GetString(data.Array, data.Offset, data.Count);
             ConfirmedPlayers.Add(player);
             WmfMod.PublicLogger.LogInfo($"WMF: ACK from {player.PlayerId} for \"{variantId}\".");
+            WmfNetwork.RaisePlayerConfirmed(player, isModded: true);
             return false;
         }
 

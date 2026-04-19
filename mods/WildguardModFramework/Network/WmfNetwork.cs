@@ -17,6 +17,29 @@ namespace WildguardModFramework.Network {
 
         private static readonly Dictionary<string, List<Action<PlayerRef, byte[]>>> _handlers = new();
 
+        // ── Session events ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Raised on the host when a player joins. <paramref name="isModded"/> is true if they
+        /// connected with a WMF token. Fires before any handshake completes.
+        /// </summary>
+        public static event Action<PlayerRef, bool> OnPlayerJoined;
+
+        /// <summary>
+        /// Raised on the host when a player is confirmed ready to receive WmfNetwork messages.
+        /// For client-required game modes this fires after the handshake ACK; for all other
+        /// scenarios it fires immediately on join. <paramref name="isModded"/> is true if they
+        /// connected with a WMF token.
+        /// </summary>
+        public static event Action<PlayerRef, bool> OnPlayerConfirmed;
+
+        /// <summary>Raised on all machines when a player leaves the session.</summary>
+        public static event Action<PlayerRef> OnPlayerLeft;
+
+        internal static void RaisePlayerJoined(PlayerRef player, bool isModded) => OnPlayerJoined?.Invoke(player, isModded);
+        internal static void RaisePlayerConfirmed(PlayerRef player, bool isModded) => OnPlayerConfirmed?.Invoke(player, isModded);
+        internal static void RaisePlayerLeft(PlayerRef player) => OnPlayerLeft?.Invoke(player);
+
         // ── Public API ────────────────────────────────────────────────────────
 
         /// <summary>
