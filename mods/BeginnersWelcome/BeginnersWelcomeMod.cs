@@ -2,6 +2,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using BeginnersWelcome.Network;
 using BeginnersWelcome.Patch;
 using BeginnersWelcome.UI;
 using HarmonyLib;
@@ -31,10 +32,12 @@ namespace BeginnersWelcome {
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
             BeginnersWelcomePatch.SetDisabled();
+            HandicapNetwork.Disable();
         }
         public void Enable() {
             PublicLogger.LogInfo($"{Name}: enabled.");
             BeginnersWelcomePatch.SetEnabled();
+            HandicapNetwork.Enable();
         }
 
         public string MenuName => "Beginners Welcome";
@@ -56,6 +59,7 @@ namespace BeginnersWelcome {
             try {
                 _harmony = new Harmony(Id);
                 BeginnersWelcomePatch.Apply(_harmony);
+                HandicapNetwork.Enable();
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
             }
             catch (Exception ex) {

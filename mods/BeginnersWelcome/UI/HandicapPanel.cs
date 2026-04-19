@@ -1,4 +1,5 @@
-﻿using RR;
+﻿using BeginnersWelcome.Network;
+using RR;
 using RR.Scripts.UI.Extensions;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -122,6 +123,7 @@ namespace BeginnersWelcome.UI {
             slider.RegisterValueChangedCallback(evt => {
                 HandicapState.Values[uuid] = evt.newValue;
                 HandicapSave.Save();
+                HandicapNetwork.BroadcastChange();
             });
 
             var valueLabel = new Label(slider.value.ToString("+0;-0;0"));
