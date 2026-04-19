@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+*chore*: Declare WMF as a BepInEx dependency for correct load ordering.
+
 ## [0.3.2] - 2026-04-08
 
 *new*: Added uninstall method in modmanager menu

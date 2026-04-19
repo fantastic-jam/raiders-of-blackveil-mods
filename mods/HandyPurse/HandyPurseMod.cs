@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 
 namespace HandyPurse {
     [BepInPlugin(Id, Name, Version)]
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     public class HandyPurseMod : BaseUnityPlugin, IModRegistrant, IModMenuProvider {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.handypurse";
         public const string Name = "HandyPurse";
