@@ -33,7 +33,7 @@ In the lobby, the host opens the game mode selector (provided by WildguardModFra
 [*][b]Drop Speed[/b] — scales how fast perks are granted and XP ticks: Sluggish / Slow / Normal / Fast / Rapid / Frenzy. XP stops at level 20; perks continue.
 [*][b]Initial Perks[/b] — perk chest rounds before the arena door opens, 0 – 12 (default: 6)
 [*][b]Initial Level[/b] — starting XP level for all players, 1 – 20 (default: 5)
-[*][b]Dmg Reduction[/b] — scales champion-to-champion damage down based on the victim's XP level, making fights last longer as the match progresses: Off / Gentle / Medium / Strong / Extreme (default: Off)
+[*][b]Dmg Reduction[/b] — reduces champion-to-champion damage for longer fights: Off / Gentle / Medium / Strong / Extreme (default: Off)
 [/list]
 
 Advanced rebalancing options (drop intervals, stepper choices) are editable in the BepInEx config file.
