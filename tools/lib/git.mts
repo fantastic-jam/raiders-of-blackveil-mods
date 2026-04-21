@@ -6,7 +6,7 @@ function git(args: string[], opts: { allowFailure?: boolean } = {}): string {
   if (!opts.allowFailure && result.status !== 0) {
     throw new Error(`git ${args[0]} failed:\n${result.stderr}`)
   }
-  return result.stdout.trim()
+  return result.stdout.trimEnd()
 }
 
 export function currentBranch(): string {
