@@ -1,0 +1,13 @@
+{
+  "label.mods": "Mods",
+  "menu.title": "MODS",
+  "menu.hint.close": "ESC  Close",
+  "menu.empty": "No mods registered.",
+  "stepper.allow_mods": "ALLOW MODS",
+  "stepper.allow_cheats": "ALLOW CHEATS",
+  "stepper.game_mode": "GAME MODE",
+  "stepper.yes": "Yes",
+  "stepper.no": "No",
+  "gamemode.normal": "Normal",
+  "solo.title": "SOLO GAME"
+}

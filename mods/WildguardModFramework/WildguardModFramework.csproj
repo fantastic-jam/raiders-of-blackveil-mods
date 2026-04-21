@@ -24,4 +24,10 @@
     <ProjectReference Include="..\..\libs\ModRegistry\ModRegistry.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Assets\Localization\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

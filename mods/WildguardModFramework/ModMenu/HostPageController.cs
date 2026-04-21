@@ -25,7 +25,7 @@ namespace WildguardModFramework.ModMenu {
         private static readonly FieldInfo SessionInputField = AccessTools.Field(typeof(MenuStartHostPage), "_sessionNameTextInput");
         private static readonly FieldInfo JoinHostLabelField = AccessTools.Field(typeof(JoinHostControl), "_label");
 
-        private static readonly string[] StepperItems = { "Yes", "No" };
+        private static string[] StepperItems => new[] { WmfMod.t("stepper.yes"), WmfMod.t("stepper.no") };
 
         private readonly JoinHostStepper _allowModsStepper;
         private readonly JoinHostStepper _allowCheatsStepper;
@@ -78,7 +78,7 @@ namespace WildguardModFramework.ModMenu {
             BuildTooltip(page.RootElement);
 
             if (hasMods) {
-                _allowModsStepper = CreateStepper("ALLOW MODS");
+                _allowModsStepper = CreateStepper(WmfMod.t("stepper.allow_mods"));
                 RegisterTooltip(_allowModsStepper, string.Join("\n", enabledMods.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowModsStepper);
                 cursor.RegisterItem(_allowModsStepper);
@@ -86,7 +86,7 @@ namespace WildguardModFramework.ModMenu {
             }
 
             if (hasCheats) {
-                _allowCheatsStepper = CreateStepper("ALLOW CHEATS");
+                _allowCheatsStepper = CreateStepper(WmfMod.t("stepper.allow_cheats"));
                 RegisterTooltip(_allowCheatsStepper, string.Join("\n", enabledCheats.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowCheatsStepper);
                 cursor.RegisterItem(_allowCheatsStepper);
@@ -95,10 +95,10 @@ namespace WildguardModFramework.ModMenu {
 
             if (hasGameModes) {
                 var items = new string[gameModes.Count + 1];
-                items[0] = "Normal";
+                items[0] = WmfMod.t("gamemode.normal");
                 for (int i = 0; i < gameModes.Count; i++) { items[i + 1] = gameModes[i].DisplayName; }
 
-                _gameModeStepper = CreateStepper("GAME MODE");
+                _gameModeStepper = CreateStepper(WmfMod.t("stepper.game_mode"));
                 _gameModeStepper.SetItems(items, GetCurrentGameModeIndex());
                 container.Insert(insertIndex++, _gameModeStepper);
                 cursor.RegisterItem(_gameModeStepper);

@@ -29,6 +29,14 @@ Skip this step if BepInEx is already installed.
 
 ---
 
+## Languages
+
+WMF's own UI (mod menu title, Mods button, host setup steppers, game mode labels, solo game screen) is available in **English** and **French**. The active language follows your in-game language setting — no extra configuration required.
+
+Mods built on WMF can provide their own translation files using the same `TranslationService`. See the [For Mod Authors](#for-mod-authors) section for details.
+
+---
+
 ## Mod Discovery
 
 A **Mods** button is added to the main menu and the in-game pause menu. Opening it shows every installed BepInEx plugin. Mods that support enable/disable have a working toggle — turn them off permanently or bring them back without touching the filesystem. Mods without toggle support are listed as well, so you always have a clear picture of what's loaded.
@@ -374,3 +382,22 @@ Referencing `ModRegistry.dll` is optional. WMF also discovers mods by matching m
 Duck typing does not support `IGameModeProvider` — multi-variant game modes must reference `ModRegistry.dll` and implement the interface.
 
 The interface approach is preferred because it gives you compile-time checks and IDE auto-complete. Duck typing is useful when you can't or don't want to ship an extra DLL alongside your mod.
+
+---
+
+### Localisation
+
+WMF ships a `TranslationService` that mods can use to localise their own UI strings. Place flat JSON files under `Assets/Localization/` in your mod's output folder, named `[ModName].[lang].json` (e.g. `MyMod.en.json`, `MyMod.fr.json`).
+
+Format — a flat key/value object:
+
+```json
+{
+  "my_key": "My English string",
+  "another_key": "Another string"
+}
+```
+
+`TranslationService` loads all matching files at startup and picks the file that matches the player's in-game language setting. English is the fallback when no file exists for the active language.
+
+WMF uses this same mechanism for its own UI strings — `WMF.en.json` and `WMF.fr.json` are bundled in the ZIP and cover all WMF UI text out of the box.

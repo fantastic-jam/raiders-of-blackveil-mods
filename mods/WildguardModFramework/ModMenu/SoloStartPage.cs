@@ -33,7 +33,7 @@ namespace WildguardModFramework.ModMenu {
             // ── Title ─────────────────────────────────────────────────────────
             var title = RootElement.Q<LocLabel>("Title");
             if (title != null) {
-                title.CustomTransform = _ => "SOLO GAME";
+                title.CustomTransform = _ => WmfMod.t("solo.title");
                 title.Refresh();
             }
 
@@ -114,7 +114,7 @@ namespace WildguardModFramework.ModMenu {
             if (_gameModeStepper == null) { return; }
             var gameModes = ModScanner.GameModes;
             var items = new string[gameModes.Count + 1];
-            items[0] = "Normal";
+            items[0] = WmfMod.t("gamemode.normal");
             for (int i = 0; i < gameModes.Count; i++) { items[i + 1] = gameModes[i].DisplayName; }
 
             var currentId = ModScanner.SelectedGameModeVariantId;
@@ -130,7 +130,7 @@ namespace WildguardModFramework.ModMenu {
             var stepper = new JoinHostStepper();
             var labelField = AccessTools.Field(typeof(JoinHostControl), "_label");
             if (labelField?.GetValue(stepper) is LocLabel lbl) {
-                lbl.CustomTransform = _ => "GAME MODE";
+                lbl.CustomTransform = _ => WmfMod.t("stepper.game_mode");
                 lbl.Refresh();
             }
             return stepper;

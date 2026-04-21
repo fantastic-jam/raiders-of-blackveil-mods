@@ -1,5 +1,6 @@
 {
   "nexus_mod_id": 12,
   "nexus_file_group_id": "7269167",
+  "nexus_short_description": "The mod framework for Raiders of Blackveil. Adds an in-game Mods menu, enable/disable toggles, host-side Allow Mods/Cheats controls, and a Game Mode selector. UI available in English and French.",
   "plugin_dlls": ["ModRegistry.dll"]
 }

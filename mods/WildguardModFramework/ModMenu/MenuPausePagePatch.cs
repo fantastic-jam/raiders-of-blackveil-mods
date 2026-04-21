@@ -55,7 +55,7 @@ namespace WildguardModFramework.ModMenu {
 
             var lbl = _modsButton.Q<LocLabel>("Label");
             if (lbl != null) {
-                lbl.CustomTransform = _ => "Mods";
+                lbl.CustomTransform = _ => WmfMod.t("label.mods");
                 lbl.Refresh();
             }
 

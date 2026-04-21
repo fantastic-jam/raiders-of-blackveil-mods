@@ -174,13 +174,13 @@ namespace WildguardModFramework.ModMenu {
             titleBar.style.borderBottomColor = dividerColor;
             titleBar.style.borderBottomWidth = 1;
 
-            var titleLabel = new Label { text = "MODS" };
+            var titleLabel = new Label { text = WmfMod.t("menu.title") };
             titleLabel.style.color = Color.white;
             titleLabel.style.fontSize = 18;
             titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
             titleLabel.style.letterSpacing = 1;
 
-            var hintLabel = new Label { text = "ESC  Close" };
+            var hintLabel = new Label { text = WmfMod.t("menu.hint.close") };
             hintLabel.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
             hintLabel.style.fontSize = 12;
 
@@ -202,7 +202,7 @@ namespace WildguardModFramework.ModMenu {
             leftBar.style.paddingLeft = leftBar.style.paddingRight = 8;
 
             // "Mods" entry — always first
-            _wmfBtn = new NavButton("Mods") { Active = true, OnClickedEvent = SelectWmfEntry };
+            _wmfBtn = new NavButton(WmfMod.t("label.mods")) { Active = true, OnClickedEvent = SelectWmfEntry };
             _leftCursor.RegisterItem(_wmfBtn);
             leftBar.Add(_wmfBtn);
 
@@ -287,7 +287,7 @@ namespace WildguardModFramework.ModMenu {
             }
 
             if (allMods.Count == 0) {
-                var empty = new Label { text = "No mods registered." };
+                var empty = new Label { text = WmfMod.t("menu.empty") };
                 empty.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
                 empty.style.paddingTop = 12;
                 panel.Add(empty);

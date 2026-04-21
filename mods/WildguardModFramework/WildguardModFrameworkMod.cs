@@ -4,6 +4,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using WildguardModFramework.ModMenu;
 using WildguardModFramework.Network;
+using WildguardModFramework.Translation;
 using ModRegistry;
 using UnityEngine;
 
@@ -17,6 +18,7 @@ namespace WildguardModFramework {
 
         public static ManualLogSource PublicLogger;
         internal static WmfMod Instance { get; private set; }
+        internal static T t;
 
         /// <summary>
         /// Persistent coroutine host. Created in Awake() with DontDestroyOnLoad so it survives
@@ -43,6 +45,7 @@ namespace WildguardModFramework {
                 DontDestroyOnLoad(runnerGo);
                 Runner = runnerGo.AddComponent<CoroutineRunner>();
 
+                t = TranslationService.For(Name, Info.Location);
                 _harmony = new Harmony(Id);
                 WmfConfig.Init(Config);
                 NetworkPatch.Apply(_harmony);
