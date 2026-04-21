@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.4.0] - 2026-04-21
 
 ### Added
 - Bank menu section: shows bank balance and pending topup; Drop bank to floor button spawns banked currency as pickups (lobby/host only)
