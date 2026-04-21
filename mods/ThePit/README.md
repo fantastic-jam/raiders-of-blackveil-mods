@@ -36,6 +36,10 @@ Configure the match from the planning table before starting. Settings are saved 
 
 **Damage Reduction** reduces champion-to-champion damage as players gain XP levels, protecting recently respawned players from fully-built opponents.
 
+## Languages
+
+The configuration UI is available in **English** and **French**. The active language follows the game's language setting.
+
 ## Rebalancing (BepInEx config)
 
 The `BepInEx/config/io.github.fantastic-jam.raidersofblackveil.mods.thepit.cfg` file exposes base values for fine-tuning.

@@ -37,3 +37,9 @@ In the lobby, the host opens the game mode selector (provided by WildguardModFra
 [/list]
 
 Advanced rebalancing options (drop intervals, stepper choices) are editable in the BepInEx config file.
+
+[line]
+
+[heading]Languages[/heading]
+
+The configuration UI is available in [b]English[/b] and [b]French[/b]. The active language follows the game's language setting.
