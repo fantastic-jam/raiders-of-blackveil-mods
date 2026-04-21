@@ -34,7 +34,7 @@ Configure the match from the planning table before starting. Settings are saved 
 
 **Drop Speed** scales how fast perks are granted and XP ticks. XP stops at level 20; perks continue for the rest of the match.
 
-**Damage Reduction** reduces champion-to-champion damage as players gain XP levels, protecting recently respawned players from fully-built opponents.
+**Damage Reduction** scales champion-to-champion damage down based on the victim's XP level — the higher your level, the less damage you take. This makes fights last longer as the match progresses.
 
 ## Languages
 
