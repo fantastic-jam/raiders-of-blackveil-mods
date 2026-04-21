@@ -18,11 +18,28 @@ Use the **Prepare for Uninstall** button in the in-game pause menu (Mods › Han
 
 It drops every currency above the vanilla limit as vanilla-sized pickups at your feet, then disables HandyPurse automatically. Pick the stacks back up — they will merge normally within vanilla limits. You can then safely uninstall.
 
-Vanilla limits: Scrap 999 · Black Coin 99 · Crystals 99
+Vanilla limits: Scrap 3,000 · Black Coin 200 · Crystals 200
 
 > Must be solo or session host. The button is in **Pause → Mods → HandyPurse**.
 
 If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.
+
+---
+
+## Bank
+
+The Bank is a safety net for stacks that exceed your configured caps at save time — for example when you join a session where you do not have save authority.
+
+**How it works:**
+
+When the game saves and a currency stack would be clamped, HandyPurse strips the excess and writes it to a local file instead of discarding it:
+
+- If your inventory slot layout is the same as when the excess was saved, it is written to `BepInEx/data/HandyPurse/topup.json` and restored to the exact same slot on your next load.
+- If the slot layout has changed (items moved or a slot is now occupied by something else), the excess is moved to `BepInEx/data/HandyPurse/bank.json` for safe keeping until you manually recover it.
+
+**Recovering banked funds:**
+
+Open **Pause → Mods → HandyPurse** to see your current bank balance and any pending topup. If you have a balance in `bank.json`, use the **Drop bank to floor** button — this spawns the stored currency as floor pickups at your feet so you can walk over them and pick them up normally. The button is only available in the lobby and only to the session host.
 
 ---
 

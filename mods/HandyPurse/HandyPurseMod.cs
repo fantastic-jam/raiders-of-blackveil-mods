@@ -5,6 +5,7 @@ using BepInEx.Logging;
 using HandyPurse.Patch;
 using HarmonyLib;
 using ModRegistry;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HandyPurse {
@@ -15,12 +16,15 @@ namespace HandyPurse {
         public const string Name = "HandyPurse";
         public const string Version = "0.3.2";
         public const string Author = "christphe";
+        private const string BuiltAgainstGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
 
         public static ManualLogSource PublicLogger;
 
         private static ConfigEntry<int> _scrapCap;
         private static ConfigEntry<int> _blackCoinCap;
         private static ConfigEntry<int> _crystalCap;
+        private static ConfigEntry<bool> _strictVersionChecking;
+        private static ConfigEntry<string> _overrideVersionCheck;
 
         public static int ScrapCap => Math.Max(1, _scrapCap?.Value ?? 9999);
         public static int BlackCoinCap => Math.Max(1, _blackCoinCap?.Value ?? 999);
@@ -58,8 +62,29 @@ namespace HandyPurse {
                 return;
             }
 
-            // Register the main menu hook before Apply() so the popup fires even on critical failure.
+            // Register the main menu hook before anything that can fail so popups always fire.
             HandyPursePatch.ApplyMenuHook(_harmony);
+
+            var gameVersion = Application.version;
+            var overrideVersion = _overrideVersionCheck?.Value ?? string.Empty;
+            var versionOk = gameVersion == BuiltAgainstGameVersion
+                || (!string.IsNullOrWhiteSpace(overrideVersion) && gameVersion == overrideVersion);
+
+            if (!versionOk) {
+                if (!string.IsNullOrWhiteSpace(overrideVersion)) {
+                    PublicLogger.LogWarning(
+                        $"HandyPurse: override version '{overrideVersion}' does not match running game v{gameVersion}.");
+                }
+
+                if (_strictVersionChecking?.Value ?? true) {
+                    HandyPursePatch.PendingVersionMismatchPopup = true;
+                    LogVersionMismatch(gameVersion);
+                } else {
+                    PublicLogger.LogWarning(
+                        $"HandyPurse: built against game v{BuiltAgainstGameVersion}, " +
+                        $"running on v{gameVersion} — patches may fail. Update the mod if issues occur.");
+                }
+            }
 
             if (!HandyPursePatch.Apply(_harmony)) {
                 HandyPursePatch.SetDisabled();
@@ -74,12 +99,22 @@ namespace HandyPurse {
             }
 
             try {
-                PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
+                PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded. Game: {Application.version}");
                 PublicLogger.LogInfo($"Caps: Scrap={ScrapCap}, BlackCoin={BlackCoinCap}, Crystal={CrystalCap}");
             }
             catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
+        }
+
+        private void LogVersionMismatch(string gameVersion) {
+            PublicLogger.LogFatal("============================================================");
+            PublicLogger.LogFatal($"{Name} v{Version}: game version mismatch.");
+            PublicLogger.LogFatal($"Expected: {BuiltAgainstGameVersion}");
+            PublicLogger.LogFatal($"Running:  {gameVersion}");
+            PublicLogger.LogFatal($"Patches applied — set OverrideVersionCheck in the BepInEx config");
+            PublicLogger.LogFatal($"to silence this warning once the community confirms compatibility.");
+            PublicLogger.LogFatal("============================================================");
         }
 
         private void LogBreakingChange() {
@@ -96,6 +131,12 @@ namespace HandyPurse {
             _scrapCap = Config.Bind("Limits", "ScrapCap", 9999, "Max stack for Scrap.");
             _blackCoinCap = Config.Bind("Limits", "BlackCoinCap", 999, "Max stack for Black Coin.");
             _crystalCap = Config.Bind("Limits", "CrystalCap", 999, "Max stack for Crystals (BlackBlood and Glitter).");
+            _strictVersionChecking = Config.Bind("Compatibility", "StrictVersionChecking", true,
+                "If true, shows a warning popup when the game version does not match the version this mod was built against. " +
+                "Patches are always applied regardless of this setting.");
+            _overrideVersionCheck = Config.Bind("Compatibility", "OverrideVersionCheck", string.Empty,
+                "If the community confirms HandyPurse works on a newer game version, paste that version string here " +
+                "to silence the version mismatch warning. Leave empty to use the built-in known-good version only.");
         }
     }
 }

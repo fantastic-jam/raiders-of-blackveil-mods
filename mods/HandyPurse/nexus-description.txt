@@ -16,11 +16,19 @@ Use the [b]Prepare for Uninstall[/b] button in the in-game pause menu ([b]Pause 
 
 It drops every currency above the vanilla limit as vanilla-sized pickups at your feet, then disables HandyPurse automatically. Pick the stacks back up — they will merge normally within vanilla limits. You can then safely uninstall.
 
-Vanilla limits: Scrap 999 · Black Coin 99 · Crystals 99
+Vanilla limits: Scrap 3,000 · Black Coin 200 · Crystals 200
 
 Requires solo play or being the session host.
 
 [i]If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.[/i]
+
+[line]
+[heading]Bank[/heading]
+When you join a session where you do not have save authority (e.g. someone else's online game), the host controls the save — and the game will clamp any stack that exceeds the vanilla limit. To prevent that excess from being silently lost, HandyPurse intercepts the save and strips the excess into a [b]local bank file[/b] on your machine instead of discarding it.
+
+[b]Important:[/b] the bank is stored locally and is [b]not available while you are online[/b]. Your excess currency is safe on disk, but it will not be in your inventory until you load into a session where you have save authority (solo or as host).
+
+[b]Recovering banked funds:[/b] open [b]Pause → Mods → HandyPurse[/b]. The menu shows your current bank balance and any pending topup. Use the [b]Drop bank to floor[/b] button — this spawns the stored currency as floor pickups at your feet. Available in the lobby when you are solo or the session host.
 
 [line]
 [heading]WMF[/heading]

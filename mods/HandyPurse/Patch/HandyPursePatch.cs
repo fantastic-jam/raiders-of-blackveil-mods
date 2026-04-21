@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using HandyPurse.Bank;
 using HarmonyLib;
+using RR;
 using RR.Game;
 using RR.Game.Items;
 using RR.UI.Pages;
@@ -19,7 +21,14 @@ namespace HandyPurse.Patch {
         // Set when Apply() fails; cleared after the popup fires once.
         internal static bool PendingBreakingChangePopup { get; set; }
 
+        // Set when the game version check fails in strict mode (patches still applied).
+        internal static bool PendingVersionMismatchPopup { get; set; }
+
+        private static bool IsHost => NetworkManager.Instance?.NetworkRunner?.IsServer ?? true;
+
         private static FieldInfo _itemsArrayField;
+        private static MethodInfo _savePlayerGameStatesMethod;
+        private static MethodInfo _loadPlayerGameStateMethod;
 
         // Always register the main menu hook so the breaking-change popup fires even on failure.
         public static void ApplyMenuHook(Harmony harmony) {
@@ -59,32 +68,79 @@ namespace HandyPurse.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(MergeToInventoryPrefix))));
             }
 
+            // Vault save hook — host only, fires for all players' states at once.
+            _savePlayerGameStatesMethod = AccessTools.Method(typeof(BackendManager), "SavePlayerGameStates");
+            if (_savePlayerGameStatesMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find BackendManager.SavePlayerGameStates — vault save unavailable.");
+            } else {
+                harmony.Patch(_savePlayerGameStatesMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStatesPrefix))));
+            }
+
+            // Vault load hook — host only, wraps callback to apply topup before inventory initialises.
+            _loadPlayerGameStateMethod = AccessTools.Method(typeof(BackendManager), "LoadPlayerGameState");
+            if (_loadPlayerGameStateMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find BackendManager.LoadPlayerGameState — vault restore unavailable.");
+            } else {
+                harmony.Patch(_loadPlayerGameStateMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(LoadPlayerGameStatePrefix))));
+            }
+
+            var lobbyHudActivateMethod = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
+            if (lobbyHudActivateMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find LobbyHUDPage.OnActivate — bank popup deferred to main menu.");
+            } else {
+                harmony.Patch(lobbyHudActivateMethod,
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(LobbyHUDPageOnActivatePostfix))));
+            }
+
             HandyPurseMod.PublicLogger.LogInfo("HandyPurse patches applied.");
             return true;
         }
 
         private static void MenuStartPageOnActivatePostfix() {
-            if (!PendingBreakingChangePopup) {
+            if (PendingVersionMismatchPopup) {
+                PendingVersionMismatchPopup = false;
+                UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
+                    Title = "HandyPurse — Game Version Mismatch",
+                    Text = $"HandyPurse v{HandyPurseMod.Version} was built against a different game version.\n\n" +
+                           $"Patches have been applied, but some features may not work correctly.\n\n" +
+                           $"If you experience issues, wait for a mod update or set OverrideVersionCheck " +
+                           $"in the BepInEx config once the community confirms compatibility.\n\n" +
+                           $"Do NOT uninstall until your stacks are within vanilla limits."
+                });
                 return;
             }
 
-            PendingBreakingChangePopup = false;
+            if (PendingBreakingChangePopup) {
+                PendingBreakingChangePopup = false;
+                UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
+                    Title = "HandyPurse — Breaking Change",
+                    Text = $"Stack limits are NOT active (v{HandyPurseMod.Version}).\n\n" +
+                           $"Currencies above vanilla caps WILL be clamped on the next save.\n\n" +
+                           $"Do NOT uninstall until your stacks are within vanilla limits.\n\n" +
+                           $"Update the mod or report a bug — include your BepInEx log."
+                });
+                return;
+            }
 
-            UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                Title = "HandyPurse — Breaking Change",
-                Text = $"Stack limits are NOT active (v{HandyPurseMod.Version}).\n\n" +
-                       $"Currencies above vanilla caps WILL be clamped on the next save.\n\n" +
-                       $"Do NOT uninstall until your stacks are within vanilla limits.\n\n" +
-                       $"Update the mod or report a bug — include your BepInEx log."
-            });
+            BankOrchestrator.ShowPendingPopup();
         }
+
+        private static void LobbyHUDPageOnActivatePostfix() => BankOrchestrator.ShowPendingPopup();
+
+        private static void SavePlayerGameStatesPrefix(List<PlayerGameState> gameStates) =>
+            BankOrchestrator.OnSavePlayerGameStates(gameStates);
+
+        private static void LoadPlayerGameStatePrefix(Guid playerUUID, ref Action<Guid, PlayerGameState> callback) =>
+            BankOrchestrator.WrapLoadCallback(playerUUID, ref callback);
 
         // Keep inventory merge/split logic aware of custom currency limits.
         public static void AmountMaximumPostfix(GenericItemDescriptor __instance, ref int __result) {
-            if (Disabled) {
+            if (Disabled || !IsHost) {
                 // Protect existing stacks: don't advertise a max lower than the current amount,
                 // otherwise the game clamps them down (InventorySyncedItems lines ~77 and ~156).
-                // MergeToInventory uses asset.StackMaximum directly, so merges still use vanilla defaults.
+                // On clients the host already distributed the correct amounts; we just prevent clamping.
                 if (__instance != null && __instance.Amount > __result) {
                     __result = __instance.Amount;
                 }
@@ -96,7 +152,7 @@ namespace HandyPurse.Patch {
 
         // Replace the asset stack clamp used when creating network item descriptors.
         public static void CreateItemPrefix(int assetID, ref int amount, bool useStackLimit = true) {
-            if (Disabled) { return; }
+            if (Disabled || !IsHost) { return; }
             if (!useStackLimit) {
                 return;
             }
@@ -119,7 +175,7 @@ namespace HandyPurse.Patch {
 
         // Ensure the created descriptor advertises the same custom stack maximum.
         public static void CreateItemPostfix(ref NetworkItemDescriptor? __result) {
-            if (Disabled) { return; }
+            if (Disabled || !IsHost) { return; }
             if (!__result.HasValue) {
                 return;
             }
@@ -140,7 +196,7 @@ namespace HandyPurse.Patch {
         // Replace merge logic for managed item types so it respects the HandyPurse cap
         // instead of the vanilla asset.StackMaximum field.
         public static bool MergeToInventoryPrefix(object __instance, int assetID, ChampionType champion, int amount, InventoryItemChanges changes, ref int __result) {
-            if (Disabled) { return true; }
+            if (Disabled || !IsHost) { return true; }
             var asset = ItemDatabase.Instance?.GetAsset(assetID);
             if (asset == null) {
                 __result = 0;
@@ -180,7 +236,7 @@ namespace HandyPurse.Patch {
             return false; // skip original
         }
 
-        private static int ResolveCap(ItemType itemType) {
+        internal static int ResolveCap(ItemType itemType) {
             return itemType switch {
                 ItemType.Scrap => HandyPurseMod.ScrapCap,
                 ItemType.BlackCoin => HandyPurseMod.BlackCoinCap,

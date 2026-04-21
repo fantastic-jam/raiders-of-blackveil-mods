@@ -1,9 +1,16 @@
 # Changelog
 
-## [Unreleased] - patch
+## [Unreleased] - minor
+
+### Added
+- Bank menu section: shows bank balance and pending topup; Drop bank to floor button spawns banked currency as pickups (lobby/host only)
+- Bank system: excess currency above vanilla caps is stripped at save time and restored to the exact same inventory slot on next load; layout mismatch sends excess to a local bank file for manual recovery
 
 ### Changed
 - Declare WMF as a BepInEx dependency for correct load ordering.
+
+### Fixed
+- Correct vanilla stack limits in uninstall description (Scrap 3,000 · Black Coin 200 · Crystals 200)
 
 ## [0.3.2] - 2026-04-08
 
