@@ -7,8 +7,11 @@ namespace ThePit.UI {
     // Wraps around at the ends. Fully self-contained; read Index or Value<T> after the user interacts.
     internal sealed class Stepper<T> {
         private readonly (string Label, T Value)[] _options;
+        private readonly Label _rowLabel;
         private readonly Label _valueLabel;
         private int _index;
+
+        internal string RowLabel { set => _rowLabel.text = value; }
 
         internal int Index => _index;
         internal T Value => _options[_index].Value;
@@ -24,12 +27,12 @@ namespace ThePit.UI {
             row.style.alignItems = Align.Center;
             row.style.marginBottom = 14;
 
-            var label = new Label { text = rowLabel };
-            label.pickingMode = PickingMode.Ignore;
-            label.style.width = 120;
-            label.style.color = new Color(0.55f, 0.55f, 0.55f, 1f);
-            label.style.fontSize = 12;
-            label.style.letterSpacing = 1f;
+            _rowLabel = new Label { text = rowLabel };
+            _rowLabel.pickingMode = PickingMode.Ignore;
+            _rowLabel.style.width = 120;
+            _rowLabel.style.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+            _rowLabel.style.fontSize = 12;
+            _rowLabel.style.letterSpacing = 1f;
 
             var leftBtn = MakeStepButton("<", () => Step(-1));
             _valueLabel = new Label { text = _options[_index].Label };
@@ -40,7 +43,7 @@ namespace ThePit.UI {
             _valueLabel.style.fontSize = 13;
             var rightBtn = MakeStepButton(">", () => Step(1));
 
-            row.Add(label);
+            row.Add(_rowLabel);
             row.Add(leftBtn);
             row.Add(_valueLabel);
             row.Add(rightBtn);

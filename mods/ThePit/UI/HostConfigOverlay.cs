@@ -3,12 +3,15 @@ using RR.Input;
 using RR.UI.UISystem;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WildguardModFramework.Translation;
 
 namespace ThePit.UI {
     // Full-screen overlay shown in the lobby when the host interacts with the planning table.
     // Stepper option lists are loaded from BepInEx config at construction time; parse errors
     // fall back to the built-in defaults. Disables all player input while visible.
     internal sealed class HostConfigOverlay {
+        private static readonly T t = ThePitMod.t;
+
         // ── Built-in defaults (used when cfg is absent or unparseable) ────────────
 
         private static readonly (string Label, float Seconds)[] DefaultDurations = {
@@ -67,6 +70,9 @@ namespace ThePit.UI {
         private readonly Stepper<float> _damageReductionStepper;
         private readonly Stepper<int> _initialLevelStepper;
         private readonly Action _onConfirm;
+        private Label _titleLabel;
+        private Button _defaultBtn;
+        private Button _okBtn;
 
         internal bool IsVisible { get; private set; }
 
@@ -92,11 +98,11 @@ namespace ThePit.UI {
             _savedDamageReductionIdx = (prefs.DamageReductionFactor.HasValue ? FindIndex(damageReduction, prefs.DamageReductionFactor.Value) : null) ?? 0;
             _savedInitialLevelIdx = (prefs.InitialLevel.HasValue ? FindIndex(LevelOptions, prefs.InitialLevel.Value) : null) ?? 4;
 
-            _durationStepper = new Stepper<float>("DURATION", durations, _savedDurationIdx);
-            _dropRateStepper = new Stepper<float>("DROP SPEED", dropRates, _savedDropRateIdx);
-            _initialPerksStepper = new Stepper<int>("INITIAL PERKS", initialPerks, _savedInitialPerksIdx);
-            _damageReductionStepper = new Stepper<float>("DMG REDUCTION", damageReduction, _savedDamageReductionIdx);
-            _initialLevelStepper = new Stepper<int>("INITIAL LEVEL", LevelOptions, _savedInitialLevelIdx);
+            _durationStepper = new Stepper<float>(t("stepper.duration"), durations, _savedDurationIdx);
+            _dropRateStepper = new Stepper<float>(t("stepper.drop_speed"), dropRates, _savedDropRateIdx);
+            _initialPerksStepper = new Stepper<int>(t("stepper.initial_perks"), initialPerks, _savedInitialPerksIdx);
+            _damageReductionStepper = new Stepper<float>(t("stepper.dmg_reduction"), damageReduction, _savedDamageReductionIdx);
+            _initialLevelStepper = new Stepper<int>(t("stepper.initial_level"), LevelOptions, _savedInitialLevelIdx);
 
             _backdrop = Build();
             _backdrop.style.display = DisplayStyle.None;
@@ -104,6 +110,14 @@ namespace ThePit.UI {
         }
 
         internal void Show() {
+            _titleLabel.text = t("overlay.title");
+            _defaultBtn.text = t("overlay.btn.default");
+            _okBtn.text = t("overlay.btn.ok");
+            _durationStepper.RowLabel = t("stepper.duration");
+            _dropRateStepper.RowLabel = t("stepper.drop_speed");
+            _initialPerksStepper.RowLabel = t("stepper.initial_perks");
+            _damageReductionStepper.RowLabel = t("stepper.dmg_reduction");
+            _initialLevelStepper.RowLabel = t("stepper.initial_level");
             _durationStepper.SetIndex(_savedDurationIdx);
             _dropRateStepper.SetIndex(_savedDropRateIdx);
             _initialPerksStepper.SetIndex(_savedInitialPerksIdx);
@@ -193,14 +207,14 @@ namespace ThePit.UI {
             header.style.alignItems = Align.Center;
             header.style.marginBottom = 24;
 
-            var title = new Label { text = "THE PIT — MATCH SETTINGS" };
-            title.pickingMode = PickingMode.Ignore;
-            title.style.color = Color.white;
-            title.style.fontSize = 14;
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.letterSpacing = 1.5f;
-            title.style.flexGrow = 1;
-            header.Add(title);
+            _titleLabel = new Label { text = t("overlay.title") };
+            _titleLabel.pickingMode = PickingMode.Ignore;
+            _titleLabel.style.color = Color.white;
+            _titleLabel.style.fontSize = 14;
+            _titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _titleLabel.style.letterSpacing = 1.5f;
+            _titleLabel.style.flexGrow = 1;
+            header.Add(_titleLabel);
 
             header.Add(MakeCloseButton());
             card.Add(header);
@@ -218,8 +232,10 @@ namespace ThePit.UI {
             var footer = new VisualElement();
             footer.style.flexDirection = FlexDirection.Row;
             footer.style.justifyContent = Justify.Center;
-            footer.Add(MakeDefaultButton());
-            footer.Add(MakeOkButton());
+            _defaultBtn = MakeDefaultButton();
+            _okBtn = MakeOkButton();
+            footer.Add(_defaultBtn);
+            footer.Add(_okBtn);
             card.Add(footer);
 
             backdrop.Add(card);
@@ -242,7 +258,7 @@ namespace ThePit.UI {
         }
 
         private Button MakeDefaultButton() {
-            var btn = new Button(ResetToDefaults) { text = "Default" };
+            var btn = new Button(ResetToDefaults) { text = t("overlay.btn.default") };
             btn.pickingMode = PickingMode.Position;
             btn.style.width = 100;
             btn.style.height = 36;
@@ -285,7 +301,7 @@ namespace ThePit.UI {
         }
 
         private Button MakeOkButton() {
-            var btn = new Button(Confirm) { text = "OK" };
+            var btn = new Button(Confirm) { text = t("overlay.btn.ok") };
             btn.pickingMode = PickingMode.Position;
             btn.style.width = 120;
             btn.style.height = 36;

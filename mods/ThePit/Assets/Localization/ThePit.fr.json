@@ -1,0 +1,17 @@
+{
+  "mod.description": "Un terrain d'épreuve pour les raiders et les nouveaux venus. Testez votre valeur dans des mêlées brutales.",
+
+  "variant.pvp.name": "The Pit — PvP",
+  "variant.pvp.description": "Partez de zéro. Gagnez des avantages au fil du temps. Le dernier survivant l'emporte.",
+  "variant.pvp.run_start": "La Fosse est ouverte. Survivez.",
+
+  "overlay.title": "THE PIT — PARAMÈTRES",
+  "overlay.btn.ok": "OK",
+  "overlay.btn.default": "Par défaut",
+
+  "stepper.duration": "DURÉE",
+  "stepper.drop_speed": "VITESSE DES DROPS",
+  "stepper.initial_perks": "PERKS INITIAUX",
+  "stepper.dmg_reduction": "RÉDUCT. DÉGÂTS",
+  "stepper.initial_level": "NIVEAU INITIAL"
+}

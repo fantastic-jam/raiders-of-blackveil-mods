@@ -7,6 +7,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using ModRegistry;
 using ThePit.Patch;
+using WildguardModFramework.Translation;
 
 namespace ThePit {
     [BepInPlugin(Id, Name, Version)]
@@ -19,6 +20,7 @@ namespace ThePit {
         private const string TargetGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
 
         public static ManualLogSource PublicLogger;
+        internal static T t;
 
         // ── Progression config ───────────────────────────────────────────────────
         // Original: PerkInterval = 30 s, XpTickInterval = 45 s, MatchDuration = 600 s.
@@ -43,7 +45,7 @@ namespace ThePit {
 
         public string GetModType() => _gameVersionSupported ? nameof(ModType.GameMode) : nameof(ModType.Mod);
         public string GetModName() => Name;
-        public string GetModDescription() => "A proving ground for raiders and newcomers. Test your mettle in brutal free-for-all brawls.";
+        public string GetModDescription() => t("mod.description");
         public bool IsClientRequired => false;
         public bool Disabled => !ThePitState.IsActive;
 
@@ -69,24 +71,22 @@ namespace ThePit {
             PublicLogger.LogInfo($"{Name}: disabled.");
         }
 
-        private static readonly List<GameModeVariant> _variants = new() {
+        public IReadOnlyList<GameModeVariant> GameModeVariants => new List<GameModeVariant> {
             new GameModeVariant(
                 ThePitState.VariantDraft,
-                "The Pit — PvP",
-                "Start bare. Earn perks over time. Last one standing wins.",
+                t("variant.pvp.name"),
+                t("variant.pvp.description"),
                 joinMessage: null,
-                runStartMessage: "The Pit is open. Survive."
+                runStartMessage: t("variant.pvp.run_start")
             ),
             // new GameModeVariant( // not yet exposed
             //     ThePitState.VariantMoba,
-            //     "The Pit — Protect the Core",
-            //     "Defend your Core. Destroy the others. Minions march, coins flow.",
+            //     t("variant.moba.name"),
+            //     t("variant.moba.description"),
             //     joinMessage: null,
-            //     runStartMessage: "Defend the Core. Destroy all others."
+            //     runStartMessage: t("variant.moba.run_start")
             // ),
         };
-
-        public IReadOnlyList<GameModeVariant> GameModeVariants => _variants;
 
         public void EnableVariant(string variantId) {
             ThePitState.ActiveVariant = variantId;
@@ -134,6 +134,7 @@ namespace ThePit {
 
         public void Awake() {
             PublicLogger = Logger;
+            t = TranslationService.For(Name, Info.Location);
             CheckGameVersion();
 
             CfgPerkIntervalSeconds = Config.Bind(

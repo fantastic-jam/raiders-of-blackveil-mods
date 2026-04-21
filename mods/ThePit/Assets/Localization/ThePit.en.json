@@ -1,0 +1,17 @@
+{
+  "mod.description": "A proving ground for raiders and newcomers. Test your mettle in brutal free-for-all brawls.",
+
+  "variant.pvp.name": "The Pit — PvP",
+  "variant.pvp.description": "Start bare. Earn perks over time. Last one standing wins.",
+  "variant.pvp.run_start": "The Pit is open. Survive.",
+
+  "overlay.title": "THE PIT — MATCH SETTINGS",
+  "overlay.btn.ok": "OK",
+  "overlay.btn.default": "Default",
+
+  "stepper.duration": "DURATION",
+  "stepper.drop_speed": "DROP SPEED",
+  "stepper.initial_perks": "INITIAL PERKS",
+  "stepper.dmg_reduction": "DMG REDUCTION",
+  "stepper.initial_level": "INITIAL LEVEL"
+}
