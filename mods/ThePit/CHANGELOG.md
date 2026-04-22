@@ -3,6 +3,7 @@
 ## [Unreleased] - minor
 
 ### Added
+- All UI strings (overlay title, stepper labels, buttons, variant names, mod description) are now loaded from translation files — English and French are included out of the box
 - Game version check on startup — if the running game build does not match the tested version,
   ThePit registers as a plain `Mod` instead of `GameMode`, hiding it from the session picker
   and logging a warning rather than patching an unknown game.
