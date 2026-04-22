@@ -35,6 +35,7 @@ namespace HandyPurse {
         public string GetModType() => nameof(ModType.Mod);
         public string GetModName() => Name;
         public string GetModDescription() => "Raises the stack limits for all currencies. Caps are configurable in the BepInEx config file.";
+        public bool IsClientRequired => false;
         public bool Disabled => HandyPursePatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
@@ -49,6 +50,7 @@ namespace HandyPurse {
         public string MenuName => Name;
         public void OpenMenu(VisualElement container, bool isInGameMenu) => HandyPurseMenu.Open(container, isInGameMenu);
         public void CloseMenu() => HandyPurseMenu.Close();
+        public (string Title, Action<VisualElement, bool> Build)[] SubMenus => null;
 
         private void Awake() {
             PublicLogger = Logger;
