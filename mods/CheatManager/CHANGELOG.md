@@ -1,8 +1,9 @@
 # Changelog
 
-## [Unreleased] - patch
+## [Unreleased] - minor
 
 ### Changed
+- Implement updated WMF interface — IsClientRequired is now a required member
 - Declare WMF as a BepInEx dependency for correct load ordering.
 
 ## [0.3.1] - 2026-04-06
