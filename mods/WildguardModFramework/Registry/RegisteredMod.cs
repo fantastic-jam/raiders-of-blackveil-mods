@@ -21,6 +21,7 @@ namespace WildguardModFramework.Registry {
         private readonly Action _enable;
         private readonly Action<VisualElement, bool> _openMenu;
         private readonly Action _closeMenu;
+        private readonly (string Title, Action<VisualElement, bool> Build)[] _subMenus;
 
         internal bool Disabled { get; private set; }
 
@@ -29,12 +30,15 @@ namespace WildguardModFramework.Registry {
         /// </summary>
         internal bool IsClientRequired { get; }
 
+        internal (string Title, Action<VisualElement, bool> Build)[] SubMenus => _subMenus;
+
         /// <summary>Managed mod — has enable/disable support.</summary>
         internal RegisteredMod(ModType type, string guid, string name, string description,
                                Action disable, Action enable = null,
                                string menuName = null,
                                Action<VisualElement, bool> openMenu = null, Action closeMenu = null,
-                               bool isClientRequired = false) {
+                               bool isClientRequired = false,
+                               (string Title, Action<VisualElement, bool> Build)[] subMenus = null) {
             Type = type;
             Guid = guid;
             Name = name;
@@ -46,6 +50,7 @@ namespace WildguardModFramework.Registry {
             _enable = enable ?? (() => { });
             _openMenu = openMenu;
             _closeMenu = closeMenu;
+            _subMenus = subMenus;
         }
 
         /// <summary>Unmanaged mod — listed in the UI but cannot be toggled.</summary>

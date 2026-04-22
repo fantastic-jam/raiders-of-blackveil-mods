@@ -1,28 +1,29 @@
-﻿using UnityEngine.UIElements;
+﻿using System;
+using UnityEngine.UIElements;
 
 namespace ModRegistry {
     /// <summary>
-    /// Optional interface for mods that want to expose a settings panel inside the
-    /// ModManager Mods menu. Implement alongside <see cref="IModRegistrant"/>, or
-    /// expose the same public members by name (duck typing — no DLL reference required).
+    /// Optional interface for mods that want to expose a settings panel in the WMF Mods menu.
+    /// Alternatively, expose the same public members by name without referencing this DLL (duck typing).
+    /// All members are required when implementing this interface.
     /// </summary>
     public interface IModMenuProvider {
-        /// <summary>
-        /// The name shown as the left-bar section title in the Mods menu.
-        /// A non-null value also signals that this mod exposes a settings panel.
-        /// </summary>
+        /// <summary>Section title shown in the Mods menu left bar.</summary>
         public string MenuName { get; }
 
         /// <summary>
         /// Called when the player selects this mod in the Mods menu left bar.
-        /// Add settings controls to <paramref name="container"/>; ModManager owns the container's lifetime.
+        /// Add settings controls to <paramref name="container"/>.
         /// </summary>
         public void OpenMenu(VisualElement container, bool isInGameMenu);
 
-        /// <summary>
-        /// Called when the player navigates away from this mod's settings page or closes the Mods menu.
-        /// Use this to persist any unsaved state.
-        /// </summary>
+        /// <summary>Called when the player navigates away. Use to persist unsaved state.</summary>
         public void CloseMenu();
+
+        /// <summary>
+        /// Optional sub-sections shown as an expandable accordion under MenuName.
+        /// Return an empty array or null if not used.
+        /// </summary>
+        public (string Title, Action<VisualElement, bool> Build)[] SubMenus { get; }
     }
 }

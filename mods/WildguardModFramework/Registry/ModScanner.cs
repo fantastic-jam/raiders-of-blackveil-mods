@@ -9,20 +9,11 @@ using UnityEngine.UIElements;
 
 namespace WildguardModFramework.Registry {
     internal static class ModScanner {
-        // Session stepper lists — only Mod and Cheat types
         internal static readonly List<RegisteredMod> Mods = new();
         internal static readonly List<RegisteredMod> Cheats = new();
-
-        // All registered game mode variants (may come from multiple plugins)
         internal static readonly List<RegisteredGameMode> GameModes = new();
-
-        // In-memory selected variant ID (null = Normal). Shared between host page and solo modal.
-        // Initialised from config on each Scan(); written on stepper change and persisted in BeginPlaySessionPrefix.
         internal static string SelectedGameModeVariantId { get; set; }
-
-        // Everything discovered (managed or not), excluding WMF itself
         internal static readonly List<RegisteredMod> AllDiscovered = new();
-
         internal static IEnumerable<RegisteredMod> AllMods() => AllDiscovered;
 
         internal static void Scan() {
@@ -32,55 +23,38 @@ namespace WildguardModFramework.Registry {
             AllDiscovered.Clear();
 
             foreach (var info in Chainloader.PluginInfos.Values) {
-                // Skip WMF itself to avoid self-listing
                 if (info.Metadata.GUID == WmfMod.Id) { continue; }
 
                 var mod = TryResolve(info);
                 if (mod == null) {
-                    // No IModRegistrant and no duck typing — list as unmanageable
                     AllDiscovered.Add(new RegisteredMod(info.Metadata.GUID, info.Metadata.Name));
-                    WmfMod.PublicLogger.LogInfo(
-                        $"WMF: [unmanaged] {info.Metadata.Name} ({info.Metadata.GUID})"
-                    );
+                    WmfMod.PublicLogger.LogInfo($"WMF: [unmanaged] {info.Metadata.Name} ({info.Metadata.GUID})");
                     continue;
                 }
 
                 AllDiscovered.Add(mod);
 
                 switch (mod.Type) {
-                    case ModType.Cheat:
-                        Cheats.Add(mod);
-                        break;
-                    case ModType.Mod:
-                        Mods.Add(mod);
-                        break;
-                    case ModType.GameMode:
-                        AddGameModesFrom(mod, info);
-                        break;
-                        // Cosmetics/Utility: in AllDiscovered (manageable), not in session steppers
+                    case ModType.Cheat: Cheats.Add(mod); break;
+                    case ModType.Mod: Mods.Add(mod); break;
+                    case ModType.GameMode: AddGameModesFrom(mod, info); break;
                 }
 
-                WmfMod.PublicLogger.LogInfo(
-                    $"WMF: [{mod.Type}] {mod.Name} ({mod.Guid}) — {info.Metadata.Version}"
-                );
+                WmfMod.PublicLogger.LogInfo($"WMF: [{mod.Type}] {mod.Name} ({mod.Guid}) — {info.Metadata.Version}");
             }
 
-            // Validate and restore the selected game mode from config
             var savedId = WmfConfig.ActiveGameModeId;
             SelectedGameModeVariantId = GameModes.Any(g => g.VariantId == savedId) ? savedId : null;
 
             WmfMod.PublicLogger.LogInfo(
                 $"WMF: {Cheats.Count} cheat(s), {Mods.Count} mod(s), " +
-                $"{GameModes.Count} game mode(s), " +
-                $"{AllDiscovered.Count(m => !m.IsManaged)} unmanaged."
-            );
+                $"{GameModes.Count} game mode(s), {AllDiscovered.Count(m => !m.IsManaged)} unmanaged.");
         }
 
         // ── Game mode registration ─────────────────────────────────────────
 
         private static void AddGameModesFrom(RegisteredMod mod, PluginInfo info) {
             if (info.Instance is IGameModeProvider provider) {
-                // Multi-variant: register one entry per variant
                 foreach (var variant in provider.GameModeVariants) {
                     var variantId = $"{info.Metadata.GUID}::{variant.VariantId}";
                     GameModes.Add(new RegisteredGameMode(
@@ -89,110 +63,96 @@ namespace WildguardModFramework.Registry {
                         disable: mod.Disable,
                         isClientRequired: mod.IsClientRequired,
                         joinMessage: variant.JoinMessage,
-                        runStartMessage: variant.RunStartMessage
-                    ));
-                    WmfMod.PublicLogger.LogInfo(
-                        $"WMF:   [GameMode variant] {variant.DisplayName} ({variantId})"
-                    );
+                        runStartMessage: variant.RunStartMessage));
+                    WmfMod.PublicLogger.LogInfo($"WMF:   [GameMode variant] {variant.DisplayName} ({variantId})");
                 }
             } else {
-                // Single-variant: the whole mod is one game mode entry
+                var p = new ModProxy(info.Instance);
                 GameModes.Add(new RegisteredGameMode(
                     info.Metadata.GUID, mod.Name, mod.Description, info.Metadata.GUID,
-                    enable: mod.Enable,
-                    disable: mod.Disable,
+                    enable: mod.Enable, disable: mod.Disable,
                     isClientRequired: mod.IsClientRequired,
-                    joinMessage: TryGetStringFromMethod(info.Instance, "GetJoinMessage"),
-                    runStartMessage: TryGetStringFromMethod(info.Instance, "GetRunStartNotification")
-                ));
+                    joinMessage: p.GetJoinMessage(),
+                    runStartMessage: p.GetRunStartNotification()));
             }
         }
 
-        private static string TryGetStringFromMethod(BaseUnityPlugin instance, string methodName) {
-            if (instance == null) { return null; }
-            var method = instance.GetType().GetMethod(methodName,
-                BindingFlags.Instance | BindingFlags.Public,
-                null, Type.EmptyTypes, null);
-            return method?.Invoke(instance, null)?.ToString();
-        }
-
-        // ── Resolution helpers ─────────────────────────────────────────────
+        // ── Resolution ─────────────────────────────────────────────────────
 
         private static RegisteredMod TryResolve(PluginInfo info) {
             if (info.Instance is null) { return null; }
 
-            if (info.Instance is IModRegistrant r) {
-                return BuildFromInterface(r, info);
-            }
+            var p = new ModProxy(info.Instance);
+            if (!p.IsManaged) { return null; }
 
-            return TryBuildFromDuckTyping(info.Instance, info);
-        }
+            if (!TryParseModType(p.GetModType(), out var modType)) { return null; }
 
-        private static RegisteredMod BuildFromInterface(IModRegistrant r, PluginInfo info) {
-            if (!TryParseModType(r.GetModType(), out var modType)) { return null; }
-
-            var name = r.GetModName();
+            string name = p.GetModName();
             if (string.IsNullOrEmpty(name)) { name = info.Metadata.Name; }
 
-            var (menuName, openMenu, closeMenu) = TryGetMenuProvider(info.Instance);
-
-            return new RegisteredMod(modType, info.Metadata.GUID, name, r.GetModDescription() ?? "",
-                r.Disable, r.Enable, menuName, openMenu, closeMenu, isClientRequired: r.IsClientRequired);
-        }
-
-        private static RegisteredMod TryBuildFromDuckTyping(BaseUnityPlugin instance, PluginInfo info) {
-            var type = instance.GetType();
-
-            var getModType = type.GetMethod("GetModType", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-            var disable = type.GetMethod("Disable", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-
-            if (getModType == null || disable == null) { return null; }
-            if (!TryParseModType(getModType.Invoke(instance, null)?.ToString(), out var modType)) { return null; }
-
-            var getModName = type.GetMethod("GetModName", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-            var getModDesc = type.GetMethod("GetModDescription", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-            var enable = type.GetMethod("Enable", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-
-            var name = getModName?.Invoke(instance, null)?.ToString();
-            if (string.IsNullOrEmpty(name)) { name = info.Metadata.Name; }
-
-            var description = getModDesc?.Invoke(instance, null)?.ToString() ?? "";
-
-            var (menuName, openMenu, closeMenu) = TryGetMenuProvider(instance);
-
-            var isClientRequiredProp = type.GetProperty("IsClientRequired", BindingFlags.Instance | BindingFlags.Public);
-            bool isClientRequired = isClientRequiredProp != null && (bool)(isClientRequiredProp.GetValue(instance) ?? false);
-
-            return new RegisteredMod(modType, info.Metadata.GUID, name, description,
-                () => disable.Invoke(instance, null),
-                enable != null ? () => enable.Invoke(instance, null) : null,
-                menuName, openMenu, closeMenu, isClientRequired: isClientRequired);
-        }
-
-        private static (string menuName, Action<VisualElement, bool> openMenu, Action closeMenu) TryGetMenuProvider(BaseUnityPlugin instance) {
-            if (instance is IModMenuProvider p) {
-                return (p.MenuName, (c, g) => p.OpenMenu(c, g), p.CloseMenu);
-            }
-
-            var type = instance.GetType();
-            var menuNameProp = type.GetProperty("MenuName", BindingFlags.Instance | BindingFlags.Public);
-            var menuName = menuNameProp?.GetValue(instance)?.ToString();
-
-            if (string.IsNullOrEmpty(menuName)) { return (null, null, null); }
-
-            var openMenu = type.GetMethod("OpenMenu", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(VisualElement), typeof(bool) }, null);
-            var closeMenu = type.GetMethod("CloseMenu", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
-
-            if (openMenu == null || closeMenu == null) { return (null, null, null); }
-
-            return (
-                menuName,
-                (container, isInGameMenu) => openMenu.Invoke(instance, new object[] { container, isInGameMenu }),
-                () => closeMenu.Invoke(instance, null)
-            );
+            return new RegisteredMod(modType, info.Metadata.GUID, name, p.GetModDescription(),
+                p.Disable, p.HasEnable ? p.Enable : null,
+                p.MenuName, p.HasMenu ? p.OpenMenu : null, p.HasMenu ? p.CloseMenu : null,
+                isClientRequired: p.IsClientRequired, subMenus: p.SubMenus);
         }
 
         private static bool TryParseModType(string raw, out ModType result) =>
             Enum.TryParse(raw, ignoreCase: true, out result);
+
+        // ── Proxy ──────────────────────────────────────────────────────────
+
+        private sealed class ModProxy {
+            private readonly object _obj;
+            private readonly Type _type;
+            private const BindingFlags Pub = BindingFlags.Instance | BindingFlags.Public;
+
+            internal ModProxy(object obj) { _obj = obj; _type = obj.GetType(); }
+
+            internal bool IsManaged =>
+                _type.GetMethod("GetModType", Pub, null, Type.EmptyTypes, null) != null &&
+                _type.GetMethod("Disable", Pub, null, Type.EmptyTypes, null) != null;
+
+            internal string GetModType() => Str("GetModType");
+            internal string GetModName() => Str("GetModName");
+            internal string GetModDescription() => Str("GetModDescription") ?? "";
+            internal string GetJoinMessage() => Str("GetJoinMessage");
+            internal string GetRunStartNotification() => Str("GetRunStartNotification");
+
+            internal bool IsClientRequired => Bool("IsClientRequired");
+            internal bool HasEnable => _type.GetMethod("Enable", Pub, null, Type.EmptyTypes, null) != null;
+
+            internal Action Disable => () => _type.GetMethod("Disable", Pub, null, Type.EmptyTypes, null).Invoke(_obj, null);
+            internal Action Enable => () => _type.GetMethod("Enable", Pub, null, Type.EmptyTypes, null).Invoke(_obj, null);
+
+            internal bool HasMenu => MenuName != null;
+            internal string MenuName => PropStr("MenuName");
+
+            internal Action<VisualElement, bool> OpenMenu => (c, g) =>
+                _type.GetMethod("OpenMenu", Pub, null, new[] { typeof(VisualElement), typeof(bool) }, null)
+                     ?.Invoke(_obj, new object[] { c, g });
+
+            internal Action CloseMenu => () =>
+                _type.GetMethod("CloseMenu", Pub, null, Type.EmptyTypes, null)?.Invoke(_obj, null);
+
+            internal (string Title, Action<VisualElement, bool> Build)[] SubMenus {
+                get {
+                    var prop = _type.GetProperty("SubMenus", Pub);
+                    if (prop == null) { return null; }
+                    try { return ((string Title, Action<VisualElement, bool> Build)[])prop.GetValue(_obj); }
+                    catch (Exception) { return null; }
+                }
+            }
+
+            private string Str(string method) =>
+                _type.GetMethod(method, Pub, null, Type.EmptyTypes, null)?.Invoke(_obj, null)?.ToString();
+
+            private string PropStr(string prop) =>
+                _type.GetProperty(prop, Pub)?.GetValue(_obj)?.ToString();
+
+            private bool Bool(string prop) {
+                var v = _type.GetProperty(prop, Pub)?.GetValue(_obj);
+                return v is bool b && b;
+            }
+        }
     }
 }

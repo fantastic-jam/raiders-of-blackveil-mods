@@ -3,12 +3,16 @@
 ## [Unreleased] - minor
 
 ### Added
+- Mods menu left bar supports expandable accordion sub-sections via the new SubMenus property on IModMenuProvider
 - localise all WMF UI strings via TranslationService; add en + fr translation files
 - Translation system: mods can call TranslationService.For() to load flat JSON translation files from their Assets/Localization/ folder, with automatic fallback to English and support for third-party override files
 - `WmfNetwork` now exposes three session lifecycle events for mods to subscribe to:
   - `OnPlayerJoined(PlayerRef, bool isModded)` — fires on the host immediately when a player joins; `isModded` is true if they connected with a WMF token.
   - `OnPlayerConfirmed(PlayerRef, bool isModded)` — fires on the host when a player is ready to receive `WmfNetwork` messages: immediately on join for non-client-required scenarios, or after the handshake ACK for client-required game modes.
   - `OnPlayerLeft(PlayerRef)` — fires on all machines when a player leaves the session.
+
+### Changed
+- IModRegistrant and IModMenuProvider: remove default implementations — all interface members are now required
 
 ### Fixed
 - `ModRegistry.dll` is now listed under `plugin_dlls` instead of `patchers` in `metadata.json`, correcting its deploy and package destination to `BepInEx/plugins`.

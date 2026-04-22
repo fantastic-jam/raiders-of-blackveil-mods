@@ -22,7 +22,8 @@ namespace WildguardModFramework.ModMenu {
 
         // Left bar
         private NavButton _wmfBtn;
-        private readonly List<(RegisteredMod mod, NavButton btn)> _menuEntries = new();
+        private readonly List<(RegisteredMod Mod, Action<bool> SetActive)> _menuEntries = new();
+        private readonly Dictionary<RegisteredMod, ExpandableNavEntry> _expandable = new();
 
         // Right panels
         private VisualElement _toggleListPanel;
@@ -118,9 +119,7 @@ namespace WildguardModFramework.ModMenu {
             _toggleListPanel.style.display = DisplayStyle.Flex;
 
             _wmfBtn.Active = true;
-            foreach (var (_, btn) in _menuEntries) {
-                btn.Active = false;
-            }
+            foreach (var (_, setActive) in _menuEntries) { setActive(false); }
         }
 
         private void SelectModEntry(RegisteredMod mod) {
@@ -138,9 +137,24 @@ namespace WildguardModFramework.ModMenu {
             _modSettingsContainer.style.display = DisplayStyle.Flex;
 
             _wmfBtn.Active = false;
-            foreach (var (m, b) in _menuEntries) {
-                b.Active = m == mod;
+            foreach (var (m, setActive) in _menuEntries) { setActive(m == mod); }
+        }
+
+        private void SelectSubMenu(RegisteredMod mod, int subIndex) {
+            if (_activeMenuMod != null) {
+                _activeMenuMod.CloseMenu();
+                _modSettingsContainer.Clear();
+            } else {
+                _toggleListPanel.style.display = DisplayStyle.None;
             }
+
+            _activeMenuMod = mod;
+            mod.SubMenus[subIndex].Build(_modSettingsContainer, _isInGameMenu);
+            _modSettingsContainer.style.display = DisplayStyle.Flex;
+
+            _wmfBtn.Active = false;
+            foreach (var (m, setActive) in _menuEntries) { setActive(m == mod); }
+            if (_expandable.TryGetValue(mod, out var entry)) { entry.SetActiveChild(subIndex); }
         }
 
         private void FocusLeft() {
@@ -208,13 +222,29 @@ namespace WildguardModFramework.ModMenu {
 
             // One entry per mod that has a custom settings menu
             _menuEntries.Clear();
+            _expandable.Clear();
             foreach (var mod in ModScanner.AllMods().Where(m => m.MenuName != null)) {
-                var btn = new NavButton(mod.MenuName);
-                var capturedMod = mod;
-                btn.OnClickedEvent = () => SelectModEntry(capturedMod);
-                _leftCursor.RegisterItem(btn);
-                _menuEntries.Add((mod, btn));
-                leftBar.Add(btn);
+                if (mod.SubMenus?.Length > 0) {
+                    var entry = new ExpandableNavEntry(mod.MenuName);
+                    _leftCursor.RegisterItem(entry);
+                    var capturedMod = mod;
+                    for (var i = 0; i < mod.SubMenus.Length; i++) {
+                        var idx = i;
+                        var child = entry.AddChild(mod.SubMenus[i].Title, () => SelectSubMenu(capturedMod, idx));
+                        _leftCursor.RegisterItem(child);
+                    }
+                    entry.OnExpanded = () => _leftCursor.SelectItem(entry.Children[0]);
+                    _menuEntries.Add((mod, v => { entry.HeaderActive = v; if (!v) { entry.ClearChildActive(); } }));
+                    _expandable[mod] = entry;
+                    leftBar.Add(entry);
+                } else {
+                    var btn = new NavButton(mod.MenuName);
+                    var capturedMod = mod;
+                    btn.OnClickedEvent = () => SelectModEntry(capturedMod);
+                    _leftCursor.RegisterItem(btn);
+                    _menuEntries.Add((mod, v => btn.Active = v));
+                    leftBar.Add(btn);
+                }
             }
 
             // Right side — two panels, one visible at a time
@@ -353,6 +383,162 @@ namespace WildguardModFramework.ModMenu {
                 style.borderBottomWidth = _active ? 2 : 0;
                 style.borderBottomColor = _active ? _activeColor : Color.clear;
                 style.paddingBottom = _active ? 6 : 8; // compensate 2px border
+            }
+        }
+
+        // ── ExpandableNavEntry ────────────────────────────────────────────────
+
+        private sealed class ExpandableNavEntry : VisualElement, ICursorLinearStopElement {
+            private static readonly Color _activeColor = Color.white;
+            private static readonly Color _inactiveColor = new(0.55f, 0.55f, 0.55f, 1f);
+
+            private readonly Label _label;
+            private readonly Label _arrow;
+            private readonly VisualElement _childList;
+            private bool _headerActive;
+            private bool _hover;
+
+            public new List<ChildNavButton> Children { get; } = new();
+
+            public Action<ICursorLinearStopElement, bool> OnMouseHover { get; set; }
+            public bool Enabled { get; set; } = true;
+            public bool InEditMode => false;
+            public Rect ContentRect => worldBound;
+            public bool IsExpanded { get; private set; }
+
+            public Action OnExpanded;
+
+            public bool HeaderActive {
+                get => _headerActive;
+                set { _headerActive = value; RefreshStyle(); }
+            }
+
+            public bool Hover {
+                get => _hover;
+                set { _hover = value; RefreshStyle(); }
+            }
+
+            public void NavigateLeft() { }
+            public void NavigateRight() { }
+            public void Escape() { }
+
+            public void Submit() {
+                IsExpanded = !IsExpanded;
+                _arrow.text = IsExpanded ? " ▾" : " ▸";
+                _childList.style.display = IsExpanded ? DisplayStyle.Flex : DisplayStyle.None;
+                foreach (var c in Children) { c.Enabled = IsExpanded; }
+                if (IsExpanded) { OnExpanded?.Invoke(); }
+            }
+
+            public void SetActiveChild(int index) {
+                for (var i = 0; i < Children.Count; i++) { Children[i].Active = i == index; }
+            }
+
+            public void ClearChildActive() {
+                foreach (var c in Children) { c.Active = false; }
+            }
+
+            public ChildNavButton AddChild(string title, Action onClicked) {
+                var child = new ChildNavButton(title, onClicked) { Enabled = false };
+                Children.Add(child);
+                _childList.Add(child);
+                return child;
+            }
+
+            internal ExpandableNavEntry(string text) {
+                style.flexShrink = 0;
+
+                var headerRow = new VisualElement();
+                headerRow.style.flexDirection = FlexDirection.Row;
+                headerRow.style.alignItems = Align.Center;
+                headerRow.style.paddingTop = headerRow.style.paddingBottom = 8;
+                headerRow.style.paddingLeft = headerRow.style.paddingRight = 4;
+
+                _label = new Label { text = text };
+                _label.style.fontSize = 13;
+                _label.style.unityTextAlign = TextAnchor.MiddleLeft;
+                _label.style.flexGrow = 1;
+
+                _arrow = new Label { text = " ▸" };
+                _arrow.style.fontSize = 11;
+                _arrow.pickingMode = PickingMode.Ignore;
+
+                headerRow.Add(_label);
+                headerRow.Add(_arrow);
+                Add(headerRow);
+
+                _childList = new VisualElement();
+                _childList.style.display = DisplayStyle.None;
+                Add(_childList);
+
+                RefreshStyle();
+
+                RegisterCallback<ClickEvent>(_ => Submit());
+                RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
+                RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
+            }
+
+            private void RefreshStyle() {
+                var color = _headerActive || _hover ? _activeColor : _inactiveColor;
+                _label.style.color = color;
+                _arrow.style.color = color;
+            }
+        }
+
+        // ── ChildNavButton ────────────────────────────────────────────────────
+
+        private sealed class ChildNavButton : VisualElement, ICursorLinearStopElement {
+            private static readonly Color _activeColor = new(0.85f, 0.85f, 0.85f, 1f);
+            private static readonly Color _hoverColor = Color.white;
+            private static readonly Color _inactiveColor = new(0.45f, 0.45f, 0.45f, 1f);
+
+            private readonly Label _label;
+            private bool _active;
+            private bool _hover;
+
+            public Action<ICursorLinearStopElement, bool> OnMouseHover { get; set; }
+            public Action OnClickedEvent;
+
+            public bool Enabled { get; set; } = true;
+            public bool InEditMode => false;
+            public Rect ContentRect => worldBound;
+
+            public bool Active {
+                get => _active;
+                set { _active = value; RefreshStyle(); }
+            }
+
+            public bool Hover {
+                get => _hover;
+                set { _hover = value; RefreshStyle(); }
+            }
+
+            public void NavigateLeft() { }
+            public void NavigateRight() { }
+            public void Submit() => OnClickedEvent?.Invoke();
+            public void Escape() { }
+
+            internal ChildNavButton(string text, Action onClicked) {
+                OnClickedEvent = onClicked;
+                style.paddingTop = style.paddingBottom = 6;
+                style.paddingLeft = 16;
+                style.paddingRight = 4;
+                style.flexShrink = 0;
+
+                _label = new Label { text = text };
+                _label.style.fontSize = 12;
+                _label.style.unityTextAlign = TextAnchor.MiddleLeft;
+                Add(_label);
+
+                RefreshStyle();
+
+                RegisterCallback<ClickEvent>(_ => Submit());
+                RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
+                RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
+            }
+
+            private void RefreshStyle() {
+                _label.style.color = _active ? _activeColor : _hover ? _hoverColor : _inactiveColor;
             }
         }
     }

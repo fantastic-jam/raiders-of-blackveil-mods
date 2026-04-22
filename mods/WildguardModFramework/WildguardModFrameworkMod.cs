@@ -30,7 +30,10 @@ namespace WildguardModFramework {
 
         public string GetModType() => nameof(ModType.Utility);
         public string GetModName() => Name;
+        public string GetModDescription() => "Wildguard Mod Framework — mod management and session networking.";
         public bool Disabled { get; private set; }
+        public bool IsClientRequired => false;
+        public void Enable() { Disabled = false; }
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
             Disabled = true;
