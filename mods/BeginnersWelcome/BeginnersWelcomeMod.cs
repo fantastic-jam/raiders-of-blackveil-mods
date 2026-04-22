@@ -28,6 +28,7 @@ namespace BeginnersWelcome {
         public string GetModType() => nameof(ModType.Mod);
         public string GetModName() => Name;
         public string GetModDescription() => "Lets the host set a per-player handicap so different skill levels can share a run.";
+        public bool IsClientRequired => false;
         public bool Disabled => BeginnersWelcomePatch.Disabled;
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
@@ -51,6 +52,7 @@ namespace BeginnersWelcome {
             _menu?.Dispose();
             _menu = null;
         }
+        public (string Title, Action<VisualElement, bool> Build)[] SubMenus => null;
 
         public void Awake() {
             PublicLogger = Logger;

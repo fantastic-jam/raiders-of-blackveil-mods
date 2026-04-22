@@ -6,6 +6,7 @@
 - Handicaps are now synced to all WMF clients via a dedicated channel: joining players receive the current session snapshot, value changes are broadcast immediately, and departing players are dropped from the snapshot sent to remaining clients.
 
 ### Changed
+- Implement updated WMF interface — IsClientRequired and SubMenus are now required members
 - Declare WMF as a BepInEx dependency for correct load ordering.
 
 ## [0.4.0] - 2026-04-06
