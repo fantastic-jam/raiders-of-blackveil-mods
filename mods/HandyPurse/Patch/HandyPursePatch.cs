@@ -4,6 +4,7 @@ using System.Reflection;
 using HandyPurse.Bank;
 using HarmonyLib;
 using RR;
+using RR.Backend;
 using RR.Game;
 using RR.Game.Items;
 using RR.UI.Pages;
@@ -29,6 +30,7 @@ namespace HandyPurse.Patch {
         private static FieldInfo _itemsArrayField;
         private static MethodInfo _savePlayerGameStatesMethod;
         private static MethodInfo _loadPlayerGameStateMethod;
+        private static MethodInfo _savePlayerGameStateLocallyAsyncMethod;
 
         // Always register the main menu hook so the breaking-change popup fires even on failure.
         public static void ApplyMenuHook(Harmony harmony) {
@@ -86,6 +88,16 @@ namespace HandyPurse.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(LoadPlayerGameStatePrefix))));
             }
 
+            // Local save hook — clamps currencies in the local snapshot so it stays in sync with
+            // the cloud save (which is clamped by SavePlayerGameStatesPrefix above).
+            _savePlayerGameStateLocallyAsyncMethod = AccessTools.Method(typeof(PlayerProfile), "SavePlayerGameStateLocallyAsync");
+            if (_savePlayerGameStateLocallyAsyncMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStateLocallyAsync — local save will diverge from cloud save.");
+            } else {
+                harmony.Patch(_savePlayerGameStateLocallyAsyncMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncPrefix))));
+            }
+
             var lobbyHudActivateMethod = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
             if (lobbyHudActivateMethod == null) {
                 HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find LobbyHUDPage.OnActivate — bank popup deferred to main menu.");
@@ -102,12 +114,8 @@ namespace HandyPurse.Patch {
             if (PendingVersionMismatchPopup) {
                 PendingVersionMismatchPopup = false;
                 UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                    Title = "HandyPurse — Game Version Mismatch",
-                    Text = $"HandyPurse v{HandyPurseMod.Version} was built against a different game version.\n\n" +
-                           $"Patches have been applied, but some features may not work correctly.\n\n" +
-                           $"If you experience issues, wait for a mod update or set OverrideVersionCheck " +
-                           $"in the BepInEx config once the community confirms compatibility.\n\n" +
-                           $"Do NOT uninstall until your stacks are within vanilla limits."
+                    Title = HandyPurseMod.t("popup.version_mismatch.title"),
+                    Text = HandyPurseMod.t("popup.version_mismatch.text", ("version", HandyPurseMod.Version))
                 });
                 return;
             }
@@ -115,11 +123,8 @@ namespace HandyPurse.Patch {
             if (PendingBreakingChangePopup) {
                 PendingBreakingChangePopup = false;
                 UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                    Title = "HandyPurse — Breaking Change",
-                    Text = $"Stack limits are NOT active (v{HandyPurseMod.Version}).\n\n" +
-                           $"Currencies above vanilla caps WILL be clamped on the next save.\n\n" +
-                           $"Do NOT uninstall until your stacks are within vanilla limits.\n\n" +
-                           $"Update the mod or report a bug — include your BepInEx log."
+                    Title = HandyPurseMod.t("popup.breaking_change.title"),
+                    Text = HandyPurseMod.t("popup.breaking_change.text", ("version", HandyPurseMod.Version))
                 });
                 return;
             }
@@ -234,6 +239,14 @@ namespace HandyPurse.Patch {
             }
             __result = merged;
             return false; // skip original
+        }
+
+        private static void SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState) {
+            if (Disabled) { return; }
+            // Skip when offline: the cloud path never runs in offline sessions, so the topup is never
+            // recorded — clamping the local save here would permanently lose the excess currency.
+            if (NetworkManager.Instance?.IsOffline ?? false) { return; }
+            BankOrchestrator.ClampForLocalSave(playerGameState);
         }
 
         internal static int ResolveCap(ItemType itemType) {

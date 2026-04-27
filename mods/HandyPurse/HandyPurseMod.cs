@@ -7,6 +7,7 @@ using HarmonyLib;
 using ModRegistry;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WildguardModFramework.Translation;
 
 namespace HandyPurse {
     [BepInPlugin(Id, Name, Version)]
@@ -19,6 +20,7 @@ namespace HandyPurse {
         private const string BuiltAgainstGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
 
         public static ManualLogSource PublicLogger;
+        internal static T t;
 
         private static ConfigEntry<int> _scrapCap;
         private static ConfigEntry<int> _blackCoinCap;
@@ -34,7 +36,7 @@ namespace HandyPurse {
 
         public string GetModType() => nameof(ModType.Mod);
         public string GetModName() => Name;
-        public string GetModDescription() => "Raises the stack limits for all currencies. Caps are configurable in the BepInEx config file.";
+        public string GetModDescription() => t("mod.description");
         public bool IsClientRequired => false;
         public bool Disabled => HandyPursePatch.Disabled;
         public void Disable() {
@@ -54,6 +56,7 @@ namespace HandyPurse {
 
         private void Awake() {
             PublicLogger = Logger;
+            t = TranslationService.For(Name, Info.Location);
 
             try {
                 BindConfig();

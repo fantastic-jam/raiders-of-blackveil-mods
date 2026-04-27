@@ -37,7 +37,7 @@ namespace HandyPurse {
         private static void BuildBankSection(VisualElement parent) {
             var grayText = new Color(0.65f, 0.65f, 0.65f, 1f);
 
-            var header = new Label { text = "Bank" };
+            var header = new Label { text = HandyPurseMod.t("menu.bank.header") };
             header.style.color = Color.white;
             header.style.fontSize = 14;
             header.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -47,7 +47,7 @@ namespace HandyPurse {
             var bank = PurseBank.LoadBank();
             var balanceText = BuildBalanceSummary(bank);
 
-            var balanceLabel = new Label { text = $"Balance: {balanceText}" };
+            var balanceLabel = new Label { text = HandyPurseMod.t("menu.bank.balance", ("balance", balanceText)) };
             balanceLabel.style.color = grayText;
             balanceLabel.style.fontSize = 12;
             balanceLabel.style.whiteSpace = WhiteSpace.Normal;
@@ -57,7 +57,7 @@ namespace HandyPurse {
             var topup = PurseBank.LoadTopup();
             if (topup.Compartments.Count > 0) {
                 var topupText = BuildTopupSummary(topup);
-                var topupLabel = new Label { text = $"Topup pending: {topupText}" };
+                var topupLabel = new Label { text = HandyPurseMod.t("menu.bank.topup", ("topup", topupText)) };
                 topupLabel.style.color = new Color(0.85f, 0.75f, 0.35f, 1f);
                 topupLabel.style.fontSize = 12;
                 topupLabel.style.whiteSpace = WhiteSpace.Normal;
@@ -78,7 +78,7 @@ namespace HandyPurse {
             parent.Add(dropStatus);
 
             var dropBtn = new Button(() => OnDropBank(dropStatus, bank)) {
-                text = "Drop bank to floor"
+                text = HandyPurseMod.t("menu.bank.drop_btn")
             };
             dropBtn.style.width = 180;
             dropBtn.style.marginBottom = 20;
@@ -98,20 +98,20 @@ namespace HandyPurse {
         private static (bool ok, string message) RunBankDrop(BankData _) {
             var inventory = PlayerManager.Instance?.LocalPlayer?.Inventory;
             if (inventory == null) {
-                return (false, "No inventory found.");
+                return (false, HandyPurseMod.t("error.no_inventory"));
             }
             if (!inventory.HasStateAuthority) {
-                return (false, "You must be solo or the session host to use this.");
+                return (false, HandyPurseMod.t("error.authority_required"));
             }
 
             var db = ItemDatabase.Instance;
             if (db == null) {
-                return (false, "ItemDatabase not available.");
+                return (false, HandyPurseMod.t("error.item_db_unavailable"));
             }
 
             var bank = PurseBank.LoadBank();
             if (bank.Entries.Count == 0 || !HasPositiveBalance(bank)) {
-                return (false, "Bank is empty.");
+                return (false, HandyPurseMod.t("error.bank_empty"));
             }
 
             var playerFilter = inventory.OwnerPlayer.PlayerFilter;
@@ -143,9 +143,8 @@ namespace HandyPurse {
             }
 
             PurseBank.TryClearBank();
-            return (true,
-                $"Dropped {stacksDropped} stack{(stacksDropped != 1 ? "s" : "")} at your feet. " +
-                "Pick them up to restore your funds.");
+            return (true, HandyPurseMod.t("menu.bank.drop_success",
+                ("stacks", stacksDropped), ("s", stacksDropped != 1 ? "s" : "")));
         }
 
         // ── Uninstall section ─────────────────────────────────────────────
@@ -153,23 +152,14 @@ namespace HandyPurse {
         private static void BuildUninstallSection(VisualElement parent) {
             var grayText = new Color(0.65f, 0.65f, 0.65f, 1f);
 
-            var header = new Label { text = "Uninstall Preparation" };
+            var header = new Label { text = HandyPurseMod.t("menu.uninstall.header") };
             header.style.color = Color.white;
             header.style.fontSize = 14;
             header.style.unityFontStyleAndWeight = FontStyle.Bold;
             header.style.marginBottom = 12;
             parent.Add(header);
 
-            var desc = new Label {
-                text =
-                    "Checks all inventory compartments for currencies above vanilla stack limits and drops the excess " +
-                    "as vanilla-sized pickups at your feet, then disables HandyPurse. " +
-                    "Pick the stacks back up \u2014 they will merge normally within vanilla limits. " +
-                    "Safe to uninstall once done.\n\n" +
-                    "Vanilla limits: Scrap 3,000 \u00b7 Black Coin 200 \u00b7 Crystals 200\n\n" +
-                    "Must be used from the lobby (not during a run). " +
-                    "Solo or session host only."
-            };
+            var desc = new Label { text = HandyPurseMod.t("menu.uninstall.desc") };
             desc.style.color = grayText;
             desc.style.fontSize = 12;
             desc.style.whiteSpace = WhiteSpace.Normal;
@@ -184,7 +174,7 @@ namespace HandyPurse {
             parent.Add(status);
 
             bool inLobby = GameManager.Instance?.State == GameManager.GameState.Lobby;
-            var btn = new Button(() => OnUninstallClick(status)) { text = "Prepare for Uninstall" };
+            var btn = new Button(() => OnUninstallClick(status)) { text = HandyPurseMod.t("menu.uninstall.btn") };
             btn.style.width = 210;
             btn.SetEnabled(inLobby);
             parent.Add(btn);
@@ -204,19 +194,19 @@ namespace HandyPurse {
         private static (bool ok, string message) RunUninstallPrep() {
             var inventory = PlayerManager.Instance?.LocalPlayer?.Inventory;
             if (inventory == null) {
-                return (false, "No inventory found.");
+                return (false, HandyPurseMod.t("error.no_inventory"));
             }
             if (!inventory.HasStateAuthority) {
-                return (false, "You must be solo or the session host to use this.");
+                return (false, HandyPurseMod.t("error.authority_required"));
             }
 
             if (!TryResolveReflection(out var syncedItemsField, out var forceStackMethod)) {
-                return (false, "Reflection failed \u2014 game may have been updated. Please report a bug.");
+                return (false, HandyPurseMod.t("error.reflection_failed"));
             }
 
             var db = ItemDatabase.Instance;
             if (db == null) {
-                return (false, "ItemDatabase not available.");
+                return (false, HandyPurseMod.t("error.item_db_unavailable"));
             }
 
             var syncedItems = syncedItemsField.GetValue(inventory);
@@ -235,7 +225,7 @@ namespace HandyPurse {
 
             if (overCap.Count == 0) {
                 HandyPursePatch.SetDisabled();
-                return (true, "All stacks already within vanilla limits. HandyPurse disabled \u2014 safe to uninstall.");
+                return (true, HandyPurseMod.t("menu.uninstall.already_clean"));
             }
 
             var playerFilter = inventory.OwnerPlayer.PlayerFilter;
@@ -261,16 +251,15 @@ namespace HandyPurse {
             }
 
             HandyPursePatch.SetDisabled();
-            return (true,
-                $"Done. Dropped {stacksDropped} stack{(stacksDropped != 1 ? "s" : "")} at your feet. " +
-                "HandyPurse disabled \u2014 pick them up, then uninstall.");
+            return (true, HandyPurseMod.t("menu.uninstall.drop_success",
+                ("stacks", stacksDropped), ("s", stacksDropped != 1 ? "s" : "")));
         }
 
         // ── Helpers ───────────────────────────────────────────────────────
 
         private static string BuildBalanceSummary(BankData bank) {
             if (bank.Entries.Count == 0) {
-                return "Empty";
+                return HandyPurseMod.t("label.empty");
             }
             var parts = new List<string>();
             foreach (var e in bank.Entries) {
@@ -278,7 +267,7 @@ namespace HandyPurse {
                     parts.Add($"{e.Amount:N0} {e.CurrencyKey}");
                 }
             }
-            return parts.Count > 0 ? string.Join(" \u00b7 ", parts) : "Empty";
+            return parts.Count > 0 ? string.Join(" \u00b7 ", parts) : HandyPurseMod.t("label.empty");
         }
 
         private static string BuildTopupSummary(TopupData topup) {

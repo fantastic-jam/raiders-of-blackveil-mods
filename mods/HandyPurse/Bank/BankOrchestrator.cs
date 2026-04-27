@@ -68,7 +68,7 @@ namespace HandyPurse.Bank {
             var text = PendingPopupText;
             PendingPopupText = null;
             UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                Title = "HandyPurse \u2014 Funds Banked",
+                Title = HandyPurseMod.t("popup.funds_banked.title"),
                 Text = text
             });
         }
@@ -153,8 +153,7 @@ namespace HandyPurse.Bank {
                     HandyPurseMod.PublicLogger.LogWarning(
                         $"HandyPurse: topup mismatch for {compartmentKey} — moved to bank.");
                     AppendPendingPopup(
-                        $"Some excess currency could not be restored ({compartmentKey} save changed while " +
-                        $"mod was inactive). Your excess is in the bank — use the HandyPurse menu to recover it.");
+                        HandyPurseMod.t("popup.topup_mismatch", ("compartment", compartmentKey)));
                 }
                 PurseBank.RemoveCompartment(topup, compartmentKey);
                 PurseBank.SaveTopup(topup);
@@ -182,9 +181,7 @@ namespace HandyPurse.Bank {
                     fullDeposit.Add(new BankEntry { CurrencyKey = entry.CurrencyKey, AssetId = entry.AssetId, Amount = entry.Excess });
                 }
                 PurseBank.TryDeposit(fullDeposit);
-                AppendPendingPopup(
-                    $"Inventory layout changed since last save — excess currency moved to the bank. " +
-                    $"Use the HandyPurse menu to recover it.");
+                AppendPendingPopup(HandyPurseMod.t("popup.layout_changed"));
                 PurseBank.RemoveCompartment(topup, compartmentKey);
                 PurseBank.SaveTopup(topup);
                 return;
@@ -247,5 +244,32 @@ namespace HandyPurse.Bank {
             || type == ItemType.BlackCoin
             || type == ItemType.BlackBlood
             || type == ItemType.Glitter;
+
+        /// <summary>
+        /// Clamps managed currencies in the local-save snapshot to vanilla StackMaximum —
+        /// without touching the topup file. The cloud path (<see cref="ProcessSave"/>) handles
+        /// topup recording; this keeps the local file in sync so the two saves never diverge.
+        /// </summary>
+        internal static void ClampForLocalSave(PlayerGameState state) {
+            if (state == null) { return; }
+            ClampItems(state.InventoryCommonData?.Items);
+            if (state.InventoryChampionData != null) {
+                foreach (var champData in state.InventoryChampionData) {
+                    ClampItems(champData?.Items);
+                }
+            }
+        }
+
+        private static void ClampItems(List<GenericItemDescriptor> items) {
+            if (items == null) { return; }
+            var db = ItemDatabase.Instance;
+            if (db == null) { return; }
+            foreach (var item in items) {
+                if (!IsManagedCurrency(item.ItemType)) { continue; }
+                var asset = db.GetAsset(item.AssetID);
+                if (asset == null || item.Amount <= asset.StackMaximum) { continue; }
+                item.Amount = asset.StackMaximum;
+            }
+        }
     }
 }
