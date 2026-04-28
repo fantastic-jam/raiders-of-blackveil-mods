@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] - minor
+
+### Added
+- Localise all UI strings via TranslationService; add en + fr translation files
 
 ## [0.2.3] - 2026-04-08
 
