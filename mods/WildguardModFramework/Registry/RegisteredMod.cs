@@ -64,6 +64,19 @@ namespace WildguardModFramework.Registry {
             _enable = () => { };
         }
 
+        /// <summary>Framework self-entry — appears in menu left bar with sub-menus but not in the toggle list.</summary>
+        internal RegisteredMod(string guid, string name, string menuName, (string Title, Action<VisualElement, bool> Build)[] subMenus) {
+            Type = ModType.Utility;
+            Guid = guid;
+            Name = name;
+            Description = "";
+            IsManaged = false;
+            MenuName = menuName;
+            _subMenus = subMenus;
+            _disable = () => { };
+            _enable = () => { };
+        }
+
         internal void Disable() {
             if (!IsManaged || Disabled) { return; }
             Disabled = true;

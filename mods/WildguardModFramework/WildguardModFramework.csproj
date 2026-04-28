@@ -8,15 +8,30 @@
     <AssemblyName>WildguardModFramework</AssemblyName>
     <RootNamespace>WildguardModFramework</RootNamespace>
     <LangVersion>10</LangVersion>
-    <Optimize>true</Optimize>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <Optimize>false</Optimize>
+    <DefineConstants>DEV_HOTRELOAD</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="UnityEngine.UIElementsModule">
       <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <Reference Include="UnityHotReload">
+      <HintPath>..\..\dev\UnityHotReload\UnityHotReload.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
 

@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using WildguardModFramework.Chat;
 using WildguardModFramework.Registry;
 using RR;
 
@@ -21,6 +22,7 @@ namespace WildguardModFramework.ModMenu {
                 $"WMF: BeginPlaySession — mode={playSessionMode}, allowMods={allowMods}, allowCheats={allowCheats}"
             );
 
+            ServerChat.IsEnabled = HostPageController.Current?.AllowChat ?? true;
             ApplyModChoices(allowMods, allowCheats);
             var activeGameMode = ApplyGameModeChoice(playSessionMode);
 

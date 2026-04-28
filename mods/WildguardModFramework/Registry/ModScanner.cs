@@ -6,6 +6,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using ModRegistry;
 using UnityEngine.UIElements;
+using WildguardModFramework.ModMenu;
 
 namespace WildguardModFramework.Registry {
     internal static class ModScanner {
@@ -45,6 +46,8 @@ namespace WildguardModFramework.Registry {
 
             var savedId = WmfConfig.ActiveGameModeId;
             SelectedGameModeVariantId = GameModes.Any(g => g.VariantId == savedId) ? savedId : null;
+
+            AllDiscovered.Add(WmfOptions.CreateRegisteredMod());
 
             WmfMod.PublicLogger.LogInfo(
                 $"WMF: {Cheats.Count} cheat(s), {Mods.Count} mod(s), " +

@@ -6,6 +6,7 @@
   "stepper.allow_mods": "AUTORISER LES MODS",
   "stepper.allow_cheats": "AUTORISER LES TRICHES",
   "stepper.game_mode": "MODE DE JEU",
+  "stepper.server_chat": "CHAT EN PARTIE",
   "stepper.yes": "Oui",
   "stepper.no": "Non",
   "gamemode.normal": "Normal",

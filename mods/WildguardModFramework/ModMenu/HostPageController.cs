@@ -30,6 +30,7 @@ namespace WildguardModFramework.ModMenu {
         private readonly JoinHostStepper _allowModsStepper;
         private readonly JoinHostStepper _allowCheatsStepper;
         private readonly JoinHostStepper _gameModeStepper;
+        private readonly JoinHostStepper _allowChatStepper;
         private readonly Label _finalNameLabel;
         private readonly JoinHostTextInput _sessionInput;
         private VisualElement _tooltipPanel;
@@ -37,6 +38,7 @@ namespace WildguardModFramework.ModMenu {
 
         internal bool AllowMods => _allowModsStepper == null || _allowModsStepper.Index == 0;
         internal bool AllowCheats => _allowCheatsStepper == null || _allowCheatsStepper.Index == 0;
+        internal bool AllowChat => _allowChatStepper == null || _allowChatStepper.Index == 0;
 
         /// <summary>
         /// Called on every OnActivate. First call injects UI; subsequent calls reset stepper state.
@@ -108,6 +110,10 @@ namespace WildguardModFramework.ModMenu {
                 };
             }
 
+            _allowChatStepper = CreateStepper(WmfMod.t("stepper.server_chat"));
+            container.Insert(insertIndex++, _allowChatStepper);
+            cursor.RegisterItem(_allowChatStepper);
+
             _finalNameLabel = new Label();
             _finalNameLabel.style.color = new Color(0.55f, 0.55f, 0.55f, 1f);
             _finalNameLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
@@ -134,6 +140,7 @@ namespace WildguardModFramework.ModMenu {
             _allowModsStepper?.SetIndex(0);
             _allowCheatsStepper?.SetIndex(0);
             _gameModeStepper?.SetIndex(GetCurrentGameModeIndex());
+            _allowChatStepper?.SetIndex(0);
             UpdateFinalName();
         }
 

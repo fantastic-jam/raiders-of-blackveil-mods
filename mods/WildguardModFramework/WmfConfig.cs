@@ -39,6 +39,16 @@ namespace WildguardModFramework {
             _cfg.Save();
         }
 
+        // ── Chat ──────────────────────────────────────────────────────────
+
+        internal static bool ChatEnabled {
+            get => _cfg.Bind("Chat", "Enabled", true, "Show server chat during gameplay.").Value;
+            set {
+                _cfg.Bind("Chat", "Enabled", true, "").Value = value;
+                _cfg.Save();
+            }
+        }
+
         // ── Active game mode ───────────────────────────────────────────────
 
         private static ConfigEntry<string> ActiveGameModeEntry =>

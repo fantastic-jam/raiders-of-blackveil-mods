@@ -281,6 +281,7 @@ namespace WildguardModFramework.ModMenu {
 
             var allMods = ModScanner.AllMods().ToList();
             foreach (var mod in allMods) {
+                if (mod.Guid == WmfMod.Id) { continue; } // WMF appears in left nav, not in the toggle list
                 var guid = mod.Guid;
                 var modEntry = new VisualElement();
                 modEntry.style.marginBottom = 4;
@@ -293,7 +294,11 @@ namespace WildguardModFramework.ModMenu {
 
                 if (mod.IsManaged && !_isInGameMenu) {
                     toggle.Value = WmfConfig.IsEnabled(guid);
-                    toggle.OnValueChangedCallback = v => WmfConfig.GetEntry(guid).Value = v;
+                    var capturedMod = mod;
+                    toggle.OnValueChangedCallback = v => {
+                        WmfConfig.GetEntry(guid).Value = v;
+                        if (v) { capturedMod.Enable(); } else { capturedMod.Disable(); }
+                    };
                     _toggles.Add((guid, toggle));
                     _rightCursor.RegisterItem(toggle);
                 } else {
@@ -532,7 +537,7 @@ namespace WildguardModFramework.ModMenu {
 
                 RefreshStyle();
 
-                RegisterCallback<ClickEvent>(_ => Submit());
+                RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); Submit(); });
                 RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
                 RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
             }

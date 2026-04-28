@@ -129,7 +129,7 @@ namespace WildguardModFramework.Network {
             }
         }
 
-        private static IEnumerator DisconnectAfterDelayCoroutine(NetworkRunner runner, PlayerRef playerRef) {
+        internal static IEnumerator DisconnectAfterDelayCoroutine(NetworkRunner runner, PlayerRef playerRef) {
             yield return new WaitForSeconds(2f);
             WmfMod.PublicLogger.LogInfo($"WMF: disconnecting unmodded {playerRef.PlayerId}.");
             runner.Disconnect(playerRef);
