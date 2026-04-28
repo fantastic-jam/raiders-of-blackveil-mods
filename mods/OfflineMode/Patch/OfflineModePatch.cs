@@ -120,7 +120,7 @@ namespace OfflineMode.Patch {
 
                     var lbl = offlineBtn.Q<LocLabel>("Label");
                     if (lbl != null) {
-                        lbl.CustomTransform = _ => "Offline Mode";
+                        lbl.CustomTransform = _ => OfflineModeMod.t("btn.offline_mode");
                         lbl.Refresh();
                     }
 

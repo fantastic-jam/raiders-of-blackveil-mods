@@ -27,4 +27,14 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\WildguardModFramework\WildguardModFramework.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Localization\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
