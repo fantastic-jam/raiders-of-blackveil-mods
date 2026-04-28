@@ -18,7 +18,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <Optimize>false</Optimize>
-    <DefineConstants>DEV_HOTRELOAD</DefineConstants>
+    <DefineConstants>DEV_HOTRELOAD;WMF_DEBUG</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,6 +32,14 @@
     <Reference Include="UnityHotReload">
       <HintPath>..\..\dev\UnityHotReload\UnityHotReload.dll</HintPath>
       <Private>True</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
 

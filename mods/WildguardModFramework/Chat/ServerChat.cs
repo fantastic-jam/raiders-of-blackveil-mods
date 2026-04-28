@@ -1,6 +1,8 @@
-﻿using HarmonyLib;
+﻿using System.Reflection;
+using HarmonyLib;
 using RR;
 using RR.Input;
+using RR.UI.Controls;
 using RR.UI.Controls.Menu.Options;
 using RR.UI.Pages;
 using RR.UI.UISystem;
@@ -9,6 +11,7 @@ using UnityEngine.UIElements;
 namespace WildguardModFramework.Chat {
     internal static class ServerChat {
         private static readonly System.Collections.Generic.Dictionary<BaseHUDPage, ServerChatOverlay> _overlays = new();
+        private static readonly FieldInfo OptionLabelField = AccessTools.Field(typeof(OptionControl), "_label");
         private static BaseHUDPage _activePage;
 
         private static ServerChatOverlay ActiveOverlay =>
@@ -104,11 +107,14 @@ namespace WildguardModFramework.Chat {
 
         internal static void BuildSettingsPanel(VisualElement container, bool isInGameMenu) {
             var toggle = new OptionOnOffSwitch {
-                LabelKey = "@Server Chat",
                 OnLabelKey = "@On",
                 OffLabelKey = "@Off",
                 Value = WmfConfig.ChatEnabled,
             };
+            if (OptionLabelField?.GetValue(toggle) is LocLabel lbl) {
+                lbl.CustomTransform = _ => WmfMod.t("chat.toggle_label");
+                lbl.Refresh();
+            }
             toggle.OnValueChangedCallback = v => WmfConfig.ChatEnabled = v;
             container.Add(toggle);
         }

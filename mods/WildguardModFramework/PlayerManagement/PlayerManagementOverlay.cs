@@ -49,6 +49,7 @@ namespace WildguardModFramework.PlayerManagement {
             backdrop.style.backgroundColor = new Color(0f, 0f, 0f, 0.75f);
             backdrop.style.alignItems = Align.Center;
             backdrop.style.justifyContent = Justify.Center;
+            backdrop.RegisterCallback<ClickEvent>(evt => { if (evt.target == backdrop) { _onClose(); } });
 
             var card = new VisualElement();
             card.pickingMode = PickingMode.Position;
@@ -69,7 +70,7 @@ namespace WildguardModFramework.PlayerManagement {
             header.style.alignItems = Align.Center;
             header.style.marginBottom = 16;
 
-            var title = new Label { text = "PLAYERS" };
+            var title = new Label { text = WmfMod.t("players.overlay.title") };
             title.style.color = Color.white;
             title.style.fontSize = 14;
             title.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -117,8 +118,8 @@ namespace WildguardModFramework.PlayerManagement {
             }
 
             if (isHost && !row.IsLocal) {
-                var kickBtn = MakeActionButton("Kick", () => OnKick(row.Ref));
-                var banBtn = MakeActionButton("Ban", () => OnBan(row));
+                var kickBtn = MakeActionButton(WmfMod.t("players.overlay.kick"), () => OnKick(row.Ref));
+                var banBtn = MakeActionButton(WmfMod.t("players.overlay.ban"), () => OnBan(row));
                 rowEl.Add(kickBtn);
                 rowEl.Add(banBtn);
             }
@@ -128,8 +129,9 @@ namespace WildguardModFramework.PlayerManagement {
 
         private static void OnKick(PlayerRef playerRef) {
             var runner = PlayerManager.Instance?.Runner;
+            WmfMod.PublicLogger.LogInfo($"WMF: kick {playerRef.PlayerId}, runner={(runner != null)}.");
             if (runner == null) { return; }
-            WmfMod.Runner.StartCoroutine(GameModeProtocol.DisconnectAfterDelayCoroutine(runner, playerRef));
+            runner.Disconnect(playerRef);
         }
 
         private static void OnBan(PlayerRow row) {

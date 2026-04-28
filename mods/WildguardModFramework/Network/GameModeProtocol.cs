@@ -7,7 +7,6 @@ using Fusion;
 using Fusion.Sockets;
 using WildguardModFramework.Registry;
 using RR;
-using RR.Level;
 using RR.UI.Extensions;
 using RR.UI.UISystem;
 using UnityEngine;
@@ -26,14 +25,40 @@ namespace WildguardModFramework.Network {
         private const DataStreamType StreamTypeJoinMsg = (DataStreamType)101; // server → client: variant ID + join message
         private const DataStreamType StreamTypeAck = (DataStreamType)100;    // client → server: variant ID ACK
 
+        internal static event Action OnRosterChanged;
+
         // Server-side player sets. Cleared on shutdown.
         private static readonly HashSet<PlayerRef> _moddedPlayers = new();   // joined with WMF token
         internal static readonly HashSet<PlayerRef> ConfirmedPlayers = new(); // completed handshake (mod enabled + ACK)
 
+        // All-machine set: populated from server broadcasts so clients can show WMF badges.
+        // Keyed by PlayerId (int) to avoid PlayerRef construction issues.
+        private static readonly HashSet<int> _knownModded = new();
+        private const string ChanConfirm = "wmf.confirm";
+
+        internal static bool IsKnownModded(PlayerRef playerRef) => _knownModded.Contains(playerRef.PlayerId);
+
+        internal static void Init() {
+            WmfNetwork.Subscribe(ChanConfirm, OnConfirmReceived);
+        }
+
+        private static void OnConfirmReceived(PlayerRef from, byte[] data) {
+            foreach (var part in Encoding.UTF8.GetString(data).Split(',')) {
+                if (int.TryParse(part.Trim(), out var id)) { _knownModded.Add(id); }
+            }
+        }
+
+        // Called on the server after adding a player to ConfirmedPlayers.
+        private static void BroadcastConfirmed(PlayerRef newPlayer) {
+            _knownModded.Add(newPlayer.PlayerId);
+            var roster = string.Join(",", ConfirmedPlayers.Select(p => p.PlayerId));
+            WmfNetwork.Send(newPlayer, ChanConfirm, Encoding.UTF8.GetBytes(roster));
+            WmfNetwork.Broadcast(ChanConfirm, Encoding.UTF8.GetBytes(newPlayer.PlayerId.ToString()));
+        }
+
         private static NetworkRunner _serverRunner;
         private static bool _joiningWithAutoEnable;
         private static bool _runNotificationShown;
-
         // ── Client-side ────────────────────────────────────────────────────────────
 
         /// <summary>Inject token into every StartGame call so the server can identify modded clients.</summary>
@@ -83,10 +108,15 @@ namespace WildguardModFramework.Network {
         // ── Server-side ────────────────────────────────────────────────────────────
 
         internal static void OnPlayerJoined(PlayerManager playerManager, NetworkRunner runner, PlayerRef playerRef) {
+            OnRosterChanged?.Invoke();
+
+            // All machines: local player is always known modded (WMF is installed).
+            if (playerRef == runner.LocalPlayer) { _knownModded.Add(playerRef.PlayerId); }
+
             if (!runner.IsServer) { return; }
 
             if (playerRef == runner.LocalPlayer) {
-                ConfirmedPlayers.Add(playerRef);
+                ConfirmedPlayers.Add(playerRef); // _knownModded already set above
                 WmfNetwork.RaisePlayerJoined(playerRef, isModded: true);
                 WmfNetwork.RaisePlayerConfirmed(playerRef, isModded: true);
                 return;
@@ -124,7 +154,10 @@ namespace WildguardModFramework.Network {
                 NetworkManager.Instance?.SendReliableData(playerRef, StreamTypeJoinMsg, payload);
             } else {
                 // No client-required handshake — confirm immediately.
-                if (isModded) { ConfirmedPlayers.Add(playerRef); }
+                if (isModded) {
+                    ConfirmedPlayers.Add(playerRef);
+                    BroadcastConfirmed(playerRef);
+                }
                 WmfNetwork.RaisePlayerConfirmed(playerRef, isModded);
             }
         }
@@ -138,7 +171,9 @@ namespace WildguardModFramework.Network {
         internal static void OnPlayerLeft(PlayerRef playerRef) {
             _moddedPlayers.Remove(playerRef);
             ConfirmedPlayers.Remove(playerRef);
+            _knownModded.Remove(playerRef.PlayerId);
             WmfNetwork.RaisePlayerLeft(playerRef);
+            OnRosterChanged?.Invoke();
         }
 
         // ── Shared reliable data handler ───────────────────────────────────────────
@@ -163,6 +198,7 @@ namespace WildguardModFramework.Network {
         internal static void OnShutdown() {
             _moddedPlayers.Clear();
             ConfirmedPlayers.Clear();
+            _knownModded.Clear();
             _serverRunner = null;
             _runNotificationShown = false;
         }
@@ -233,6 +269,7 @@ namespace WildguardModFramework.Network {
             if (!runner.IsServer) { return false; }
             var variantId = Encoding.UTF8.GetString(data.Array, data.Offset, data.Count);
             ConfirmedPlayers.Add(player);
+            BroadcastConfirmed(player);
             WmfMod.PublicLogger.LogInfo($"WMF: ACK from {player.PlayerId} for \"{variantId}\".");
             WmfNetwork.RaisePlayerConfirmed(player, isModded: true);
             return false;

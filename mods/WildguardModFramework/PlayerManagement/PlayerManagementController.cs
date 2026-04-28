@@ -41,6 +41,20 @@ namespace WildguardModFramework.PlayerManagement {
 
         internal static void HideOverlay() => Close();
 
+        private static bool _pendingRefresh;
+
+        internal static void MarkDirty() => _pendingRefresh = true;
+
+        internal static void TickInputMode() {
+            if (ActiveOverlay?.IsVisible != true) { _pendingRefresh = false; return; }
+            var im = InputManager.Instance;
+            if (im != null) {
+                im.PlayerInputEnable = PlayerInputEnableScope.Disable;
+                im.SetCursorToMenuMode(true);
+            }
+            if (_pendingRefresh) { _pendingRefresh = false; RefreshOverlay(); }
+        }
+
         internal static void RefreshOverlay() {
             var overlay = ActiveOverlay;
             if (overlay == null || !overlay.IsVisible) { return; }
@@ -55,7 +69,7 @@ namespace WildguardModFramework.PlayerManagement {
             foreach (var playerRef in runner.ActivePlayers) {
                 var player = pm.GetPlayer(playerRef);
                 if (player == null) { continue; }
-                bool isModded = GameModeProtocol.ConfirmedPlayers.Contains(playerRef);
+                bool isModded = GameModeProtocol.IsKnownModded(playerRef);
                 rows.Add(new PlayerRow(playerRef, player.ProfileUUID, player.UserName ?? "?", isModded, player.IsLocal));
             }
             return rows;
@@ -91,16 +105,16 @@ namespace WildguardModFramework.PlayerManagement {
         // ── Network events ─────────────────────────────────────────────────
 
         internal static void OnSetUserData(PlayerManager pm, PlayerRef playerRef, Guid profileUuid) {
-            if (pm.Runner?.IsServer == true && BanList.IsBanned(profileUuid)) {
-                WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is banned — disconnecting.");
-                WmfMod.Runner.StartCoroutine(GameModeProtocol.DisconnectAfterDelayCoroutine(pm.Runner, playerRef));
-            }
+            WmfMod.PublicLogger.LogInfo($"WMF: SetUserData({playerRef.PlayerId}) isServer={pm.Runner?.IsServer} banned={BanList.IsBanned(profileUuid)}.");
+            if (pm.Runner?.IsServer != true || !BanList.IsBanned(profileUuid)) { return; }
+            WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is banned — disconnecting.");
+            pm.StartCoroutine(GameModeProtocol.DisconnectAfterDelayCoroutine(pm.Runner, playerRef));
         }
 
         // ── Ban list menu panel ────────────────────────────────────────────
 
         internal static void BuildBanListPanel(VisualElement container, bool isInGameMenu) {
-            var header = new Label { text = "BANNED PLAYERS" };
+            var header = new Label { text = WmfMod.t("players.banned.header") };
             header.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
             header.style.fontSize = 11;
             header.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -121,7 +135,7 @@ namespace WildguardModFramework.PlayerManagement {
             var entries = BanList.All();
 
             if (entries.Count == 0) {
-                var empty = new Label { text = "No banned players." };
+                var empty = new Label { text = WmfMod.t("players.banned.empty") };
                 empty.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
                 empty.style.fontSize = 12;
                 empty.pickingMode = PickingMode.Ignore;
@@ -146,7 +160,7 @@ namespace WildguardModFramework.PlayerManagement {
                 var unbanBtn = new Button(() => {
                     BanList.Remove(capturedId);
                     RefreshBanList(scroll);
-                }) { text = "Unban" };
+                }) { text = WmfMod.t("players.banned.unban") };
                 unbanBtn.style.fontSize = 11;
                 unbanBtn.style.color = new Color(0.75f, 0.75f, 0.75f, 1f);
                 unbanBtn.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);

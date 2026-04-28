@@ -69,6 +69,7 @@ namespace WildguardModFramework.Network {
             } else {
                 harmony.Patch(lobbySceneLoadDone, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(LobbyOnSceneLoadDonePostfix)));
             }
+
         }
 
         private static void StartGamePrefix(ref StartGameArgs args) {
@@ -103,7 +104,10 @@ namespace WildguardModFramework.Network {
         private static void LobbyOnSceneLoadDonePostfix() =>
             GameModeProtocol.OnLobbySceneLoadDone();
 
-        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef playerRef, Guid playerProfileUUID) =>
+        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef playerRef, Guid playerProfileUUID) {
             PlayerManagementController.OnSetUserData(__instance, playerRef, playerProfileUUID);
+            PlayerManagementController.MarkDirty();
+        }
+
     }
 }

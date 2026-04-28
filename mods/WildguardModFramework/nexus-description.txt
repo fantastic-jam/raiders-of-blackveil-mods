@@ -2,6 +2,15 @@
 
 The mod framework for Raiders of Blackveil. WMF gives players in-game control over their mods and gives mod authors a common API for discovery, game modes, and settings menus — with no engine restarts required.
 
+[list]
+[*]In-game Mods menu with enable/disable toggles and per-mod settings panels
+[*]Game mode selection on the host setup screen, with optional client-requirement enforcement
+[*]Server chat visible to all players in the session
+[*]Player management overlay (F2) with host kick and ban controls
+[*]Reliable networking channel for mods to exchange messages without touching the game's network layer
+[*]Localisation support — mods can ship translation files and follow the player's in-game language setting
+[/list]
+
 [line]
 [heading]Mod Discovery[/heading]
 
@@ -35,6 +44,18 @@ WMF exposes a reliable data channel for mods to exchange messages between the ho
 Mods subscribe to a named string channel and receive a byte payload whenever a message arrives on that channel. Messages can flow from the host to a specific client, from a client to the host, or broadcast from the host to every player running WMF. Delivery is guaranteed (Fusion reliable data) and routed through a single multiplexed stream, so mods stay isolated from each other and from the game's own traffic.
 
 Full API reference is in the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/blob/main/mods/WildguardModFramework/README.md]README[/url].
+
+[line]
+[heading]Server Chat[/heading]
+
+An in-game text chat is available in every hosted session. Press the chat key to open the input field, type a message, and send — everyone in the session sees it. Messages fade after a configurable delay. All chat settings live in the [b]WMF → Chat[/b] sub-menu.
+
+[line]
+[heading]Player Management[/heading]
+
+Hold [b]F2[/b] during a run or while in the lobby to reveal a live list of all connected players. Release F2 to dismiss it.
+
+Hosts get additional controls: [b]kick[/b] removes a player from the current session; [b]ban[/b] removes them and adds their profile ID to a persistent ban list so they cannot rejoin. The ban list is editable in the [b]WMF → Players[/b] sub-menu.
 
 [line]
 [heading]Requirements[/heading]

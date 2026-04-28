@@ -9,8 +9,8 @@ namespace WildguardModFramework.ModMenu {
         internal static RegisteredMod CreateRegisteredMod() =>
             new RegisteredMod(WmfMod.Id, WmfMod.Name, "WMF",
                 new (string Title, Action<VisualElement, bool> Build)[] {
-                    ("Chat",    (c, g) => ServerChat.BuildSettingsPanel(c, g)),
-                    ("Players", (c, g) => PlayerManagementController.BuildBanListPanel(c, g)),
+                    (WmfMod.t("options.chat.tab"),    (c, g) => ServerChat.BuildSettingsPanel(c, g)),
+                    (WmfMod.t("options.players.tab"), (c, g) => PlayerManagementController.BuildBanListPanel(c, g)),
                 });
     }
 }

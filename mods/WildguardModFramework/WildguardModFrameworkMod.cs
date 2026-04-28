@@ -7,6 +7,7 @@ using ModRegistry;
 using UnityEngine;
 using UnityEngine.UIElements;
 using WildguardModFramework.Chat;
+using WildguardModFramework.Fixes;
 using WildguardModFramework.ModMenu;
 using WildguardModFramework.Network;
 using WildguardModFramework.PlayerManagement;
@@ -79,6 +80,8 @@ namespace WildguardModFramework {
                 WmfConfig.Init(Config);
                 ServerChat.Init(_harmony);
                 PlayerManagementController.Init(Config, _harmony);
+                HostNameSync.Apply(_harmony); // game bug workaround — remove once fixed upstream
+                GameModeProtocol.Init();
                 NetworkPatch.Apply(_harmony);
                 HostStartPagePatch.Apply(_harmony);
                 MenuStartPagePatch.Apply(_harmony);

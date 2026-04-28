@@ -10,5 +10,14 @@
   "stepper.yes": "Yes",
   "stepper.no": "No",
   "gamemode.normal": "Normal",
-  "solo.title": "SOLO GAME"
+  "solo.title": "SOLO GAME",
+  "options.chat.tab": "Chat",
+  "options.players.tab": "Players",
+  "chat.toggle_label": "Server Chat",
+  "players.overlay.title": "PLAYERS",
+  "players.overlay.kick": "Kick",
+  "players.overlay.ban": "Ban",
+  "players.banned.header": "BANNED PLAYERS",
+  "players.banned.empty": "No banned players.",
+  "players.banned.unban": "Unban"
 }

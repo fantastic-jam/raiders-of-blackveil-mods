@@ -31,22 +31,22 @@ namespace WildguardModFramework.PlayerManagement {
             }
         }
 
-        private static string _lastPageType;
-
         private static void OnUpdatePostfix(BaseHUDPage __instance) {
             if (!(__instance is GameHUDPage) && !(__instance is LobbyHUDPage)) { return; }
-            var typeName = __instance.GetType().Name;
-            if (typeName != _lastPageType) {
-                _lastPageType = typeName;
-                WmfMod.PublicLogger.LogInfo($"[PMgmt] OnUpdate page type: {typeName}");
-            }
             PlayerManagementController.SetActivePage(__instance);
-            var f2 = Keyboard.current?[Key.F2];
+            var kb = Keyboard.current;
+            var f2 = kb?[Key.F2];
             if (f2?.wasPressedThisFrame == true) {
                 PlayerManagementController.ShowOverlay();
             } else if (f2?.wasReleasedThisFrame == true) {
                 PlayerManagementController.HideOverlay();
             }
+#if WMF_DEBUG
+            if (kb?[Key.F5].wasPressedThisFrame == true) {
+                WildguardModFramework.Debug.GameModeDebug.PollSessions();
+            }
+#endif
+            PlayerManagementController.TickInputMode();
         }
 
         private static void OnDeactivatePostfix(BaseHUDPage __instance) {

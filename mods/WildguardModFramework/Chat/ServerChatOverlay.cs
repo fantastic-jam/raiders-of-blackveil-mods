@@ -122,7 +122,7 @@ namespace WildguardModFramework.Chat {
             label.style.paddingBottom = 3;
             label.pickingMode = PickingMode.Ignore;
             _logScroll.Add(label);
-            _logScroll.schedule.Execute(() => _logScroll.scrollOffset = new Vector2(0, float.MaxValue));
+            _logScroll.schedule.Execute(() => _logScroll.scrollOffset = new Vector2(0, float.MaxValue)).StartingIn(50);
 
             if (_root.style.display == DisplayStyle.None) {
                 _root.style.display = DisplayStyle.Flex;

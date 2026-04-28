@@ -10,5 +10,14 @@
   "stepper.yes": "Oui",
   "stepper.no": "Non",
   "gamemode.normal": "Normal",
-  "solo.title": "JEU EN SOLO"
+  "solo.title": "JEU EN SOLO",
+  "options.chat.tab": "Chat",
+  "options.players.tab": "Joueurs",
+  "chat.toggle_label": "Chat en partie",
+  "players.overlay.title": "JOUEURS",
+  "players.overlay.kick": "Expulser",
+  "players.overlay.ban": "Bannir",
+  "players.banned.header": "JOUEURS BANNIS",
+  "players.banned.empty": "Aucun joueur banni.",
+  "players.banned.unban": "Débannir"
 }

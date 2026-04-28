@@ -1,7 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using WildguardModFramework.Registry;
+using RR.UI.Components;
 using RR.UI.Controls;
 using RR.UI.Controls.Menu.JoinHost;
 using RR.UI.Extensions;
@@ -80,7 +82,7 @@ namespace WildguardModFramework.ModMenu {
             BuildTooltip(page.RootElement);
 
             if (hasMods) {
-                _allowModsStepper = CreateStepper(WmfMod.t("stepper.allow_mods"));
+                _allowModsStepper = CreateStepper(() => WmfMod.t("stepper.allow_mods"));
                 RegisterTooltip(_allowModsStepper, string.Join("\n", enabledMods.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowModsStepper);
                 cursor.RegisterItem(_allowModsStepper);
@@ -88,7 +90,7 @@ namespace WildguardModFramework.ModMenu {
             }
 
             if (hasCheats) {
-                _allowCheatsStepper = CreateStepper(WmfMod.t("stepper.allow_cheats"));
+                _allowCheatsStepper = CreateStepper(() => WmfMod.t("stepper.allow_cheats"));
                 RegisterTooltip(_allowCheatsStepper, string.Join("\n", enabledCheats.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowCheatsStepper);
                 cursor.RegisterItem(_allowCheatsStepper);
@@ -100,7 +102,7 @@ namespace WildguardModFramework.ModMenu {
                 items[0] = WmfMod.t("gamemode.normal");
                 for (int i = 0; i < gameModes.Count; i++) { items[i + 1] = gameModes[i].DisplayName; }
 
-                _gameModeStepper = CreateStepper(WmfMod.t("stepper.game_mode"));
+                _gameModeStepper = CreateStepper(() => WmfMod.t("stepper.game_mode"));
                 _gameModeStepper.SetItems(items, GetCurrentGameModeIndex());
                 container.Insert(insertIndex++, _gameModeStepper);
                 cursor.RegisterItem(_gameModeStepper);
@@ -110,7 +112,7 @@ namespace WildguardModFramework.ModMenu {
                 };
             }
 
-            _allowChatStepper = CreateStepper(WmfMod.t("stepper.server_chat"));
+            _allowChatStepper = CreateStepper(() => WmfMod.t("stepper.server_chat"));
             container.Insert(insertIndex++, _allowChatStepper);
             cursor.RegisterItem(_allowChatStepper);
 
@@ -137,11 +139,30 @@ namespace WildguardModFramework.ModMenu {
         }
 
         private void Reset() {
-            _allowModsStepper?.SetIndex(0);
-            _allowCheatsStepper?.SetIndex(0);
-            _gameModeStepper?.SetIndex(GetCurrentGameModeIndex());
-            _allowChatStepper?.SetIndex(0);
+            var yesNo = StepperItems;
+            _allowModsStepper?.SetItems(yesNo, 0);
+            _allowCheatsStepper?.SetItems(yesNo, 0);
+            _allowChatStepper?.SetItems(yesNo, 0);
+
+            if (_gameModeStepper != null) {
+                var gameModes = ModScanner.GameModes;
+                var modeItems = new string[gameModes.Count + 1];
+                modeItems[0] = WmfMod.t("gamemode.normal");
+                for (int i = 0; i < gameModes.Count; i++) { modeItems[i + 1] = gameModes[i].DisplayName; }
+                _gameModeStepper.SetItems(modeItems, GetCurrentGameModeIndex());
+            }
+
+            RefreshStepperLabel(_allowModsStepper);
+            RefreshStepperLabel(_allowCheatsStepper);
+            RefreshStepperLabel(_allowChatStepper);
+            RefreshStepperLabel(_gameModeStepper);
             UpdateFinalName();
+        }
+
+        private static void RefreshStepperLabel(JoinHostStepper stepper) {
+            if (stepper != null && JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
+                lbl.Refresh();
+            }
         }
 
         private void UpdateFinalName() {
@@ -229,11 +250,12 @@ namespace WildguardModFramework.ModMenu {
             _tooltipPanel.style.display = DisplayStyle.Flex;
         }
 
-        private static JoinHostStepper CreateStepper(string labelText) {
+        private static JoinHostStepper CreateStepper(Func<string> labelProvider) {
             var stepper = new JoinHostStepper();
             stepper.SetItems(StepperItems, 0);
-            if (JoinHostLabelField?.GetValue(stepper) is Label label) {
-                label.text = labelText;
+            if (JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
+                lbl.CustomTransform = _ => labelProvider();
+                lbl.Refresh();
             }
             return stepper;
         }

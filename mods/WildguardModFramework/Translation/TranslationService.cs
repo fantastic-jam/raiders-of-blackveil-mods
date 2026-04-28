@@ -111,26 +111,11 @@ namespace WildguardModFramework.Translation {
 
         private static string GetCurrentLang() {
             try {
-                var lang = AppManager.Instance?.PlayerSettings?.Gen_Language;
-                return lang != null ? SteamLangToCode(lang) : "en";
+                return AppManager.Instance?.PlayerSettings?.Gen_Language ?? "en";
             }
             catch {
                 return "en";
             }
         }
-
-        private static string SteamLangToCode(string language) => language switch {
-            "german" => "de",
-            "french" => "fr",
-            "spanish" => "es-es",
-            "latam" => "es",
-            "brazilian" or "portuguese" => "pt-br",
-            "polish" => "pl",
-            "russian" => "ru",
-            "chinese" => "zh-cn",
-            "japanese" => "ja",
-            "korean" => "ko",
-            _ => "en",
-        };
     }
 }
