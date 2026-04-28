@@ -50,6 +50,12 @@ namespace WildguardModFramework.ModMenu {
             container.Insert(container.IndexOf(settingsBtn) + 1, modsBtn);
         }
 
+        /// <summary>
+        /// Invalidates the overlay so it is recreated on next open.
+        /// Call when scan data changes (e.g. after a language change).
+        /// </summary>
+        internal static void Reset() => _overlay = null;
+
         /// <summary>Returns false if the overlay consumed the input (skip original handler).</summary>
         internal static bool HandleInput(InputPressEvent evt) {
             if (_overlay is not { IsOpen: true }) { return false; }

@@ -44,8 +44,13 @@ namespace WildguardModFramework.ModMenu {
             SoloModePickerInjector.Inject(__instance);
         }
 
-        private static void OnActivatePostfix() =>
+        private static void OnActivatePostfix() {
+            // Re-scan so WmfOptions tab names resolve with the now-loaded language,
+            // then reset the overlay so it rebuilds fresh on next open.
+            ModScanner.Scan();
+            ModsButtonInjector.Reset();
             ModLifecycle.DisableAllGameModes();
+        }
 
         private static bool OnNavigateInputPrefix(InputPressEvent evt) =>
             !SoloModePickerInjector.HandleInput(evt) && !ModsButtonInjector.HandleInput(evt);

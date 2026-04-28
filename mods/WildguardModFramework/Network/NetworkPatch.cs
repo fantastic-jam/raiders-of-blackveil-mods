@@ -4,6 +4,8 @@ using Fusion.Sockets;
 using HarmonyLib;
 using RR;
 using RR.Level;
+using WildguardModFramework.Chat;
+using WildguardModFramework.PlayerManagement;
 
 namespace WildguardModFramework.Network {
     internal static class NetworkPatch {
@@ -54,36 +56,58 @@ namespace WildguardModFramework.Network {
                 harmony.Patch(beginLevel, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(EventBeginLevelPostfix)));
             }
 
+            var setUserData = AccessTools.Method(typeof(PlayerManager), "RPC_Handle_SetUserData_All");
+            if (setUserData == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: PlayerManager.RPC_Handle_SetUserData_All not found — auto-ban enforcement inactive.");
+            } else {
+                harmony.Patch(setUserData, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(SetUserDataAllPostfix)));
+            }
+
             var lobbySceneLoadDone = AccessTools.Method(typeof(LobbyManager), "OnSceneLoadDone");
             if (lobbySceneLoadDone == null) {
                 WmfMod.PublicLogger.LogWarning("WMF: LobbyManager.OnSceneLoadDone not found — run-start notification reset inactive.");
             } else {
                 harmony.Patch(lobbySceneLoadDone, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(LobbyOnSceneLoadDonePostfix)));
             }
+
         }
 
-        private static void StartGamePrefix(ref StartGameArgs args) =>
+        private static void StartGamePrefix(ref StartGameArgs args) {
             GameModeProtocol.InjectConnectionToken(ref args);
+            ServerChat.ClearAll();
+        }
 
         private static bool JoinPlaySessionPrefix(Guid JoinGameSessionId, string serverName, string sessionPassword) =>
             GameModeProtocol.ValidateJoinSession(JoinGameSessionId, serverName, sessionPassword);
 
-        private static void OnPlayerJoinedPostfix(PlayerManager __instance, NetworkRunner runner, PlayerRef playerRef) =>
+        private static void OnPlayerJoinedPostfix(PlayerManager __instance, NetworkRunner runner, PlayerRef playerRef) {
             GameModeProtocol.OnPlayerJoined(__instance, runner, playerRef);
+            PlayerManagementController.RefreshOverlay();
+        }
 
-        private static void OnPlayerLeftPostfix(PlayerRef playerRef) =>
+        private static void OnPlayerLeftPostfix(PlayerRef playerRef) {
             GameModeProtocol.OnPlayerLeft(playerRef);
+            PlayerManagementController.RefreshOverlay();
+        }
 
         private static bool OnReliableDataReceivedPrefix(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) =>
             GameModeProtocol.OnReliableDataReceived(runner, player, key, data);
 
-        private static void OnShutdownPostfix() =>
+        private static void OnShutdownPostfix() {
             GameModeProtocol.OnShutdown();
+            ServerChat.ClearAll();
+        }
 
         private static void EventBeginLevelPostfix() =>
             GameModeProtocol.OnEventBeginLevel();
 
         private static void LobbyOnSceneLoadDonePostfix() =>
             GameModeProtocol.OnLobbySceneLoadDone();
+
+        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef playerRef, Guid playerProfileUUID) {
+            PlayerManagementController.OnSetUserData(__instance, playerRef, playerProfileUUID);
+            PlayerManagementController.MarkDirty();
+        }
+
     }
 }

@@ -25,6 +25,11 @@ namespace WildguardModFramework.ModMenu {
         private readonly List<(RegisteredMod Mod, Action<bool> SetActive)> _menuEntries = new();
         private readonly Dictionary<RegisteredMod, ExpandableNavEntry> _expandable = new();
 
+        // Labels that need refreshing when language changes
+        private Label _titleLabel;
+        private Label _hintLabel;
+        private Label _emptyLabel;
+
         // Right panels
         private VisualElement _toggleListPanel;
         private VisualElement _modSettingsContainer;
@@ -47,6 +52,7 @@ namespace WildguardModFramework.ModMenu {
         }
 
         internal void Open() {
+            RefreshTranslations();
             foreach (var (guid, toggle) in _toggles) {
                 toggle.Value = WmfConfig.IsEnabled(guid);
             }
@@ -61,6 +67,13 @@ namespace WildguardModFramework.ModMenu {
                 _leftFocused = false;
                 _rightCursor.ResetSelection(true);
             }
+        }
+
+        private void RefreshTranslations() {
+            if (_titleLabel != null) { _titleLabel.text = WmfMod.t("menu.title"); }
+            if (_hintLabel != null) { _hintLabel.text = WmfMod.t("menu.hint.close"); }
+            if (_emptyLabel != null) { _emptyLabel.text = WmfMod.t("menu.empty"); }
+            _wmfBtn?.UpdateText(WmfMod.t("label.mods"));
         }
 
         internal void Close() {
@@ -188,18 +201,18 @@ namespace WildguardModFramework.ModMenu {
             titleBar.style.borderBottomColor = dividerColor;
             titleBar.style.borderBottomWidth = 1;
 
-            var titleLabel = new Label { text = WmfMod.t("menu.title") };
-            titleLabel.style.color = Color.white;
-            titleLabel.style.fontSize = 18;
-            titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            titleLabel.style.letterSpacing = 1;
+            _titleLabel = new Label { text = WmfMod.t("menu.title") };
+            _titleLabel.style.color = Color.white;
+            _titleLabel.style.fontSize = 18;
+            _titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _titleLabel.style.letterSpacing = 1;
 
-            var hintLabel = new Label { text = WmfMod.t("menu.hint.close") };
-            hintLabel.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
-            hintLabel.style.fontSize = 12;
+            _hintLabel = new Label { text = WmfMod.t("menu.hint.close") };
+            _hintLabel.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+            _hintLabel.style.fontSize = 12;
 
-            titleBar.Add(titleLabel);
-            titleBar.Add(hintLabel);
+            titleBar.Add(_titleLabel);
+            titleBar.Add(_hintLabel);
 
             // ── Body ──────────────────────────────────────────────────────
             var body = new VisualElement();
@@ -281,6 +294,7 @@ namespace WildguardModFramework.ModMenu {
 
             var allMods = ModScanner.AllMods().ToList();
             foreach (var mod in allMods) {
+                if (mod.Guid == WmfMod.Id) { continue; } // WMF appears in left nav, not in the toggle list
                 var guid = mod.Guid;
                 var modEntry = new VisualElement();
                 modEntry.style.marginBottom = 4;
@@ -293,7 +307,11 @@ namespace WildguardModFramework.ModMenu {
 
                 if (mod.IsManaged && !_isInGameMenu) {
                     toggle.Value = WmfConfig.IsEnabled(guid);
-                    toggle.OnValueChangedCallback = v => WmfConfig.GetEntry(guid).Value = v;
+                    var capturedMod = mod;
+                    toggle.OnValueChangedCallback = v => {
+                        WmfConfig.GetEntry(guid).Value = v;
+                        if (v) { capturedMod.Enable(); } else { capturedMod.Disable(); }
+                    };
                     _toggles.Add((guid, toggle));
                     _rightCursor.RegisterItem(toggle);
                 } else {
@@ -317,10 +335,10 @@ namespace WildguardModFramework.ModMenu {
             }
 
             if (allMods.Count == 0) {
-                var empty = new Label { text = WmfMod.t("menu.empty") };
-                empty.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
-                empty.style.paddingTop = 12;
-                panel.Add(empty);
+                _emptyLabel = new Label { text = WmfMod.t("menu.empty") };
+                _emptyLabel.style.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+                _emptyLabel.style.paddingTop = 12;
+                panel.Add(_emptyLabel);
             }
 
             return panel;
@@ -359,6 +377,7 @@ namespace WildguardModFramework.ModMenu {
             public void NavigateRight() { }
             public void Submit() => OnClickedEvent?.Invoke();
             public void Escape() { }
+            internal void UpdateText(string text) => _label.text = text;
 
             internal NavButton(string text) {
                 style.paddingTop = style.paddingBottom = 8;
@@ -532,7 +551,7 @@ namespace WildguardModFramework.ModMenu {
 
                 RefreshStyle();
 
-                RegisterCallback<ClickEvent>(_ => Submit());
+                RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); Submit(); });
                 RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
                 RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
             }
