@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.2.0] - 2026-04-29
 
 ### Added
 - All UI strings (overlay title, stepper labels, buttons, variant names, mod description) are now loaded from translation files — English and French are included out of the box
