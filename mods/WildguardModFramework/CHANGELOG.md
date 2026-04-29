@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.5.0] - 2026-04-29
 
 ### Added
 - Player management overlay — hold F2 to see all connected players; hosts can kick and ban players; manage the ban list in WMF → Players
