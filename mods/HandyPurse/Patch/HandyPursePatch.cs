@@ -4,6 +4,7 @@ using System.Reflection;
 using HandyPurse.Bank;
 using HarmonyLib;
 using RR;
+using RR.Backend;
 using RR.Game;
 using RR.Game.Items;
 using RR.UI.Pages;
@@ -29,6 +30,7 @@ namespace HandyPurse.Patch {
         private static FieldInfo _itemsArrayField;
         private static MethodInfo _savePlayerGameStatesMethod;
         private static MethodInfo _loadPlayerGameStateMethod;
+        private static MethodInfo _savePlayerGameStateLocallyAsyncMethod;
 
         // Always register the main menu hook so the breaking-change popup fires even on failure.
         public static void ApplyMenuHook(Harmony harmony) {
@@ -86,6 +88,16 @@ namespace HandyPurse.Patch {
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(LoadPlayerGameStatePrefix))));
             }
 
+            // Local save hook — clamps currencies in the local snapshot so it stays in sync with
+            // the cloud save (which is clamped by SavePlayerGameStatesPrefix above).
+            _savePlayerGameStateLocallyAsyncMethod = AccessTools.Method(typeof(PlayerProfile), "SavePlayerGameStateLocallyAsync");
+            if (_savePlayerGameStateLocallyAsyncMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStateLocallyAsync — local save will diverge from cloud save.");
+            } else {
+                harmony.Patch(_savePlayerGameStateLocallyAsyncMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncPrefix))));
+            }
+
             var lobbyHudActivateMethod = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
             if (lobbyHudActivateMethod == null) {
                 HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find LobbyHUDPage.OnActivate — bank popup deferred to main menu.");
@@ -102,12 +114,8 @@ namespace HandyPurse.Patch {
             if (PendingVersionMismatchPopup) {
                 PendingVersionMismatchPopup = false;
                 UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                    Title = "HandyPurse — Game Version Mismatch",
-                    Text = $"HandyPurse v{HandyPurseMod.Version} was built against a different game version.\n\n" +
-                           $"Patches have been applied, but some features may not work correctly.\n\n" +
-                           $"If you experience issues, wait for a mod update or set OverrideVersionCheck " +
-                           $"in the BepInEx config once the community confirms compatibility.\n\n" +
-                           $"Do NOT uninstall until your stacks are within vanilla limits."
+                    Title = HandyPurseMod.t("popup.version_mismatch.title"),
+                    Text = HandyPurseMod.t("popup.version_mismatch.text", ("version", HandyPurseMod.Version))
                 });
                 return;
             }
@@ -115,11 +123,8 @@ namespace HandyPurse.Patch {
             if (PendingBreakingChangePopup) {
                 PendingBreakingChangePopup = false;
                 UIManager.Instance?.Popup?.ShowCustom(null, new DefaultOKPopup {
-                    Title = "HandyPurse — Breaking Change",
-                    Text = $"Stack limits are NOT active (v{HandyPurseMod.Version}).\n\n" +
-                           $"Currencies above vanilla caps WILL be clamped on the next save.\n\n" +
-                           $"Do NOT uninstall until your stacks are within vanilla limits.\n\n" +
-                           $"Update the mod or report a bug — include your BepInEx log."
+                    Title = HandyPurseMod.t("popup.breaking_change.title"),
+                    Text = HandyPurseMod.t("popup.breaking_change.text", ("version", HandyPurseMod.Version))
                 });
                 return;
             }
@@ -234,6 +239,49 @@ namespace HandyPurse.Patch {
             }
             __result = merged;
             return false; // skip original
+        }
+
+        private static bool SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState, ref System.Threading.Tasks.Task __result) {
+            if (Disabled) { return true; }
+            // Skip when offline: cloud save never runs, so topup is never recorded.
+            if (NetworkManager.Instance?.IsOffline ?? false) { return true; }
+            // If any managed currency exceeds the vanilla cap, skip this local save.
+            // Clamping items in-place here mutates the live GenericItemDescriptor references —
+            // the same objects the cloud save hook reads moments later — so ProcessSave would
+            // see already-clamped amounts and record no topup.
+            // The cloud save hook (ProcessSave) will clamp the items itself after recording the
+            // excess; the subsequent ValidatePlayerGameState local save will then see correct values.
+            if (HasOverCapManagedCurrency(playerGameState)) {
+                __result = System.Threading.Tasks.Task.CompletedTask;
+                return false;
+            }
+            return true;
+        }
+
+        private static bool HasOverCapManagedCurrency(PlayerGameState state) {
+            if (state == null) { return false; }
+            var db = ItemDatabase.Instance;
+            if (db == null) { return false; }
+            return AnyOverCap(db, state.InventoryCommonData?.Items)
+                || AnyOverCap(db, state.InventoryChampionData);
+        }
+
+        private static bool AnyOverCap(ItemDatabase db, System.Collections.Generic.List<InventoryChampionBackendData> champions) {
+            if (champions == null) { return false; }
+            foreach (var c in champions) {
+                if (AnyOverCap(db, c?.Items)) { return true; }
+            }
+            return false;
+        }
+
+        private static bool AnyOverCap(ItemDatabase db, System.Collections.Generic.List<GenericItemDescriptor> items) {
+            if (items == null) { return false; }
+            foreach (var item in items) {
+                if (ResolveCap(item.ItemType) <= 0) { continue; }
+                var asset = db.GetAsset(item.AssetID);
+                if (asset != null && item.Amount > asset.StackMaximum) { return true; }
+            }
+            return false;
         }
 
         internal static int ResolveCap(ItemType itemType) {

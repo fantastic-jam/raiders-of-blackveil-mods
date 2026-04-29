@@ -39,8 +39,14 @@ namespace HandyPurse.Bank {
     }
 
     internal static class PurseBank {
-        private static string DataDir =>
-            Path.Combine(BepInEx.Paths.BepInExRootPath, "data", "HandyPurse");
+        // Overridable for tests — defaults to a sibling of the executing assembly.
+        private static string _dataDir;
+        internal static string DataDir => _dataDir ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "HandyPurse");
+        internal static void OverrideDataDir(string path) => _dataDir = path;
+
+        // Overridable for tests — no-ops by default.
+        internal static Action<string> Warn = _ => { };
+        internal static Action<string> Error = _ => { };
 
         private static string TopupPath => Path.Combine(DataDir, "topup.json");
         private static string BankPath => Path.Combine(DataDir, "bank.json");
@@ -57,7 +63,7 @@ namespace HandyPurse.Bank {
                 return (TopupData)MakeSerializer<TopupData>().ReadObject(stream) ?? new TopupData();
             }
             catch (Exception ex) {
-                HandyPurseMod.PublicLogger.LogWarning($"HandyPurse: topup load failed — {ex.Message}");
+                Warn($"HandyPurse: topup load failed — {ex.Message}");
                 return new TopupData();
             }
         }
@@ -74,7 +80,7 @@ namespace HandyPurse.Bank {
                 MakeSerializer<TopupData>().WriteObject(stream, data);
             }
             catch (Exception ex) {
-                HandyPurseMod.PublicLogger.LogError($"HandyPurse: topup save failed — {ex.Message}");
+                Error($"HandyPurse: topup save failed — {ex.Message}");
             }
         }
 
@@ -119,7 +125,7 @@ namespace HandyPurse.Bank {
                 return (BankData)MakeSerializer<BankData>().ReadObject(stream) ?? new BankData();
             }
             catch (Exception ex) {
-                HandyPurseMod.PublicLogger.LogWarning($"HandyPurse: bank load failed — {ex.Message}");
+                Warn($"HandyPurse: bank load failed — {ex.Message}");
                 return new BankData();
             }
         }
@@ -144,7 +150,7 @@ namespace HandyPurse.Bank {
                         bank.Entries.Add(new BankEntry {
                             CurrencyKey = incoming.CurrencyKey,
                             AssetId = incoming.AssetId,
-                            Amount = incoming.Amount
+                            Amount = incoming.Amount,
                         });
                     }
                 }
@@ -152,7 +158,7 @@ namespace HandyPurse.Bank {
                 return true;
             }
             catch (Exception ex) {
-                HandyPurseMod.PublicLogger.LogError($"HandyPurse: bank deposit failed — {ex.Message}");
+                Error($"HandyPurse: bank deposit failed — {ex.Message}");
                 return false;
             }
         }
@@ -166,7 +172,7 @@ namespace HandyPurse.Bank {
                 return true;
             }
             catch (Exception ex) {
-                HandyPurseMod.PublicLogger.LogError($"HandyPurse: bank clear failed — {ex.Message}");
+                Error($"HandyPurse: bank clear failed — {ex.Message}");
                 return false;
             }
         }

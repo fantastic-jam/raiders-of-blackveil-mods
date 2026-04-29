@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Added
+- All in-game text is now localised — French translation included
+- Currency clamp now applies at local save time, ensuring excess is always captured before the cloud save runs
+- Safeguard: if a topup cannot be fully restored to inventory, the shortfall is automatically deposited to the bank instead of being lost
+
+### Fixed
+- Excess currencies above vanilla caps were silently lost when rejoining a session — topup was never restored on load
+- Excess currencies were not banked on save when local save ran before the cloud save hook
+- Bank menu status message persisted incorrectly after closing and reopening the mod overlay
+
 ## [0.5.0] - 2026-04-29
 
 ### Changed
