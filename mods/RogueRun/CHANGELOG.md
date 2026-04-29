@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.1.1] - 2026-04-29
 
 ### Changed
 - Declare WMF as a BepInEx dependency for correct load ordering.

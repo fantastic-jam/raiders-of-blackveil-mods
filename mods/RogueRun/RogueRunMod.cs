@@ -12,7 +12,7 @@ namespace RogueRun {
     public class RogueRunMod : BaseUnityPlugin, IModRegistrant {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.roguerun";
         public const string Name = "RogueRun";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
         public const string Author = "christphe";
         private const string TargetGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
 
