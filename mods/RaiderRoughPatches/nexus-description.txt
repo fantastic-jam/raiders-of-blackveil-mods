@@ -1,0 +1,31 @@
+[size=5]RaiderRoughPatches[/size]
+
+A collection of unofficial patches for Raiders of Blackveil, fixing bugs and rough edges that slipped through the official releases. Each fix is a small, targeted patch — no balance changes, no new features.
+
+Each fix can be toggled individually in the BepInEx config file.
+[line]
+[heading]Fixes[/heading]
+[list]
+[*][b]Session visibility[/b] — hosted session disappears from the server list after returning from a run[/*]
+[*][b]Stash auto-stack[/b] — stackable items do not merge with existing stacks when transferred from champion inventory to stash[/*]
+[/list]
+[line]
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[/list]
+[line]
+[heading]Installation[/heading]
+1. Install BepInEx (skip this step if BepInEx is already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build[/*]
+[*]Extract the contents into your game folder (the one containing [b]RoB.exe[/b])[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure[/*]
+[/list]
+2. Install the mod
+[list]
+[*]Download [b]RaiderRoughPatches-x.x.x.zip[/b] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=RaiderRoughPatches]releases page[/url][/*]
+[*]Extract the ZIP into your game's BepInEx folder[/*]
+[*]Launch the game[/*]
+[/list]
