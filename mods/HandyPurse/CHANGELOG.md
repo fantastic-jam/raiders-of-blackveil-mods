@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.6.0] - 2026-04-29
 
 ### Added
 - All in-game text is now localised — French translation included
