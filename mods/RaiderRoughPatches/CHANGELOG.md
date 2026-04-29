@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.1] - 2026-04-29
 
 ### Fixed
 - Stackable items auto-stack when transferred from champion inventory to stash
