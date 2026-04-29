@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.5.0] - 2026-04-29
 
 ### Changed
 - Implement updated WMF interface — IsClientRequired and SubMenus are now required members
