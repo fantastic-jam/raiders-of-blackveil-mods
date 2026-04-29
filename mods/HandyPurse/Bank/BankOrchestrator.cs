@@ -91,23 +91,11 @@ namespace HandyPurse.Bank {
             if (db == null) { return; }
 
             var slots = ToSlots(items);
-
-            // Diagnostic: log every managed-currency slot so we can see what the save hook receives.
-            foreach (var s in slots) {
-                if (!BankLogic.IsManagedCurrency(s.ItemType)) { continue; }
-                var asset = db.GetAsset(s.AssetId);
-                HandyPurseMod.PublicLogger.LogInfo(
-                    $"HandyPurse: ProcessSave({compartmentKey}) slot itemType={s.ItemType} assetId={s.AssetId} amount={s.Amount} vanillaMax={(asset == null ? "null" : asset.StackMaximum.ToString())}.");
-            }
-
             var (entries, hash) = BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
 
             for (int i = 0; i < items.Count; i++) {
                 items[i].Amount = slots[i].Amount;
             }
-
-            HandyPurseMod.PublicLogger.LogInfo(
-                $"HandyPurse: ProcessSave({compartmentKey}): {entries.Count} slot(s) above vanilla cap.");
 
             var topup = PurseBank.LoadTopup();
             if (entries.Count > 0) {
@@ -115,10 +103,6 @@ namespace HandyPurse.Bank {
                 compartment.Entries.Clear();
                 compartment.Entries.AddRange(entries);
                 compartment.Hash = hash;
-                foreach (var e in entries) {
-                    HandyPurseMod.PublicLogger.LogInfo(
-                        $"HandyPurse:   recorded {e.CurrencyKey} vanilla={e.VanillaAmount} excess={e.Excess} slot={e.SlotIndex}.");
-                }
             } else {
                 PurseBank.RemoveCompartment(topup, compartmentKey);
             }
@@ -130,8 +114,6 @@ namespace HandyPurse.Bank {
 
             var topup = PurseBank.LoadTopup();
             var compartment = PurseBank.FindCompartment(topup, compartmentKey);
-            HandyPurseMod.PublicLogger.LogInfo(
-                $"HandyPurse: ApplyTopup({compartmentKey}): {(compartment == null ? "no topup found" : $"{compartment.Entries.Count} entr(ies) to restore")}.");
             if (compartment == null || compartment.Entries.Count == 0) { return; }
 
             var slots = ToSlots(items);
@@ -141,8 +123,6 @@ namespace HandyPurse.Bank {
             for (int i = 0; i < slots.Count; i++) { preRestore[i] = slots[i].Amount; }
 
             var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
-            HandyPurseMod.PublicLogger.LogInfo(
-                $"HandyPurse: ApplyTopup({compartmentKey}): status={status} bankDeposit={bankDeposit.Count}.");
 
             for (int i = 0; i < items.Count; i++) {
                 items[i].Amount = slots[i].Amount;
