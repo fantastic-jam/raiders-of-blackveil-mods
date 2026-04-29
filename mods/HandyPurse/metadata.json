@@ -1,4 +1,5 @@
 {
   "nexus_mod_id": 7,
-  "nexus_file_group_id": "7248263"
+  "nexus_file_group_id": "7248263",
+  "nexus_short_description": "Raises stack limits for all currencies — Scrap, Black Coin, and Crystals — so you stop losing excess mid-run. Configurable caps, bank system for safe recovery, and a one-click uninstall helper. Works with or without state authority."
 }
