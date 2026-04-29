@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Added
+- Diagnostic logging throughout the save/load pipeline (ProcessSave slot details, ApplyTopup result, load callback identity)
+- Safeguard: if restored amounts fall short of expected total after topup apply, the deficit is deposited to the bank
+
+### Fixed
+- Bank menu status message persisted after closing and reopening the WMF overlay due to WMF not clearing the container on re-entry
+- Topup was never applied on load: WrapLoadCallback bailed early because PlayerManager.LocalPlayer is null when LoadPlayerGameState fires at session start
+- Topup was never recorded: SavePlayerGameStateLocallyAsync fired before the cloud save hook, mutating live inventory items to vanilla cap so ProcessSave saw no excess
+
 ## [0.5.0] - 2026-04-29
 
 ### Changed

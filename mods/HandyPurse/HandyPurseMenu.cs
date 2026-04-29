@@ -15,6 +15,7 @@ namespace HandyPurse {
         private static System.Reflection.MethodInfo _forceItemStackByIDMethod;
 
         internal static void Open(VisualElement container, bool isInGameMenu) {
+            container.Clear();
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
             scroll.style.paddingTop = 16;

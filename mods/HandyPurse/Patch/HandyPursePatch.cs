@@ -241,12 +241,47 @@ namespace HandyPurse.Patch {
             return false; // skip original
         }
 
-        private static void SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState) {
-            if (Disabled) { return; }
-            // Skip when offline: the cloud path never runs in offline sessions, so the topup is never
-            // recorded — clamping the local save here would permanently lose the excess currency.
-            if (NetworkManager.Instance?.IsOffline ?? false) { return; }
-            BankOrchestrator.ClampForLocalSave(playerGameState);
+        private static bool SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState, ref System.Threading.Tasks.Task __result) {
+            if (Disabled) { return true; }
+            // Skip when offline: cloud save never runs, so topup is never recorded.
+            if (NetworkManager.Instance?.IsOffline ?? false) { return true; }
+            // If any managed currency exceeds the vanilla cap, skip this local save.
+            // Clamping items in-place here mutates the live GenericItemDescriptor references —
+            // the same objects the cloud save hook reads moments later — so ProcessSave would
+            // see already-clamped amounts and record no topup.
+            // The cloud save hook (ProcessSave) will clamp the items itself after recording the
+            // excess; the subsequent ValidatePlayerGameState local save will then see correct values.
+            if (HasOverCapManagedCurrency(playerGameState)) {
+                __result = System.Threading.Tasks.Task.CompletedTask;
+                return false;
+            }
+            return true;
+        }
+
+        private static bool HasOverCapManagedCurrency(PlayerGameState state) {
+            if (state == null) { return false; }
+            var db = ItemDatabase.Instance;
+            if (db == null) { return false; }
+            return AnyOverCap(db, state.InventoryCommonData?.Items)
+                || AnyOverCap(db, state.InventoryChampionData);
+        }
+
+        private static bool AnyOverCap(ItemDatabase db, System.Collections.Generic.List<InventoryChampionBackendData> champions) {
+            if (champions == null) { return false; }
+            foreach (var c in champions) {
+                if (AnyOverCap(db, c?.Items)) { return true; }
+            }
+            return false;
+        }
+
+        private static bool AnyOverCap(ItemDatabase db, System.Collections.Generic.List<GenericItemDescriptor> items) {
+            if (items == null) { return false; }
+            foreach (var item in items) {
+                if (ResolveCap(item.ItemType) <= 0) { continue; }
+                var asset = db.GetAsset(item.AssetID);
+                if (asset != null && item.Amount > asset.StackMaximum) { return true; }
+            }
+            return false;
         }
 
         internal static int ResolveCap(ItemType itemType) {

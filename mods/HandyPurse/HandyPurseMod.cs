@@ -2,6 +2,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using HandyPurse.Bank;
 using HandyPurse.Patch;
 using HarmonyLib;
 using ModRegistry;
@@ -57,6 +58,9 @@ namespace HandyPurse {
         private void Awake() {
             PublicLogger = Logger;
             t = TranslationService.For(Name, Info.Location);
+            PurseBank.OverrideDataDir(System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "data", "HandyPurse"));
+            PurseBank.Warn = msg => Logger.LogWarning(msg);
+            PurseBank.Error = msg => Logger.LogError(msg);
 
             try {
                 BindConfig();
