@@ -16,7 +16,7 @@ namespace BeginnersWelcome {
     public class BeginnersWelcomeMod : BaseUnityPlugin, IModRegistrant, IModMenuProvider {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.beginnerswelcome";
         public const string Name = "BeginnersWelcome";
-        public const string Version = "0.4.0";
+        public const string Version = "0.5.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
