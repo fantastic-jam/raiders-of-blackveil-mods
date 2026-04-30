@@ -22,8 +22,8 @@
     PurseBank:  file I/O + data model (DataDir injectable, logger delegates).
   -->
   <ItemGroup>
-    <Compile Include="..\HandyPurse\Bank\BankLogic.cs" Link="Bank\BankLogic.cs" />
-    <Compile Include="..\HandyPurse\Bank\PurseBank.cs" Link="Bank\PurseBank.cs" />
+    <Compile Include="..\..\mods\HandyPurse\Bank\BankLogic.cs" Link="Bank\BankLogic.cs" />
+    <Compile Include="..\..\mods\HandyPurse\Bank\PurseBank.cs" Link="Bank\PurseBank.cs" />
   </ItemGroup>
 
 </Project>

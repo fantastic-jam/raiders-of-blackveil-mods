@@ -30,7 +30,8 @@
   "fchange": {
     "folders": [
       "mods",
-      "libs"
+      "libs",
+      "tests"
     ],
     "commitFormat": "{type}({pkg}): {message}"
   },
