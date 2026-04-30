@@ -10,6 +10,8 @@ Raises the stack limits for all currencies so you stop hitting the cap mid-run.
 
 All caps are configurable.
 
+When you drop a currency stack that exceeds the vanilla limit it is automatically split into multiple vanilla-sized pickups so the game handles them correctly.
+
 [line]
 [heading]Before uninstalling[/heading]
 Use the [b]Prepare for Uninstall[/b] button in the in-game pause menu ([b]Pause → Mods → HandyPurse[/b]) before removing the mod.

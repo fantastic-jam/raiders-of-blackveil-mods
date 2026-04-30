@@ -7,6 +7,7 @@ using RR;
 using RR.Backend;
 using RR.Game;
 using RR.Game.Items;
+using RR.Game.Perk;
 using RR.UI.Pages;
 using RR.UI.Popups;
 using RR.UI.UISystem;
@@ -28,6 +29,7 @@ namespace HandyPurse.Patch {
         private static bool IsHost => NetworkManager.Instance?.NetworkRunner?.IsServer ?? true;
 
         private static FieldInfo _itemsArrayField;
+        private static FieldInfo _syncedItemsField;
         private static MethodInfo _savePlayerGameStatesMethod;
         private static MethodInfo _loadPlayerGameStateMethod;
         private static MethodInfo _savePlayerGameStateLocallyAsyncMethod;
@@ -62,12 +64,22 @@ namespace HandyPurse.Patch {
 
             // Optional — only affects auto-pickup merge; vanilla fallback is safe.
             _itemsArrayField = AccessTools.Field(typeof(InventorySyncedItems), "_itemsArray");
-            if (_itemsArrayField == null) {
-                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find InventorySyncedItems._itemsArray — auto-pickup merge will use vanilla stack caps.");
+            _syncedItemsField = AccessTools.Field(typeof(Inventory), "_syncedItems");
+            if (_itemsArrayField == null || _syncedItemsField == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find InventorySyncedItems._itemsArray or Inventory._syncedItems — auto-pickup merge and stash cap elevation will use vanilla stack caps.");
             } else {
                 var mergeToInventoryMethod = AccessTools.Method(typeof(InventorySyncedItems), nameof(InventorySyncedItems.MergeToInventory));
                 harmony.Patch(mergeToInventoryMethod,
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(MergeToInventoryPrefix))));
+            }
+
+            // Optional — splits over-vanilla currency drops into multiple vanilla-sized stacks.
+            var dropMethod = AccessTools.Method(typeof(Inventory), nameof(Inventory.DropOwnedItemToGroundLocal));
+            if (dropMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find Inventory.DropOwnedItemToGroundLocal — currency drops will not be split.");
+            } else {
+                harmony.Patch(dropMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(DropOwnedItemToGroundLocalPrefix))));
             }
 
             // Vault save hook — host only, fires for all players' states at once.
@@ -76,7 +88,8 @@ namespace HandyPurse.Patch {
                 HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find BackendManager.SavePlayerGameStates — vault save unavailable.");
             } else {
                 harmony.Patch(_savePlayerGameStatesMethod,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStatesPrefix))));
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStatesPrefix))),
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStatesPostfix))));
             }
 
             // Vault load hook — host only, wraps callback to apply topup before inventory initialises.
@@ -134,25 +147,42 @@ namespace HandyPurse.Patch {
 
         private static void LobbyHUDPageOnActivatePostfix() => BankOrchestrator.ShowPendingPopup();
 
+        private static bool DropOwnedItemToGroundLocalPrefix(Inventory __instance, ItemDescriptor item, PlayerFilter playerToPickup, bool useRandomRange, Vector3? forceDropStartPos) =>
+            InventoryOrchestrator.OnDropOwnedItem(__instance, item, playerToPickup, useRandomRange, forceDropStartPos);
+
         private static void SavePlayerGameStatesPrefix(List<PlayerGameState> gameStates) =>
             BankOrchestrator.OnSavePlayerGameStates(gameStates);
+
+        private static void SavePlayerGameStatesPostfix() =>
+            BankOrchestrator.OnSavePlayerGameStatesPostfix();
 
         private static void LoadPlayerGameStatePrefix(Guid playerUUID, ref Action<Guid, PlayerGameState> callback) =>
             BankOrchestrator.WrapLoadCallback(playerUUID, ref callback);
 
         // Keep inventory merge/split logic aware of custom currency limits.
         public static void AmountMaximumPostfix(GenericItemDescriptor __instance, ref int __result) {
-            if (Disabled || !IsHost) {
-                // Protect existing stacks: don't advertise a max lower than the current amount,
-                // otherwise the game clamps them down (InventorySyncedItems lines ~77 and ~156).
-                // On clients the host already distributed the correct amounts; we just prevent clamping.
-                if (__instance != null && __instance.Amount > __result) {
-                    __result = __instance.Amount;
-                }
-                return;
-            }
-            var cap = ResolveCap(__instance?.ItemType ?? ItemType.Unknown);
+            if (Disabled || !IsHost || __instance == null) { return; }
+            // For stash items: ChampionInventory can be any champion from past sessions,
+            // so use reference equality against the local player's actual item list.
+            // For inventory items: BelongsTo(currentChampion) is sufficient and cheaper.
+            var localChampion = PlayerManager.Instance?.LocalChampion;
+            if (localChampion?.ChampionType == null) { return; }
+            bool isLocal = __instance.IsInStash
+                ? IsLocalPlayerItem(__instance)
+                : __instance.BelongsTo(localChampion.ChampionType);
+            if (!isLocal) { return; }
+            var cap = ResolveCap(__instance.ItemType);
             if (cap > __result) { __result = cap; }
+        }
+
+        private static bool IsLocalPlayerItem(GenericItemDescriptor item) {
+            if (_syncedItemsField == null || _itemsArrayField == null) { return false; }
+            var inventory = PlayerManager.Instance?.LocalPlayer?.Inventory;
+            if (inventory == null) { return false; }
+            var syncedItems = _syncedItemsField.GetValue(inventory);
+            if (syncedItems == null) { return false; }
+            return (_itemsArrayField.GetValue(syncedItems) as System.Collections.Generic.List<GenericItemDescriptor>)
+                ?.Contains(item) ?? false;
         }
 
         // Replace the asset stack clamp used when creating network item descriptors.
@@ -208,10 +238,15 @@ namespace HandyPurse.Patch {
                 return false;
             }
 
-            var cap = ResolveCap(asset.ItemType);
-            if (cap <= 0) {
+            var managedCap = ResolveCap(asset.ItemType);
+            if (managedCap <= 0) {
                 return true; // not managed — let the original run
             }
+
+            // Only the local player gets the elevated HandyPurse cap; other players use vanilla.
+            var localChampion = PlayerManager.Instance?.LocalChampion;
+            bool isLocal = localChampion?.ChampionType == champion;
+            var cap = isLocal ? managedCap : asset.StackMaximum;
 
             if (cap <= 1) {
                 __result = 0;

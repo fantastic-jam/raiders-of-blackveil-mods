@@ -11,7 +11,10 @@ namespace HandyPurse.Bank {
     internal static class BankOrchestrator {
         internal static string PendingPopupText { get; private set; }
 
-        // ── Save hook (BackendManager.SavePlayerGameStates prefix) ────────
+        // Populated in ProcessSave (prefix), consumed in OnSavePlayerGameStatesPostfix.
+        private static readonly List<(GenericItemDescriptor Item, int OriginalAmount)> _restoreAfterSave = new();
+
+        // ── Save hook (BackendManager.SavePlayerGameStates prefix/postfix) ─
 
         internal static void OnSavePlayerGameStates(List<PlayerGameState> gameStates) {
             if (HandyPursePatch.Disabled || gameStates == null) {
@@ -24,18 +27,25 @@ namespace HandyPurse.Bank {
                 return;
             }
 
+            _restoreAfterSave.Clear();
             foreach (var state in gameStates) {
-                if (state.PlayerId != localUUID) {
-                    continue;
-                }
-                ProcessSave("Common", state.InventoryCommonData?.Items);
+                bool isLocal = state.PlayerId == localUUID;
+                ProcessSave("Common", state.InventoryCommonData?.Items, isLocal);
                 if (state.InventoryChampionData != null) {
                     foreach (var champData in state.InventoryChampionData) {
-                        ProcessSave(champData.ChampionType.ToString(), champData?.Items);
+                        ProcessSave(champData.ChampionType.ToString(), champData?.Items, isLocal);
                     }
                 }
-                break;
             }
+        }
+
+        // Restores all live GenericItemDescriptor amounts that were clamped by the prefix.
+        // Called from SavePlayerGameStatesPostfix so the player's session is not disrupted.
+        internal static void OnSavePlayerGameStatesPostfix() {
+            foreach (var (item, amount) in _restoreAfterSave) {
+                item.Amount = amount;
+            }
+            _restoreAfterSave.Clear();
         }
 
         // ── Load hook (BackendManager.LoadPlayerGameState prefix) ─────────
@@ -85,7 +95,7 @@ namespace HandyPurse.Bank {
             }
         }
 
-        private static void ProcessSave(string compartmentKey, List<GenericItemDescriptor> items) {
+        private static void ProcessSave(string compartmentKey, List<GenericItemDescriptor> items, bool isLocal) {
             if (items == null) { return; }
             var db = ItemDatabase.Instance;
             if (db == null) { return; }
@@ -93,9 +103,18 @@ namespace HandyPurse.Bank {
             var slots = ToSlots(items);
             var (entries, hash) = BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
 
+            // Capture originals before clamping so the postfix can restore them.
+            foreach (var item in items) {
+                _restoreAfterSave.Add((item, item.Amount));
+            }
+
+            // Clamp live items to vanilla cap so the cloud save sees clean amounts.
             for (int i = 0; i < items.Count; i++) {
                 items[i].Amount = slots[i].Amount;
             }
+
+            // Non-local players: vanilla clamp only, no topup (they may not have HandyPurse).
+            if (!isLocal) { return; }
 
             var topup = PurseBank.LoadTopup();
             if (entries.Count > 0) {

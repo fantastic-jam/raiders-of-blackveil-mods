@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Added
+- Dropping managed currency above the vanilla stack size now splits into multiple vanilla-sized floor pickups
+
+### Fixed
+- Stash items from previous champion sessions did not receive elevated caps — stash items are now matched by reference against the local player's item list
+- Other players' currency stacks were elevated to HandyPurse caps — elevated limits now apply to the local player's items only
+- Currency stacks lost amounts between saves in the same session — live amounts are now restored immediately after the cloud save completes
+
 ## [0.6.0] - 2026-04-29
 
 ### Added
