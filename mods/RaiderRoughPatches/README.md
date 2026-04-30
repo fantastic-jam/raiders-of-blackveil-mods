@@ -7,7 +7,10 @@ Each fix can be toggled individually in the BepInEx config file.
 ## Fixes
 
 - **Session visibility** — hosted session disappears from the server list after returning from a run
-- **Stash auto-stack** — stackable items do not merge with existing stacks when transferred from champion inventory to stash
+- **Stash auto-stack** — stackable items are automatically merged with existing stacks when double-clicking to transfer between champion inventory and stash
+- **Cross-item merge** — items of the same type (e.g. hex doll and pig stew) could be merged into the same stack by dragging or double-clicking
+- **Barrier self-grant** — self-and-nearest-ally perk effects do not apply to the caster in multiplayer
+- **Door vote on disconnect** — door vote gets stuck when a player disconnects mid-vote
 
 ---
 

@@ -84,7 +84,6 @@ namespace RaiderRoughPatches {
             _candidateActorField != null;
 
         internal static void OnDoAreaSelectionDone(AreaCharacterSelector __instance) {
-            if (!IsReady) { return; }
             if (!(bool)_chooseOwnerLastField.GetValue(__instance)) { return; }
             if ((bool)_actOnEnemiesField.GetValue(__instance)) { return; }
 
