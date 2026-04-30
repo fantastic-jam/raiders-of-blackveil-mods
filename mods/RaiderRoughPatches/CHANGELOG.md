@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.2] - 2026-04-30
 
 ### Fixed
 - Items of the same ItemType but different AssetID (e.g. hex doll and pig stew) could be merged into the same stack by dragging or double-clicking — CanMergeItem now requires matching AssetID

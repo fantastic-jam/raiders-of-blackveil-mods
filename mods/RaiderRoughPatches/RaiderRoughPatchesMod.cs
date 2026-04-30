@@ -9,7 +9,7 @@ namespace RaiderRoughPatches {
     public class RaiderRoughPatchesMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.raiderroughpatches";
         public const string Name = "RaiderRoughPatches";
-        public const string Version = "0.0.1";
+        public const string Version = "0.0.2";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
