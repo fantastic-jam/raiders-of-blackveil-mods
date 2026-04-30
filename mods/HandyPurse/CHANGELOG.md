@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.7.0] - 2026-04-30
 
 ### Added
 - Dropping managed currency above the vanilla stack size now splits into multiple vanilla-sized floor pickups
