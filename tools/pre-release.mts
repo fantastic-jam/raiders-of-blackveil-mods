@@ -17,25 +17,24 @@ const { values } = parseArgs({
   options: {
     mod: { type: 'string', short: 'm' },
     lib: { type: 'string', short: 'l' },
-    all: { type: 'boolean' },
     'dry-run': { type: 'boolean' },
   },
 })
 
-const { mod: modName, lib: libName, all } = values
+const { mod: modName, lib: libName } = values
 const allMods = listMods()
 const allLibs = listLibs()
 
-if (!modName && !libName && !all) {
+if (!modName && !libName) {
   console.error(
-    `Usage: pre-release --mod <name> | --lib <name> | --all [--dry-run]
+    `Usage: pre-release --mod <name> | --lib <name> [--dry-run]
   Mods: ${allMods.join(', ')}
   Libs: ${allLibs.join(', ')}`,
   )
   process.exit(1)
 }
-if ([modName, libName, all].filter(Boolean).length > 1) {
-  console.error('--mod, --lib, and --all are mutually exclusive.')
+if (modName && libName) {
+  console.error('--mod and --lib are mutually exclusive.')
   process.exit(1)
 }
 if (modName && !allMods.includes(modName)) {
@@ -49,15 +48,8 @@ if (libName && !allLibs.includes(libName)) {
 
 const dryRun = values['dry-run'] ?? false
 
-const projects: Array<[string, ProjectKind]> = []
-if (all) {
-  for (const m of allMods) projects.push([m, 'mod'])
-  for (const l of allLibs) projects.push([l, 'lib'])
-} else if (modName) {
-  projects.push([modName, 'mod'])
-} else if (libName) {
-  projects.push([libName, 'lib'])
-}
+const name = (modName ?? libName)!
+const kind: ProjectKind = modName ? 'mod' : 'lib'
 
 function runPreRelease(name: string, kind: ProjectKind): void {
   if (dryRun) {
@@ -102,17 +94,13 @@ function runPreRelease(name: string, kind: ProjectKind): void {
   console.log(`  version  : ${currentVersion} → ${version}  (${projectVersionFile(name, kind)})`)
 }
 
-for (const [name, kind] of projects) {
-  console.log(`\n[${name}]`)
-  runPreRelease(name, kind)
-}
+console.log(`\n[${name}]`)
+runPreRelease(name, kind)
 
 if (!dryRun) {
   const releaseCmd = modName
     ? `pnpm run release -- --mod ${modName}`
-    : libName
-      ? `pnpm run release -- --lib ${libName}`
-      : `pnpm run release -- --all`
+    : `pnpm run release -- --lib ${libName}`
 
   console.log(`\nReview the changes above, then run:\n  ${releaseCmd}`)
 }

@@ -9,8 +9,8 @@ C# BepInEx 5 mods for the game **Raiders of Blackveil**. Each mod is a separate 
 ```bash
 pnpm run build                                        # build all mods
 pnpm run deploy -- --mod [ModName]                    # build + copy to local game
-pnpm run pre-release -- --mod [ModName] --bump patch  # bump version + write CHANGELOG.md (no commit)
-pnpm run pre-release -- --mod [ModName] --version 1.2.3
+pnpm run pre-release -- --mod [ModName]               # bump version constant (reads bump level from CHANGELOG [Unreleased] header)
+pnpm run pre-release -- --mod [ModName] --dry-run     # preview version bump without writing
 pnpm run release -- --mod [ModName]                   # commit version+changelog, tag, push, GH release
 pnpm run release -- --mod [ModName] --dry-run         # preview release without modifying anything
 pnpm run release -- --mod [ModName] --skip-push --skip-release  # local only
@@ -144,14 +144,16 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 
 ## Releases
 
+Releases are always one mod (or lib) at a time — `--all` is not supported.
+
 Two-step flow:
 
-1. `pre-release` — bumps `Version` constant in `[ModName]Mod.cs`, writes `mods/[ModName]/CHANGELOG.md` from git log. **No commit.** Review and edit `CHANGELOG.md` before proceeding.
+1. `pre-release` — calls `frelease --pkg [ModName]`, which promotes `## [Unreleased]` to a versioned heading in `CHANGELOG.md` (bump level = highest entry type: major > minor > patch), then writes the new version to the `Version` constant in `[ModName]Mod.cs`. **No commit.** Review `CHANGELOG.md` before proceeding.
 2. `release` — validates dirty files (only version file + CHANGELOG.md may be dirty), stages and commits both, packages ZIP, creates git tag, pushes, creates GitHub release via `@octokit/rest`.
 
 - Tag format: `[ModName]-v[Version]`
 - ZIP structure: `plugins/fantastic-jam-[ModName]/`
-- Changelog source: `mods/[ModName]/CHANGELOG.md` if present, otherwise auto-generated from `git log --grep=[ModName]`
+- Changelog source: `mods/[ModName]/CHANGELOG.md` — required, release errors if missing
 - **Commit messages must contain the mod name** for changelog filtering to work
 - Use `--dry-run` on `release` to preview the full plan without modifying anything
 
