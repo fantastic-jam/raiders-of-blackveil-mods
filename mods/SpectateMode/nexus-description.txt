@@ -1,0 +1,23 @@
+[size=5]SpectateMode[/size]
+
+SpectateMode lets players who have been eliminated from a run watch the remaining players continue their session, rather than returning to the lobby immediately. Spectators can follow any living player's camera and observe the action until the run ends.
+
+[line]
+
+[heading]Requirements[/heading]
+
+[list]
+[*][url=https://store.steampowered.com/app/2440490/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[/list]
+
+[line]
+
+[heading]Installation[/heading]
+
+[list]
+[*]Install [url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url] into your Raiders of Blackveil game folder.
+[*]Download the latest [b]SpectateMode[/b] ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=SpectateMode]releases page[/url].
+[*]Extract the ZIP contents directly into your Raiders of Blackveil game folder (merge the [b]BepInEx/plugins/[/b] folder).
+[*]Launch the game — SpectateMode will be active automatically.
+[/list]

@@ -125,6 +125,7 @@ Focused pattern docs (with code examples):
 | Proxify pattern — `ConditionalWeakTable`, `PvpActorColliderDetector` | [`docs/dev/patterns/proxify.md`](docs/dev/patterns/proxify.md) |
 | Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md) |
 | State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](docs/dev/patterns/state.md) |
+| WMF duck typing — Enable/Disable lifecycle, Init/Patch/Unpatch split | [`docs/dev/patterns/wmf-duck-typing.md`](docs/dev/patterns/wmf-duck-typing.md) |
 
 ThePit-specific:
 

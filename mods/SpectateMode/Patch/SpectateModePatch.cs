@@ -1,0 +1,142 @@
+﻿using Fusion;
+using Fusion.Sockets;
+using HarmonyLib;
+using RR;
+using RR.Backend.API.V1.Ingress.Message;
+using RR.Level;
+
+namespace SpectateMode.Patch {
+    internal static class SpectateModePatch {
+        private static Harmony _harmony;
+        private static bool _patched;
+        internal static bool Disabled;
+
+        internal static bool Init() => true;
+
+        internal static void Patch(Harmony harmony) {
+            if (_patched) { return; }
+            _harmony = harmony;
+
+            // ── Keep the session joinable ─────────────────────────────────────
+            // Block the backend "run started" signal and the LobbyEnd metric so the
+            // session stays advertised in the server browser during a run.
+
+            var beginRun = AccessTools.Method(typeof(BackendManager), nameof(BackendManager.PlaySessionBeginRun));
+            if (beginRun != null) {
+                harmony.Patch(beginRun,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(PlaySessionBeginRunPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: BackendManager.PlaySessionBeginRun not found — session may be hidden from server browser during runs.");
+            }
+
+            var sendUpdateEvent = AccessTools.Method(typeof(MetricsManager), nameof(MetricsManager.SendPlaySessionUpdateEvent));
+            if (sendUpdateEvent != null) {
+                harmony.Patch(sendUpdateEvent,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(SendPlaySessionUpdateEventPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: MetricsManager.SendPlaySessionUpdateEvent not found — session may be hidden from server browser during runs.");
+            }
+
+            // ── Accept connections during a run ───────────────────────────────
+            // Vanilla refuses connections when IsInActiveRun. Replace with: accept
+            // iff GetPlayers().Count + PreJoinerCount < 3.
+
+            var onConnectRequest = AccessTools.Method(typeof(NetworkManager), nameof(NetworkManager.OnConnectRequest));
+            if (onConnectRequest != null) {
+                harmony.Patch(onConnectRequest,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnConnectRequestPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: NetworkManager.OnConnectRequest not found — mid-run joins will be refused by the game.");
+            }
+
+            // ── Pre-join intercept ────────────────────────────────────────────
+            // Intercept the spawn of the Player network object on join, so a mid-run
+            // joiner ends up with no Player → no AddPlayer → no champion spawn → no
+            // _activePlayers entry. Stored as a PlayerRef in SpectateModeManager.
+
+            var onPlayerJoined = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerJoined));
+            if (onPlayerJoined != null) {
+                harmony.Patch(onPlayerJoined,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnPlayerJoinedPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: PlayerManager.OnPlayerJoined not found — mid-run pre-join inactive.");
+            }
+
+            var onPlayerLeft = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerLeft));
+            if (onPlayerLeft != null) {
+                harmony.Patch(onPlayerLeft,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnPlayerLeftPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: PlayerManager.OnPlayerLeft not found — pre-joiner disconnect cleanup inactive.");
+            }
+
+            // ── Promotion at start of next-level load ─────────────────────────
+            // GameManager.NextLevel runs server-side after the previous room's exit
+            // cutscene has finished AND every existing client has reported in via
+            // DungeonManager.RPC_ObjectsCleared (so the level-exit gate has already
+            // cleared). Spawning Player objects earlier — at OutroManager.Activate or
+            // RPC_TriggerLevelExit — adds the pre-joiner to _activePlayers before the
+            // gate runs, which then waits forever for an RPC_ObjectsCleared the new
+            // half-initialized client never sends, freezing the level transition.
+            // NextLevel itself fires only for LevelWin / CheatFinish (per
+            // DungeonManager.ProceedWithLevelExit), so no reason check is needed.
+
+            var nextLevel = AccessTools.Method(typeof(GameManager), nameof(GameManager.NextLevel));
+            if (nextLevel != null) {
+                harmony.Patch(nextLevel,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(NextLevelPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: GameManager.NextLevel not found — pre-joiners will never be promoted.");
+            }
+
+            SpectateModeMod.PublicLogger.LogInfo("SpectateMode patch applied.");
+            _patched = true;
+        }
+
+        internal static void Unpatch() {
+            _harmony?.UnpatchSelf();
+            _patched = false;
+        }
+
+        // ── Patch methods ─────────────────────────────────────────────────────
+
+        private static bool PlaySessionBeginRunPrefix() => Disabled;
+
+        private static bool SendPlaySessionUpdateEventPrefix(IngressMessagePlaySessionUpdateEvent.EventType event_type) =>
+            Disabled || SpectateModeManager.ShouldSendUpdateEvent(event_type);
+
+        private static bool OnConnectRequestPrefix(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request) {
+            if (Disabled) { return true; }
+            if (!runner.IsServer) { return true; }
+            if (GameManager.Instance == null || PlayerManager.Instance == null) { return true; }
+            if (!GameManager.Instance.IsInActiveRun) { return true; }
+
+            // Count active players + pre-joiners. PlayerCount itself is not patched —
+            // gameplay systems (vote count, difficulty, enemy budget, …) must see only
+            // the real, in-world players.
+            int total = PlayerManager.Instance.GetPlayers().Count + SpectateModeManager.PreJoinerCount;
+            if (total < 3) { request.Accept(); } else { request.Refuse(); }
+            return false;
+        }
+
+        private static bool OnPlayerJoinedPrefix(NetworkRunner runner, PlayerRef playerRef) =>
+            Disabled || !SpectateModeManager.TryBeginPreJoin(runner, playerRef);
+
+        private static bool OnPlayerLeftPrefix(NetworkRunner runner, PlayerRef playerRef) =>
+            Disabled || !SpectateModeManager.TryCancelPreJoin(runner, playerRef);
+
+        private static void NextLevelPrefix(GameManager __instance) {
+            if (Disabled) { return; }
+            if (__instance.Runner == null || !__instance.Runner.IsServer) { return; }
+            // Skip the run-finish branch (NextToFinish triggers game-end UI, not a new room).
+            if (__instance.LevelProgressionHandler?.NextToFinish == true) { return; }
+            SpectateModeManager.PromoteAll();
+        }
+    }
+}
