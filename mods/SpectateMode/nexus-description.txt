@@ -1,23 +1,42 @@
 [size=5]SpectateMode[/size]
 
-SpectateMode lets players who have been eliminated from a run watch the remaining players continue their session, rather than returning to the lobby immediately. Spectators can follow any living player's camera and observe the action until the run ends.
+Lets a player join a session that is already mid-run. Instead of being turned away, they connect, wait out the current room, and spawn in at the start of the next room — with XP and perks averaged to match the existing players.
+
+The existing players see no disruption. Enemy count, vote thresholds, and difficulty scaling are all based on the players currently in the world. The waiting joiner does not count until they actually spawn in.
+
+[b]Only the host needs the mod.[/b] Clients without the mod installed still join and play normally — they receive perk choice pickups instead of shrine rooms. Unmodded clients may see console errors during the waiting phase, but these are non-breaking and stop once the joiner spawns in. Installing the mod on joining clients eliminates these errors entirely.
 
 [line]
-
-[heading]Requirements[/heading]
+[heading]How it works[/heading]
 
 [list]
-[*][url=https://store.steampowered.com/app/2440490/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
-[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[*]The joining player connects and waits — no champion, no presence in the world.[/*]
+[*]When the current room ends and the next room loads, they spawn in normally.[/*]
+[*]Their champion receives floor-averaged XP and rarity-matched random perks from the existing players.[/*]
 [/list]
 
 [line]
-
-[heading]Installation[/heading]
+[heading]Requirements[/heading]
 
 [list]
-[*]Install [url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url] into your Raiders of Blackveil game folder.
-[*]Download the latest [b]SpectateMode[/b] ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=SpectateMode]releases page[/url].
-[*]Extract the ZIP contents directly into your Raiders of Blackveil game folder (merge the [b]BepInEx/plugins/[/b] folder).
-[*]Launch the game — SpectateMode will be active automatically.
+[*][url=https://store.steampowered.com/app/2440490/Raiders_of_Blackveil/]Raiders of Blackveil[/url][/*]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url][/*]
+[*][url=https://www.nexusmods.com/raidersofblackveil/mods/12]Wildguard Mod Framework[/url][/*]
+[/list]
+
+[line]
+[heading]Installation[/heading]
+
+1. Install BepInEx (skip if already installed)
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the BepInEx_win_x64 build.[/*]
+[*]Extract the contents into your game folder (the one containing RoB.exe).[/*]
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.[/*]
+[/list]
+2. Install [url=https://www.nexusmods.com/raidersofblackveil/mods/12]Wildguard Mod Framework[/url] — required dependency.
+3. Install the mod
+[list]
+[*]Download the latest [b]SpectateMode[/b] ZIP from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=SpectateMode]releases page[/url].[/*]
+[*]Extract the ZIP contents directly into your Raiders of Blackveil game folder (merge the [b]BepInEx/plugins/[/b] folder).[/*]
+[*]Launch the game — SpectateMode will be active automatically.[/*]
 [/list]

@@ -11,7 +11,7 @@ namespace SpectateMode {
     public class SpectateModeMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.spectatemode";
         public const string Name = "SpectateMode";
-        public const string Version = "0.1.0";
+        public const string Version = "0.0.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
