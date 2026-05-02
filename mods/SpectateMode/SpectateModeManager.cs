@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Fusion;
 using RR;
 using RR.Backend.API.V1.Ingress.Message;
+using RR.Game;
+using RR.Game.Character;
+using RR.Game.Perk;
+using RR.Level;
 using UnityEngine;
 
 namespace SpectateMode {
@@ -17,13 +22,50 @@ namespace SpectateMode {
     internal static class SpectateModeManager {
         private static readonly HashSet<PlayerRef> _preJoiners = new HashSet<PlayerRef>();
 
+        // Tracks promoted PlayerRefs waiting for their champion to spawn so averaging can be applied.
+        private static readonly HashSet<PlayerRef> _pendingAveraging = new();
+
+        // Pre-joiners confirmed to have WMF/SpectateMode installed.
+        private static readonly HashSet<PlayerRef> _moddedPreJoiners = new HashSet<PlayerRef>();
+
+        // Tracks PlayerRefs promoted mid-run without the mod — their ShrineHandler._perPlayerData
+        // was never initialized so they get a random perk instead of a shrine.
+        private static readonly HashSet<PlayerRef> _unmoddedPromotedJoiners = new HashSet<PlayerRef>();
+
         internal static int PreJoinerCount => _preJoiners.Count;
+
+        // True if any pre-joiner confirmed with WMF, so the host knows to call RunStart()
+        // via the RPC_TriggerLevelExit postfix.
+        internal static bool HasModdedPreJoiner => _moddedPreJoiners.Count > 0;
 
         internal static bool IsPreJoiner(PlayerRef playerRef) => _preJoiners.Contains(playerRef);
 
+        internal static bool IsUnmoddedPromotedJoiner(PlayerRef playerRef) => _unmoddedPromotedJoiners.Contains(playerRef);
+
         // ── Lifecycle ─────────────────────────────────────────────────────────
 
-        internal static void Reset() => _preJoiners.Clear();
+        internal static void Reset() {
+            _preJoiners.Clear();
+            _pendingAveraging.Clear();
+            _moddedPreJoiners.Clear();
+            _unmoddedPromotedJoiners.Clear();
+        }
+
+        // ── Mod detection ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Called from <c>WmfNetwork.OnPlayerConfirmed</c> on the host.
+        /// Marks the pre-joiner as modded so the host knows to use the full
+        /// shrine lifecycle instead of a random perk fallback.
+        /// </summary>
+        internal static void OnPlayerConfirmed(PlayerRef playerRef, bool isModded) {
+            if (!_preJoiners.Contains(playerRef)) { return; }
+            if (isModded) {
+                _moddedPreJoiners.Add(playerRef);
+                SpectateModeMod.PublicLogger.LogInfo(
+                    $"SpectateMode: pre-joiner ref={playerRef.PlayerId} confirmed with mod.");
+            }
+        }
 
         // ── Join / leave hooks ────────────────────────────────────────────────
 
@@ -121,9 +163,111 @@ namespace SpectateMode {
             _preJoiners.Clear();
 
             foreach (var playerRef in snapshot) {
+                bool isModded = _moddedPreJoiners.Contains(playerRef);
                 SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: promoting pre-joiner ref={playerRef.PlayerId} — spawning Player prefab.");
+                    $"SpectateMode: promoting pre-joiner ref={playerRef.PlayerId} (modded={isModded}) — spawning Player prefab.");
+                _pendingAveraging.Add(playerRef);
+                if (!isModded) {
+                    _unmoddedPromotedJoiners.Add(playerRef);
+                }
                 runner.Spawn(pm.PlayerPrefab, Vector3.zero, Quaternion.identity, playerRef);
+            }
+            _moddedPreJoiners.Clear();
+        }
+
+        /// <summary>
+        /// Called server-side instead of spawning a shrine for a promoted joiner.
+        /// Their unmodded client never ran <c>ShrineHandler.SceneInit()</c> so
+        /// <c>_perPlayerData</c> is null — spawning a shrine would crash them.
+        /// We grant a random perk directly on the host instead.
+        /// </summary>
+        internal static void GrantRandomPerk(PlayerRef playerRef, int slotIndex) {
+            try {
+                var player = PlayerManager.Instance?.GetPlayerBySlot(slotIndex);
+                if (player?.PlayableChampion == null) {
+                    SpectateModeMod.PublicLogger.LogWarning(
+                        $"SpectateMode: GrantRandomPerk — no champion for slot {slotIndex}, skipping.");
+                    return;
+                }
+
+                var perks = PerkDatabase.Instance.GetRandomPerkAmount(
+                    1, Category.None, Rarity.Common, player.PlayerFilter, new List<PerkDescriptor>());
+
+                if (perks.Count == 0) {
+                    SpectateModeMod.PublicLogger.LogWarning(
+                        $"SpectateMode: GrantRandomPerk — no perk generated for slot {slotIndex}.");
+                    return;
+                }
+
+                player.PlayableChampion.PerkHandler.CollectPerkOnHost(perks[0]);
+                SpectateModeMod.PublicLogger.LogInfo(
+                    $"SpectateMode: granted perk {perks[0].PerkID} to promoted joiner ref={playerRef.PlayerId} (slot {slotIndex}).");
+            }
+            catch (Exception ex) {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    $"SpectateMode: GrantRandomPerk failed for ref={playerRef.PlayerId} — {ex.Message}");
+            }
+        }
+
+        // ── Join averaging ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Called from the <c>NetworkChampionBase.AfterSpawned</c> postfix on the server.
+        /// Applies floor-averaged XP, ability levels, and random perks to bring the newly
+        /// promoted joiner up to the same ballpark as the existing players.
+        /// </summary>
+        internal static void TryApplyAveraging(NetworkChampionBase champion) {
+            if (!champion.HasStateAuthority) { return; }
+            var player = champion.Player;
+            if (player == null) { return; }
+            if (!_pendingAveraging.Remove(player.FusionPlayerRef)) { return; }
+
+            try {
+                var existing = PlayerManager.Instance.GetPlayers()
+                    .Where(p => p != player && p.PlayableChampion != null)
+                    .ToList();
+                if (existing.Count == 0) { return; }
+
+                // XP amount (floor average).
+                champion.XP.Amount = (int)existing.Average(p => (double)p.PlayableChampion.XP.Amount);
+
+                // Ability levels: bring each ability up to the floor average of existing players.
+                ApplyAverageAbilityLevel(champion.Attack, existing.Select(p => p.PlayableChampion.Attack.ActualXPLevel));
+                ApplyAverageAbilityLevel(champion.Power, existing.Select(p => p.PlayableChampion.Power.ActualXPLevel));
+                ApplyAverageAbilityLevel(champion.Special, existing.Select(p => p.PlayableChampion.Special.ActualXPLevel));
+                ApplyAverageAbilityLevel(champion.Defensive, existing.Select(p => p.PlayableChampion.Defensive.ActualXPLevel));
+                ApplyAverageAbilityLevel(champion.Dash, existing.Select(p => p.PlayableChampion.Dash.ActualXPLevel));
+                ApplyAverageAbilityLevel(champion.Ultimate, existing.Select(p => p.PlayableChampion.Ultimate.ActualXPLevel));
+
+                // Perks: give the joiner floor(average perk count) random perks from their own pool.
+                int avgPerkCount = (int)existing.Average(p => (double)p.PlayableChampion.Stats.PerkHandler.CollectedPerks.Count);
+                GiveRandomPerks(champion, player, avgPerkCount);
+
+                SpectateModeMod.PublicLogger.LogInfo(
+                    $"SpectateMode: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XP.Amount}, perks={avgPerkCount}.");
+            }
+            catch (Exception ex) {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    $"SpectateMode: TryApplyAveraging failed for ref={player.FusionPlayerRef.PlayerId}: {ex.Message}");
+            }
+        }
+
+        private static void ApplyAverageAbilityLevel(ChampionAbility ability, IEnumerable<int> existingLevels) {
+            if (ability == null) { return; }
+            int avg = (int)existingLevels.Average();
+            int delta = avg - ability.ActualXPLevel;
+            if (delta > 0) { ability.OnUpgraded(delta, developerUpgrade: true); }
+        }
+
+        private static void GiveRandomPerks(NetworkChampionBase champion, Player player, int count) {
+            var perkHandler = champion.Stats?.PerkHandler;
+            if (perkHandler == null || count <= 0) { return; }
+            var ignore = new List<PerkDescriptor>(perkHandler.CollectedPerks);
+            for (int i = 0; i < count; i++) {
+                var result = PerkDatabase.Instance.GetRandomPerkAmount(1, Category.None, Rarity.Common, player.PlayerFilter, ignore);
+                if (result.Count == 0) { break; }
+                perkHandler.CollectPerkOnHost(result[0]);
+                ignore.Add(result[0]);
             }
         }
 

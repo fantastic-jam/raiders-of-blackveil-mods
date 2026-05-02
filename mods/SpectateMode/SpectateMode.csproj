@@ -34,4 +34,10 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\WildguardModFramework\WildguardModFramework.csproj">
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+
 </Project>

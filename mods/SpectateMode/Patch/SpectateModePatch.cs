@@ -1,15 +1,20 @@
-﻿using Fusion;
+﻿using System.Reflection;
+using Fusion;
 using Fusion.Sockets;
 using HarmonyLib;
 using RR;
 using RR.Backend.API.V1.Ingress.Message;
+using RR.Game.Character;
 using RR.Level;
+using WildguardModFramework.Network;
 
 namespace SpectateMode.Patch {
     internal static class SpectateModePatch {
         private static Harmony _harmony;
         private static bool _patched;
         internal static bool Disabled;
+
+        private static PropertyInfo _perPlayerDataSlotIndexProp;
 
         internal static bool Init() => true;
 
@@ -95,11 +100,81 @@ namespace SpectateMode.Patch {
                     "SpectateMode: GameManager.NextLevel not found — pre-joiners will never be promoted.");
             }
 
+            // ── Join averaging ────────────────────────────────────────────────
+            // After a promoted joiner's champion spawns, apply floor-averaged XP,
+            // ability levels, and random perks so they start roughly on par.
+
+            var afterSpawned = AccessTools.Method(typeof(NetworkChampionBase), nameof(NetworkChampionBase.AfterSpawned));
+            if (afterSpawned != null) {
+                harmony.Patch(afterSpawned,
+                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(ChampionAfterSpawnedPostfix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: NetworkChampionBase.AfterSpawned not found — join averaging inactive.");
+            }
+
+            // ── Skip shrine spawn for unmodded promoted joiners ───────────────
+            // Unmodded joiners never run ShrineHandler.SceneInit() so _perPlayerData
+            // is null on their client — spawning a ShrineItem crashes them with
+            // ArgumentOutOfRangeException every render frame. Skip Activate() for
+            // them server-side and grant a random perk directly instead.
+            // Modded joiners get the full shrine lifecycle via RunStart() below.
+
+            var perPlayerDataType = typeof(ShrineHandler).GetNestedType(
+                "PerPlayerShrineData", System.Reflection.BindingFlags.NonPublic);
+            if (perPlayerDataType != null) {
+                _perPlayerDataSlotIndexProp = AccessTools.Property(perPlayerDataType, "SlotIndex");
+                var activate = AccessTools.Method(perPlayerDataType, "Activate");
+                if (activate != null && _perPlayerDataSlotIndexProp != null) {
+                    harmony.Patch(activate,
+                        prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(PerPlayerShrineDataActivatePrefix)));
+                } else {
+                    SpectateModeMod.PublicLogger.LogWarning(
+                        "SpectateMode: PerPlayerShrineData.Activate or SlotIndex not found — unmodded promoted joiners will crash on shrine rooms.");
+                }
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: ShrineHandler+PerPlayerShrineData not found — unmodded promoted joiners will crash on shrine rooms.");
+            }
+
+            // ── Reset ShrineHandler for modded joiners at level exit ──────────
+            // RPC_TriggerLevelExit fires on ALL clients. Postfixing it with
+            // RunStart() resets _state = NotInitialized so the next SceneInit()
+            // populates _perPlayerData on the modded joiner's client.
+            // Only fires when a modded pre-joiner is present.
+
+            var triggerLevelExit = AccessTools.Method(typeof(DungeonManager), nameof(DungeonManager.RPC_TriggerLevelExit));
+            if (triggerLevelExit != null) {
+                harmony.Patch(triggerLevelExit,
+                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcTriggerLevelExitPostfix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: DungeonManager.RPC_TriggerLevelExit not found — modded joiners will have broken shrine.");
+            }
+
+            // ── Guard client-side crashes for modded joiners ──────────────────
+            // While spectating (no LocalPlayer), several vanilla methods crash on
+            // LocalPlayer being null. Guard them so modded joiners have a clean
+            // experience. Unmodded clients are not affected (mod not installed).
+
+            var updateFriendState = AccessTools.Method(typeof(DoorManager), "UpdateFriendState");
+            if (updateFriendState != null) {
+                harmony.Patch(updateFriendState,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(DoorManagerUpdateFriendStatePrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: DoorManager.UpdateFriendState not found — modded joiners may see door NPEs.");
+            }
+
+            // Hook WmfNetwork to detect which pre-joiners have the mod.
+            WmfNetwork.OnPlayerConfirmed += SpectateModeManager.OnPlayerConfirmed;
+
             SpectateModeMod.PublicLogger.LogInfo("SpectateMode patch applied.");
             _patched = true;
         }
 
         internal static void Unpatch() {
+            WmfNetwork.OnPlayerConfirmed -= SpectateModeManager.OnPlayerConfirmed;
             _harmony?.UnpatchSelf();
             _patched = false;
         }
@@ -137,6 +212,30 @@ namespace SpectateMode.Patch {
             // Skip the run-finish branch (NextToFinish triggers game-end UI, not a new room).
             if (__instance.LevelProgressionHandler?.NextToFinish == true) { return; }
             SpectateModeManager.PromoteAll();
+        }
+
+        private static void RpcTriggerLevelExitPostfix() {
+            if (Disabled) { return; }
+            if (!SpectateModeManager.HasModdedPreJoiner) { return; }
+            ShrineHandler.Instance?.RunStart();
+        }
+
+        private static bool DoorManagerUpdateFriendStatePrefix() =>
+            PlayerManager.Instance?.LocalPlayer != null;
+
+        private static bool PerPlayerShrineDataActivatePrefix(object __instance, NetworkRunner runner) {
+            if (Disabled) { return true; }
+            if (!runner.IsServer) { return true; }
+            var slotIndex = (int)_perPlayerDataSlotIndexProp.GetValue(__instance);
+            var playerRef = PlayerManager.Instance?.GetPlayerRefBySlot(slotIndex);
+            if (playerRef == null || !SpectateModeManager.IsUnmoddedPromotedJoiner(playerRef.Value)) { return true; }
+            SpectateModeManager.GrantRandomPerk(playerRef.Value, slotIndex);
+            return false;
+        }
+
+        private static void ChampionAfterSpawnedPostfix(NetworkChampionBase __instance) {
+            if (Disabled) { return; }
+            SpectateModeManager.TryApplyAveraging(__instance);
         }
     }
 }

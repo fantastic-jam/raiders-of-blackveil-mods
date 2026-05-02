@@ -6,6 +6,7 @@ using HarmonyLib;
 using SpectateMode.Patch;
 
 namespace SpectateMode {
+    [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     [BepInPlugin(Id, Name, Version)]
     public class SpectateModeMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.spectatemode";
