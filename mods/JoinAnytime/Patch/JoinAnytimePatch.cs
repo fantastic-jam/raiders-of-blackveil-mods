@@ -8,8 +8,8 @@ using RR.Game.Character;
 using RR.Level;
 using WildguardModFramework.Network;
 
-namespace SpectateMode.Patch {
-    internal static class SpectateModePatch {
+namespace JoinAnytime.Patch {
+    internal static class JoinAnytimePatch {
         private static Harmony _harmony;
         private static bool _patched;
         internal static bool Disabled;
@@ -30,19 +30,19 @@ namespace SpectateMode.Patch {
             var beginRun = AccessTools.Method(typeof(BackendManager), nameof(BackendManager.PlaySessionBeginRun));
             if (beginRun != null) {
                 harmony.Patch(beginRun,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(PlaySessionBeginRunPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(PlaySessionBeginRunPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: BackendManager.PlaySessionBeginRun not found — session may be hidden from server browser during runs.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: BackendManager.PlaySessionBeginRun not found — session may be hidden from server browser during runs.");
             }
 
             var sendUpdateEvent = AccessTools.Method(typeof(MetricsManager), nameof(MetricsManager.SendPlaySessionUpdateEvent));
             if (sendUpdateEvent != null) {
                 harmony.Patch(sendUpdateEvent,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(SendPlaySessionUpdateEventPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(SendPlaySessionUpdateEventPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: MetricsManager.SendPlaySessionUpdateEvent not found — session may be hidden from server browser during runs.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: MetricsManager.SendPlaySessionUpdateEvent not found — session may be hidden from server browser during runs.");
             }
 
             // ── Accept connections during a run ───────────────────────────────
@@ -52,33 +52,33 @@ namespace SpectateMode.Patch {
             var onConnectRequest = AccessTools.Method(typeof(NetworkManager), nameof(NetworkManager.OnConnectRequest));
             if (onConnectRequest != null) {
                 harmony.Patch(onConnectRequest,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnConnectRequestPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(OnConnectRequestPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: NetworkManager.OnConnectRequest not found — mid-run joins will be refused by the game.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: NetworkManager.OnConnectRequest not found — mid-run joins will be refused by the game.");
             }
 
             // ── Pre-join intercept ────────────────────────────────────────────
             // Intercept the spawn of the Player network object on join, so a mid-run
             // joiner ends up with no Player → no AddPlayer → no champion spawn → no
-            // _activePlayers entry. Stored as a PlayerRef in SpectateModeManager.
+            // _activePlayers entry. Stored as a PlayerRef in JoinAnytimeManager.
 
             var onPlayerJoined = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerJoined));
             if (onPlayerJoined != null) {
                 harmony.Patch(onPlayerJoined,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnPlayerJoinedPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(OnPlayerJoinedPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: PlayerManager.OnPlayerJoined not found — mid-run pre-join inactive.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: PlayerManager.OnPlayerJoined not found — mid-run pre-join inactive.");
             }
 
             var onPlayerLeft = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerLeft));
             if (onPlayerLeft != null) {
                 harmony.Patch(onPlayerLeft,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(OnPlayerLeftPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(OnPlayerLeftPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: PlayerManager.OnPlayerLeft not found — pre-joiner disconnect cleanup inactive.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: PlayerManager.OnPlayerLeft not found — pre-joiner disconnect cleanup inactive.");
             }
 
             // ── Promotion at start of next-level load ─────────────────────────
@@ -95,10 +95,10 @@ namespace SpectateMode.Patch {
             var nextLevel = AccessTools.Method(typeof(GameManager), nameof(GameManager.NextLevel));
             if (nextLevel != null) {
                 harmony.Patch(nextLevel,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(NextLevelPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(NextLevelPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: GameManager.NextLevel not found — pre-joiners will never be promoted.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: GameManager.NextLevel not found — pre-joiners will never be promoted.");
             }
 
             // ── Join averaging ────────────────────────────────────────────────
@@ -108,10 +108,10 @@ namespace SpectateMode.Patch {
             var afterSpawned = AccessTools.Method(typeof(NetworkChampionBase), nameof(NetworkChampionBase.AfterSpawned));
             if (afterSpawned != null) {
                 harmony.Patch(afterSpawned,
-                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(ChampionAfterSpawnedPostfix)));
+                    postfix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(ChampionAfterSpawnedPostfix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: NetworkChampionBase.AfterSpawned not found — join averaging inactive.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: NetworkChampionBase.AfterSpawned not found — join averaging inactive.");
             }
 
             // ── Skip shrine spawn for unmodded promoted joiners ───────────────
@@ -128,14 +128,14 @@ namespace SpectateMode.Patch {
                 var activate = AccessTools.Method(perPlayerDataType, "Activate");
                 if (activate != null && _perPlayerDataSlotIndexProp != null) {
                     harmony.Patch(activate,
-                        prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(PerPlayerShrineDataActivatePrefix)));
+                        prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(PerPlayerShrineDataActivatePrefix)));
                 } else {
-                    SpectateModeMod.PublicLogger.LogWarning(
-                        "SpectateMode: PerPlayerShrineData.Activate or SlotIndex not found — unmodded promoted joiners will crash on shrine rooms.");
+                    JoinAnytimeMod.PublicLogger.LogWarning(
+                        "JoinAnytime: PerPlayerShrineData.Activate or SlotIndex not found — unmodded promoted joiners will crash on shrine rooms.");
                 }
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: ShrineHandler+PerPlayerShrineData not found — unmodded promoted joiners will crash on shrine rooms.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: ShrineHandler+PerPlayerShrineData not found — unmodded promoted joiners will crash on shrine rooms.");
             }
 
             // ── Reset ShrineHandler for modded joiners at level exit ──────────
@@ -147,10 +147,10 @@ namespace SpectateMode.Patch {
             var triggerLevelExit = AccessTools.Method(typeof(DungeonManager), nameof(DungeonManager.RPC_TriggerLevelExit));
             if (triggerLevelExit != null) {
                 harmony.Patch(triggerLevelExit,
-                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcTriggerLevelExitPostfix)));
+                    postfix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(RpcTriggerLevelExitPostfix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: DungeonManager.RPC_TriggerLevelExit not found — modded joiners will have broken shrine.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: DungeonManager.RPC_TriggerLevelExit not found — modded joiners will have broken shrine.");
             }
 
             // ── Guard client-side crashes for modded joiners ──────────────────
@@ -164,17 +164,17 @@ namespace SpectateMode.Patch {
             // every frame while a modded joiner has no LocalPlayer yet.
             _doorPageField = AccessTools.Field(typeof(DoorManager), "_doorPage");
             if (_doorPageField == null) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: DoorManager._doorPage not found — Render guard inactive.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: DoorManager._doorPage not found — Render guard inactive.");
             }
 
             var doorManagerRender = AccessTools.Method(typeof(DoorManager), nameof(DoorManager.Render));
             if (doorManagerRender != null) {
                 harmony.Patch(doorManagerRender,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(DoorManagerRenderPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(DoorManagerRenderPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: DoorManager.Render not found — modded joiners may see door NPEs.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: DoorManager.Render not found — modded joiners may see door NPEs.");
             }
 
             // ── Suppress RPC_ClassBonusActivated for unmodded promoted joiners ──
@@ -186,20 +186,20 @@ namespace SpectateMode.Patch {
             var rpcClassBonusActivated = AccessTools.Method(typeof(RewardManager), nameof(RewardManager.RPC_ClassBonusActivated));
             if (rpcClassBonusActivated != null) {
                 harmony.Patch(rpcClassBonusActivated,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcClassBonusActivatedPrefix)));
+                    prefix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(RpcClassBonusActivatedPrefix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: RewardManager.RPC_ClassBonusActivated not found — class bonus RPC may crash unmodded promoted joiners.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: RewardManager.RPC_ClassBonusActivated not found — class bonus RPC may crash unmodded promoted joiners.");
             }
 
             // ── Despawn unchosen perk pickups when unmodded joiner collects one ──
             var rpcOnPerkPickup = AccessTools.Method(typeof(RewardManager), nameof(RewardManager.RPC_OnPerkPickup));
             if (rpcOnPerkPickup != null) {
                 harmony.Patch(rpcOnPerkPickup,
-                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcOnPerkPickupPostfix)));
+                    postfix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(RpcOnPerkPickupPostfix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: RewardManager.RPC_OnPerkPickup not found — unchosen perk pickups will not be cleaned up.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: RewardManager.RPC_OnPerkPickup not found — unchosen perk pickups will not be cleaned up.");
             }
 
             // ── Force spawn-point placement for promoted joiners ─────────────────
@@ -213,23 +213,23 @@ namespace SpectateMode.Patch {
             var introActivation = AccessTools.Method(typeof(IntroManager), "RPC_IntroActivation");
             if (introActivation != null) {
                 harmony.Patch(introActivation,
-                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(IntroManagerRpcIntroActivationPostfix)));
+                    postfix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(IntroManagerRpcIntroActivationPostfix)));
             } else {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: IntroManager.RPC_IntroActivation not found — promoted joiners may spawn at wrong position.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: IntroManager.RPC_IntroActivation not found — promoted joiners may spawn at wrong position.");
             }
 
-            // Subscribe to the SpectateMode-specific handshake channel.
-            // Joining clients with SpectateMode installed send "spectatemode:present" on join;
+            // Subscribe to the JoinAnytime-specific handshake channel.
+            // Joining clients with JoinAnytime installed send "joinanytime:present" on join;
             // the host uses this (not WMF's generic isModded flag) to detect mod presence.
-            WmfNetwork.Subscribe("spectatemode:present", SpectateModeManager.OnSpectateModePresentReceived);
+            WmfNetwork.Subscribe("joinanytime:present", JoinAnytimeManager.OnJoinAnytimePresentReceived);
 
-            SpectateModeMod.PublicLogger.LogInfo("SpectateMode patch applied.");
+            JoinAnytimeMod.PublicLogger.LogInfo("JoinAnytime patch applied.");
             _patched = true;
         }
 
         internal static void Unpatch() {
-            WmfNetwork.Unsubscribe("spectatemode:present", SpectateModeManager.OnSpectateModePresentReceived);
+            WmfNetwork.Unsubscribe("joinanytime:present", JoinAnytimeManager.OnJoinAnytimePresentReceived);
             _harmony?.UnpatchSelf();
             _patched = false;
         }
@@ -239,7 +239,7 @@ namespace SpectateMode.Patch {
         private static bool PlaySessionBeginRunPrefix() => Disabled;
 
         private static bool SendPlaySessionUpdateEventPrefix(IngressMessagePlaySessionUpdateEvent.EventType event_type) =>
-            Disabled || SpectateModeManager.ShouldSendUpdateEvent(event_type);
+            Disabled || JoinAnytimeManager.ShouldSendUpdateEvent(event_type);
 
         private static bool OnConnectRequestPrefix(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request) {
             if (Disabled) { return true; }
@@ -250,33 +250,33 @@ namespace SpectateMode.Patch {
             // Count active players + pre-joiners. PlayerCount itself is not patched —
             // gameplay systems (vote count, difficulty, enemy budget, …) must see only
             // the real, in-world players.
-            int total = PlayerManager.Instance.GetPlayers().Count + SpectateModeManager.PreJoinerCount;
+            int total = PlayerManager.Instance.GetPlayers().Count + JoinAnytimeManager.PreJoinerCount;
             if (total < 3) { request.Accept(); } else { request.Refuse(); }
             return false;
         }
 
         private static bool OnPlayerJoinedPrefix(NetworkRunner runner, PlayerRef playerRef) =>
-            Disabled || !SpectateModeManager.TryHandleOnPlayerJoined(runner, playerRef);
+            Disabled || !JoinAnytimeManager.TryHandleOnPlayerJoined(runner, playerRef);
 
         private static bool OnPlayerLeftPrefix(NetworkRunner runner, PlayerRef playerRef) =>
-            Disabled || !SpectateModeManager.TryCancelPreJoin(runner, playerRef);
+            Disabled || !JoinAnytimeManager.TryCancelPreJoin(runner, playerRef);
 
         private static void NextLevelPrefix(GameManager __instance) {
             if (Disabled) { return; }
             if (__instance.Runner == null || !__instance.Runner.IsServer) { return; }
             // Skip the run-finish branch (NextToFinish triggers game-end UI, not a new room).
             if (__instance.LevelProgressionHandler?.NextToFinish == true) { return; }
-            SpectateModeManager.PromoteAll();
+            JoinAnytimeManager.PromoteAll();
         }
 
         private static void IntroManagerRpcIntroActivationPostfix() {
             if (Disabled) { return; }
-            SpectateModeManager.TryPlaceAtSpawnPoint();
+            JoinAnytimeManager.TryPlaceAtSpawnPoint();
         }
 
         private static void RpcTriggerLevelExitPostfix() {
             if (Disabled) { return; }
-            if (!SpectateModeManager.HasModdedPreJoiner) { return; }
+            if (!JoinAnytimeManager.HasModdedPreJoiner) { return; }
             ShrineHandler.Instance?.RunStart();
         }
 
@@ -286,7 +286,7 @@ namespace SpectateMode.Patch {
         private static bool RpcClassBonusActivatedPrefix(int playerSlotId) {
             if (Disabled) { return true; }
             var player = PlayerManager.Instance?.GetPlayerBySlot(playerSlotId);
-            return player == null || !SpectateModeManager.IsUnmoddedPromotedJoiner(player.FusionPlayerRef);
+            return player == null || !JoinAnytimeManager.IsUnmoddedPromotedJoiner(player.FusionPlayerRef);
         }
 
         private static bool PerPlayerShrineDataActivatePrefix(object __instance, NetworkRunner runner) {
@@ -294,17 +294,17 @@ namespace SpectateMode.Patch {
             if (!runner.IsServer) { return true; }
             var slotIndex = (int)_perPlayerDataSlotIndexProp.GetValue(__instance);
             var playerRef = PlayerManager.Instance?.GetPlayerRefBySlot(slotIndex);
-            if (playerRef == null || !SpectateModeManager.IsUnmoddedPromotedJoiner(playerRef.Value)) { return true; }
-            SpectateModeManager.SpawnPerkChoices(runner, playerRef.Value, slotIndex);
+            if (playerRef == null || !JoinAnytimeManager.IsUnmoddedPromotedJoiner(playerRef.Value)) { return true; }
+            JoinAnytimeManager.SpawnPerkChoices(runner, playerRef.Value, slotIndex);
             return false;
         }
 
         private static void RpcOnPerkPickupPostfix(RewardManager __instance, NetworkObject networkObj) =>
-            SpectateModeManager.OnPerkPickupCollected(__instance.Runner, networkObj);
+            JoinAnytimeManager.OnPerkPickupCollected(__instance.Runner, networkObj);
 
         private static void ChampionAfterSpawnedPostfix(NetworkChampionBase __instance) {
             if (Disabled) { return; }
-            SpectateModeManager.TryApplyAveraging(__instance);
+            JoinAnytimeManager.TryApplyAveraging(__instance);
         }
     }
 }

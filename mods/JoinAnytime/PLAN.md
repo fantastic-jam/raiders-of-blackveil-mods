@@ -1,4 +1,4 @@
-# SpectateMode — Implementation Plan
+# JoinAnytime — Implementation Plan
 
 ## Goal
 
@@ -60,15 +60,15 @@ network connection with no behaviour attached.
 
 ## Required patches (minimal)
 
-The patch surface is small. Everything else lives in `SpectateModeManager`.
-All bodies are one-liners that delegate to `SpectateModeManager`.
+The patch surface is small. Everything else lives in `JoinAnytimeManager`.
+All bodies are one-liners that delegate to `JoinAnytimeManager`.
 
 | Method | Type | Purpose |
 |---|---|---|
 | `BackendManager.PlaySessionBeginRun` | Prefix | **Block.** Don't tell the backend the run started — the session must remain joinable in the server browser. |
 | `MetricsManager.SendPlaySessionUpdateEvent` (`event_type == LobbyEnd`) | Prefix | Block, same reason. |
 | `NetworkManager.OnConnectRequest` | Prefix | Vanilla refuses connections during `IsInActiveRun`. Replace with: accept iff `GetPlayers().Count + PreJoinerCount < 3`. The pre-joiner count is added **only here**, not on the `PlayerCount` getter (see below). |
-| `PlayerManager.OnPlayerJoined` | Prefix | If `IsInActiveRun`: register the `PlayerRef` in `SpectateModeManager.PreJoiners` and **skip** the vanilla `runner.Spawn(PlayerPrefab, …)` — nothing else needs blocking, because the entire chain (`Player.Spawned → AddPlayer`, `AfterSpawned → RPC_PlayerJoinedPlaySession`, champion spawn, progression registration) is gated on the Player object existing. |
+| `PlayerManager.OnPlayerJoined` | Prefix | If `IsInActiveRun`: register the `PlayerRef` in `JoinAnytimeManager.PreJoiners` and **skip** the vanilla `runner.Spawn(PlayerPrefab, …)` — nothing else needs blocking, because the entire chain (`Player.Spawned → AddPlayer`, `AfterSpawned → RPC_PlayerJoinedPlaySession`, champion spawn, progression registration) is gated on the Player object existing. |
 | `PlayerManager.OnPlayerLeft` | Prefix | If the leaver is a pre-joiner: drop from list, skip vanilla. No `Player` was ever spawned, so there is nothing to despawn. |
 | `GameManager.NextLevel` | Prefix | Server-only. Called by `DungeonManager.ProceedWithLevelExit` only for `LevelWin` / `CheatFinish`, and only after the previous room's exit cutscene + every existing client's `RPC_ObjectsCleared` has cleared the level-exit gate (`_closedLevelCount >= GetPlayers().Count`). Spawn each pre-joiner's `Player` prefab via `runner.Spawn(PlayerPrefab, Vector3.zero, Quaternion.identity, playerRef)` here, then clear the list. The vanilla flow takes over from there — `Player.Spawned → AddPlayer`, `AfterSpawned → RPC_PlayerJoinedPlaySession → champion spawn`, the body of `NextLevel` then issues `LevelLoadingHandler.RPC_StartSceneLoad`, scene transition (Player + champion are `DontDestroyOnLoad`), `IntroManager.RPC_IntroActivation → InitPlayerCharacterAtSpawnPoint`, `Handle_LevelEvent_IntroFinished` enables input. The prefix skips when `LevelProgressionHandler.NextToFinish` is true (NextLevel is taking the run-end branch, no new room to spawn into). |
 
@@ -92,7 +92,7 @@ is computed inline — `GetPlayers().Count + PreJoinerCount`. Vanilla
 mid-run join because our prefix returns `false` and skips the vanilla body.
 
 The lobby browser's slot count stays accurate without any `PlayerCount`
-patch. `SpectateModeManager.SendBackendCountUpdate` calls
+patch. `JoinAnytimeManager.SendBackendCountUpdate` calls
 `MetricsManager.SendPlaySessionUpdateEvent` directly when a pre-joiner is
 added or dropped, with `player_count = GetPlayers().Count + PreJoinerCount`
 and `player_id = Guid.Empty.ToString()` (the real UUID is unknown until
@@ -115,13 +115,13 @@ in it with a special flag.
 
 ---
 
-## SpectateModeManager (new helper)
+## JoinAnytimeManager (new helper)
 
-Lives next to `SpectateModeMod`. Single responsibility: own the pre-join list
+Lives next to `JoinAnytimeMod`. Single responsibility: own the pre-join list
 and trigger the deferred Player spawn.
 
 ```
-SpectateModeManager (server-authoritative — pre-join list only exists on host)
+JoinAnytimeManager (server-authoritative — pre-join list only exists on host)
 ├── State
 │   └── PreJoiners : HashSet<PlayerRef>
 ├── Lifecycle
@@ -163,7 +163,7 @@ Three distinct counts, with deliberately different semantics:
 | Count | Source | Includes pre-joiners? |
 |---|---|---|
 | **Capacity** (host accepts/refuses an incoming peer) | `OnConnectRequestPrefix` computes `GetPlayers().Count + PreJoinerCount` inline | **Yes** — pre-joiners hold a Fusion connection slot. |
-| **Backend / lobby browser** (`MetricsManager.SendPlaySessionUpdateEvent`) | `SpectateModeManager.SendBackendCountUpdate` fires `PlayerJoinedSession` / `PlayerLeftSession` on pre-join/cancel with `count = GetPlayers().Count + PreJoinerCount` | **Yes** — the browser shows the real number of connected peers. |
+| **Backend / lobby browser** (`MetricsManager.SendPlaySessionUpdateEvent`) | `JoinAnytimeManager.SendBackendCountUpdate` fires `PlayerJoinedSession` / `PlayerLeftSession` on pre-join/cancel with `count = GetPlayers().Count + PreJoinerCount` | **Yes** — the browser shows the real number of connected peers. |
 | **Gameplay** (vote count, difficulty scaling, enemy budget, perk cadence, etc.) | `PlayerManager.PlayerCount` getter, unpatched | **No** — pre-joiners cannot vote, take damage, or otherwise act. |
 
 If a pre-joiner disconnects before promotion, `CancelPreJoin` drops them
@@ -192,7 +192,7 @@ overlay using the sender tag `<server>`:
 > `[<server>] A new player is joining. They will spawn in at the start of the next room.`
 
 The bridge is reflection-only (no project reference to WMF, no
-`BepInDependency`), so SpectateMode keeps loading and working when WMF is
+`BepInDependency`), so JoinAnytime keeps loading and working when WMF is
 absent — the call simply becomes a no-op.
 
 When WMF is loaded, the bridge resolves three handles at startup:
@@ -238,14 +238,14 @@ player at the start of the next room.
 
 - **Champion selection while waiting.** Show the lobby champion-select UI to
   the pre-joiner so they can pick before promotion. Their choice is held by
-  `SpectateModeManager` and applied on the next-room spawn.
+  `JoinAnytimeManager` and applied on the next-room spawn.
 - **Notification UI for non-WMF clients.** Today the pre-join notification is
   WMF-only. A small in-game toast (e.g. via `CornerNotificationContainer`)
   would let vanilla clients also see "a player is joining" without requiring
   WMF.
-- **Notify unmodded joiners to install SpectateMode.** When a pre-joiner has
-  WMF but no SpectateMode (detected by absence of the `"spectatemode:present"`
+- **Notify unmodded joiners to install JoinAnytime.** When a pre-joiner has
+  WMF but no JoinAnytime (detected by absence of the `"joinanytime:present"`
   handshake message), the host should send them a WMF chat message explaining
-  that they need to install SpectateMode to get the full shrine experience.
+  that they need to install JoinAnytime to get the full shrine experience.
   Currently they silently receive perk-choice pickups instead of shrines with
   no explanation.

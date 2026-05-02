@@ -6,10 +6,10 @@ using Fusion;
 using HarmonyLib;
 using RR;
 
-namespace SpectateMode {
+namespace JoinAnytime {
     /// <summary>
     /// Reflection-only bridge to WildguardModFramework's chat infrastructure.
-    /// Lets SpectateMode post a system message to the WMF chat overlay locally
+    /// Lets JoinAnytime post a system message to the WMF chat overlay locally
     /// and over the network to all WMF-modded clients, without taking a hard
     /// dependency on WMF — if WMF is not loaded, all calls become no-ops.
     /// </summary>
@@ -47,8 +47,8 @@ namespace SpectateMode {
             }
 
             if (!IsAvailable) {
-                SpectateModeMod.PublicLogger.LogInfo(
-                    "SpectateMode: WMF chat not available — pre-join notifications will only appear in the BepInEx log.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    "JoinAnytime: WMF chat not available — pre-join notifications will only appear in the BepInEx log.");
             }
         }
 
@@ -67,7 +67,7 @@ namespace SpectateMode {
                 _serverChatReceive.Invoke(null, new object[] { sender, text });
             }
             catch (Exception ex) {
-                SpectateModeMod.PublicLogger.LogWarning($"SpectateMode: WMF ServerChat.ReceiveMessage failed: {ex.Message}");
+                JoinAnytimeMod.PublicLogger.LogWarning($"JoinAnytime: WMF ServerChat.ReceiveMessage failed: {ex.Message}");
             }
 
             var confirmed = _confirmedPlayersField.GetValue(null) as IEnumerable;
@@ -83,8 +83,8 @@ namespace SpectateMode {
                     _wmfSend.Invoke(null, new object[] { target, ChatChannel, payload });
                 }
                 catch (Exception ex) {
-                    SpectateModeMod.PublicLogger.LogWarning(
-                        $"SpectateMode: WMF Send to {target.PlayerId} failed: {ex.Message}");
+                    JoinAnytimeMod.PublicLogger.LogWarning(
+                        $"JoinAnytime: WMF Send to {target.PlayerId} failed: {ex.Message}");
                 }
             }
         }

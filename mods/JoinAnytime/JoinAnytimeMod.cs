@@ -3,14 +3,14 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using SpectateMode.Patch;
+using JoinAnytime.Patch;
 
-namespace SpectateMode {
+namespace JoinAnytime {
     [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     [BepInPlugin(Id, Name, Version)]
-    public class SpectateModeMod : BaseUnityPlugin {
-        private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.spectatemode";
-        public const string Name = "SpectateMode";
+    public class JoinAnytimeMod : BaseUnityPlugin {
+        private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.joinanytime";
+        public const string Name = "JoinAnytime";
         public const string Version = "0.0.0";
         public const string Author = "christphe";
 
@@ -27,20 +27,20 @@ namespace SpectateMode {
         public string GetModName() => Name;
         public string GetModDescription() => "Lets players join mid-run: they arrive dead with matched XP and perks, and are revived at the end of each arena.";
         public bool IsClientRequired => false;
-        public bool Disabled => SpectateModePatch.Disabled;
+        public bool Disabled => JoinAnytimePatch.Disabled;
 
         public void Enable() {
-            SpectateModePatch.Disabled = false;
-            SpectateModePatch.Patch(_harmony);
+            JoinAnytimePatch.Disabled = false;
+            JoinAnytimePatch.Patch(_harmony);
 #if DEV_HOTRELOAD
             Dev.HotReloadController.Enable();
 #endif
         }
 
         public void Disable() {
-            SpectateModePatch.Disabled = true;
-            SpectateModePatch.Unpatch();
-            SpectateModeManager.Reset();
+            JoinAnytimePatch.Disabled = true;
+            JoinAnytimePatch.Unpatch();
+            JoinAnytimeManager.Reset();
 #if DEV_HOTRELOAD
             Dev.HotReloadController.Disable();
 #endif
@@ -49,7 +49,7 @@ namespace SpectateMode {
         private void Awake() {
             PublicLogger = Logger;
             try {
-                if (!SpectateModePatch.Init()) {
+                if (!JoinAnytimePatch.Init()) {
                     PublicLogger.LogError($"{Name}: init failed — mod disabled.");
                     return;
                 }
@@ -64,7 +64,7 @@ namespace SpectateMode {
 #if DEV_HOTRELOAD
             CfgDevHotReloadDllPath = Config.Bind(
                 "DevHotReload", "DllPath", "",
-                "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/SpectateMode/bin/Debug/SpectateMode.dll");
+                "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/JoinAnytime/bin/Debug/JoinAnytime.dll");
             _devHarmony = new Harmony(Id + ".dev");
             Dev.HotReloadController.Initialize(_devHarmony, CfgDevHotReloadDllPath.Value);
             PublicLogger.LogWarning($"[HotReload] DEV BUILD. DLL: {CfgDevHotReloadDllPath.Value}");

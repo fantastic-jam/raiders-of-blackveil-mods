@@ -7,7 +7,7 @@ using RR.UI.Pages;
 using UnityEngine.InputSystem;
 using UnityHotReloadNS;
 
-namespace SpectateMode.Dev {
+namespace JoinAnytime.Dev {
     internal static class HotReloadController {
         private static string _dllPath;
         private static Harmony _harmony;
@@ -19,14 +19,14 @@ namespace SpectateMode.Dev {
 
             _hudUpdate = AccessTools.Method(typeof(BaseHUDPage), "Update");
             if (_hudUpdate == null) {
-                SpectateModeMod.PublicLogger.LogWarning("[HotReload] BaseHUDPage.Update not found — F9 unavailable.");
+                JoinAnytimeMod.PublicLogger.LogWarning("[HotReload] BaseHUDPage.Update not found — F9 unavailable.");
             }
         }
 
         internal static void Enable() {
             if (_hudUpdate == null) { return; }
             _harmony.Patch(_hudUpdate, postfix: new HarmonyMethod(typeof(HotReloadController), nameof(HudUpdatePostfix)));
-            SpectateModeMod.PublicLogger.LogInfo("[HotReload] Hooked BaseHUDPage.Update. Press F9 to reload.");
+            JoinAnytimeMod.PublicLogger.LogInfo("[HotReload] Hooked BaseHUDPage.Update. Press F9 to reload.");
         }
 
         internal static void Disable() {
@@ -37,18 +37,18 @@ namespace SpectateMode.Dev {
             if (Keyboard.current == null || !Keyboard.current[Key.F9].wasPressedThisFrame) {
                 return;
             }
-            SpectateModeMod.PublicLogger.LogInfo("[HotReload] F9 pressed.");
+            JoinAnytimeMod.PublicLogger.LogInfo("[HotReload] F9 pressed.");
             if (string.IsNullOrEmpty(_dllPath) || !File.Exists(_dllPath)) {
-                SpectateModeMod.PublicLogger.LogWarning($"[HotReload] DLL not found: {_dllPath}");
+                JoinAnytimeMod.PublicLogger.LogWarning($"[HotReload] DLL not found: {_dllPath}");
                 return;
             }
-            SpectateModeMod.PublicLogger.LogInfo("[HotReload] Reloading...");
+            JoinAnytimeMod.PublicLogger.LogInfo("[HotReload] Reloading...");
             try {
                 UnityHotReload.LoadNewAssemblyVersion(Assembly.GetExecutingAssembly(), _dllPath);
-                SpectateModeMod.PublicLogger.LogInfo("[HotReload] Done.");
+                JoinAnytimeMod.PublicLogger.LogInfo("[HotReload] Done.");
             }
             catch (Exception ex) {
-                SpectateModeMod.PublicLogger.LogError($"[HotReload] Failed: {ex}");
+                JoinAnytimeMod.PublicLogger.LogError($"[HotReload] Failed: {ex}");
             }
         }
     }

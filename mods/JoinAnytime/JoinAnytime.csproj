@@ -5,8 +5,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>SpectateMode</AssemblyName>
-    <RootNamespace>SpectateMode</RootNamespace>
+    <AssemblyName>JoinAnytime</AssemblyName>
+    <RootNamespace>JoinAnytime</RootNamespace>
     <LangVersion>10</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>

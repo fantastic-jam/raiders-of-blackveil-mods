@@ -1,6 +1,6 @@
-# SpectateMode
+# JoinAnytime
 
-SpectateMode lets a player join a session that is already mid-run. Instead of being turned away at the door, they connect, wait out the current room, and spawn in at the start of the next room with XP and perks averaged to match the existing players — as if they had been there from the beginning.
+JoinAnytime lets a player join a session that is already mid-run. Instead of being turned away at the door, they connect, wait out the current room, and spawn in at the start of the next room with XP and perks averaged to match the existing players — as if they had been there from the beginning.
 
 Only the host needs the mod. Joining players with the mod installed get the full experience (including shrine rooms). Joining players without the mod get perk choice pickups instead of shrines, which works without any client-side installation.
 
@@ -22,9 +22,9 @@ The existing players see no disruption. Enemy count, vote thresholds, and diffic
 
 1. Install BepInEx 5 into your Raiders of Blackveil game folder by following the [BepInEx installation guide](https://docs.bepinex.dev/articles/user_guide/installation/index.html).
 2. Install [Wildguard Mod Framework](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) — required dependency.
-3. Download the latest SpectateMode ZIP from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=SpectateMode).
+3. Download the latest JoinAnytime ZIP from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=JoinAnytime).
 4. Extract the ZIP contents directly into your Raiders of Blackveil game folder (so the `BepInEx/plugins/` folder is merged).
-5. Launch the game — SpectateMode will be active automatically.
+5. Launch the game — JoinAnytime will be active automatically.
 
 ## Notes
 

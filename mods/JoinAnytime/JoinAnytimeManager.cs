@@ -12,7 +12,7 @@ using RR.Level;
 using UnityEngine;
 using WildguardModFramework.Network;
 
-namespace SpectateMode {
+namespace JoinAnytime {
     /// <summary>
     /// Owns the server-authoritative pre-join list. A pre-joiner is a Fusion peer
     /// connected to the host but with no <see cref="Player"/> network object spawned —
@@ -21,7 +21,7 @@ namespace SpectateMode {
     /// (<c>GameManager.NextLevel</c>), going through the same vanilla spawn chain as
     /// a lobby joiner.
     /// </summary>
-    internal static class SpectateModeManager {
+    internal static class JoinAnytimeManager {
         private static readonly HashSet<PlayerRef> _preJoiners = new();
 
         // Tracks promoted PlayerRefs waiting for their champion to spawn so averaging can be applied.
@@ -31,7 +31,7 @@ namespace SpectateMode {
         // Cleared in TryPlaceAtSpawnPoint after IntroManager.RPC_IntroActivation fires.
         private static readonly HashSet<PlayerRef> _pendingPlacement = new();
 
-        // Pre-joiners confirmed to have WMF/SpectateMode installed.
+        // Pre-joiners confirmed to have WMF/JoinAnytime installed.
         private static readonly HashSet<PlayerRef> _moddedPreJoiners = new();
 
         // Tracks PlayerRefs promoted mid-run without the mod — their ShrineHandler._perPlayerData
@@ -67,16 +67,16 @@ namespace SpectateMode {
         // ── Mod detection ─────────────────────────────────────────────────────
 
         /// <summary>
-        /// Called on the host via <c>WmfNetwork.Subscribe("spectatemode:present", …)</c>.
+        /// Called on the host via <c>WmfNetwork.Subscribe("joinanytime:present", …)</c>.
         /// The joining client sends this message when they detect they are mid-run spectating,
-        /// which requires SpectateMode to be installed on their end. "isModded" from WMF's
+        /// which requires JoinAnytime to be installed on their end. "isModded" from WMF's
         /// generic <c>OnPlayerConfirmed</c> is NOT used — everyone has WMF as a dependency.
         /// </summary>
-        internal static void OnSpectateModePresentReceived(PlayerRef playerRef, byte[] _) {
+        internal static void OnJoinAnytimePresentReceived(PlayerRef playerRef, byte[] _) {
             if (!_preJoiners.Contains(playerRef)) { return; }
             if (_moddedPreJoiners.Add(playerRef)) {
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: pre-joiner ref={playerRef.PlayerId} confirmed SpectateMode installed.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: pre-joiner ref={playerRef.PlayerId} confirmed JoinAnytime installed.");
             }
         }
 
@@ -86,14 +86,14 @@ namespace SpectateMode {
         /// Called from <c>PlayerManager.OnPlayerJoined</c> prefix on all machines.
         /// On the server: delegates to <see cref="TryBeginPreJoin"/> and returns its result.
         /// On clients: if this is the local player joining mid-run, sends the
-        /// SpectateMode presence message to the host so the host can detect mod presence.
+        /// JoinAnytime presence message to the host so the host can detect mod presence.
         /// Always returns false on clients (vanilla spawn must proceed normally).
         /// </summary>
         internal static bool TryHandleOnPlayerJoined(NetworkRunner runner, PlayerRef playerRef) {
             if (runner == null) { return false; }
             if (runner.IsServer) { return TryBeginPreJoin(runner, playerRef); }
             if (playerRef == runner.LocalPlayer && GameManager.Instance?.IsInActiveRun == true) {
-                WmfNetwork.SendToHost("spectatemode:present", System.Array.Empty<byte>());
+                WmfNetwork.SendToHost("joinanytime:present", System.Array.Empty<byte>());
             }
             return false;
         }
@@ -103,8 +103,8 @@ namespace SpectateMode {
             if (GameManager.Instance == null || !GameManager.Instance.IsInActiveRun) { return false; }
 
             if (_preJoiners.Add(playerRef)) {
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: pre-joining ref={playerRef.PlayerId} (active={PlayerManager.Instance?.GetPlayers().Count ?? 0}, pre={_preJoiners.Count}).");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: pre-joining ref={playerRef.PlayerId} (active={PlayerManager.Instance?.GetPlayers().Count ?? 0}, pre={_preJoiners.Count}).");
                 WmfChatBridge.HostNotify("A new player is joining. They will spawn in at the start of the next room.");
                 SendBackendCountUpdate(IngressMessagePlaySessionUpdateEvent.EventType.PlayerJoinedSession);
             }
@@ -126,8 +126,8 @@ namespace SpectateMode {
             _pendingPlacement.Remove(playerRef);
             _unmoddedPromotedJoiners.Remove(playerRef);
 
-            SpectateModeMod.PublicLogger.LogInfo(
-                $"SpectateMode: pre-joiner ref={playerRef.PlayerId} disconnected — dropped (pre={_preJoiners.Count}).");
+            JoinAnytimeMod.PublicLogger.LogInfo(
+                $"JoinAnytime: pre-joiner ref={playerRef.PlayerId} disconnected — dropped (pre={_preJoiners.Count}).");
             SendBackendCountUpdate(IngressMessagePlaySessionUpdateEvent.EventType.PlayerLeftSession);
             return true;
         }
@@ -150,8 +150,8 @@ namespace SpectateMode {
                 });
             }
             catch (Exception ex) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    $"SpectateMode: failed to send {eventType} backend update: {ex.Message}");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    $"JoinAnytime: failed to send {eventType} backend update: {ex.Message}");
             }
         }
 
@@ -182,8 +182,8 @@ namespace SpectateMode {
             var pm = PlayerManager.Instance;
             var runner = pm?.Runner;
             if (pm == null || runner == null || !runner.IsServer || pm.PlayerPrefab == null) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: PromoteAll skipped — PlayerManager / Runner / PlayerPrefab not ready.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: PromoteAll skipped — PlayerManager / Runner / PlayerPrefab not ready.");
                 return;
             }
 
@@ -194,8 +194,8 @@ namespace SpectateMode {
 
             foreach (var playerRef in snapshot) {
                 bool isModded = _moddedPreJoiners.Contains(playerRef);
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: promoting pre-joiner ref={playerRef.PlayerId} (modded={isModded}) — spawning Player prefab.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: promoting pre-joiner ref={playerRef.PlayerId} (modded={isModded}) — spawning Player prefab.");
                 _pendingAveraging.Add(playerRef);
                 _pendingPlacement.Add(playerRef);
                 if (!isModded) {
@@ -217,15 +217,15 @@ namespace SpectateMode {
         internal static void SpawnPerkChoices(NetworkRunner runner, PlayerRef playerRef, int slotIndex) {
             var player = PlayerManager.Instance?.GetPlayerBySlot(slotIndex);
             if (player?.PlayableChampion == null) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    $"SpectateMode: SpawnPerkChoices — no champion for slot {slotIndex}, skipping.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    $"JoinAnytime: SpawnPerkChoices — no champion for slot {slotIndex}, skipping.");
                 return;
             }
 
             var prefab = RewardManager.Instance?.RewardPerkPickupPrefab;
             if (prefab == null) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: SpawnPerkChoices — RewardPerkPickupPrefab not available.");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: SpawnPerkChoices — RewardPerkPickupPrefab not available.");
                 return;
             }
 
@@ -258,8 +258,8 @@ namespace SpectateMode {
 
             if (pickups.Count > 0) {
                 _unmoddedPerkChoices[playerRef] = pickups;
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: spawned {pickups.Count} perk choices for unmodded joiner ref={playerRef.PlayerId}.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: spawned {pickups.Count} perk choices for unmodded joiner ref={playerRef.PlayerId}.");
             }
         }
 
@@ -306,8 +306,8 @@ namespace SpectateMode {
                 var player = PlayerManager.Instance?.GetPlayerByRef(playerRef);
                 if (player?.PlayableChampion == null) { continue; }
                 lm.InitPlayerCharacterAtSpawnPoint(player);
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: forced spawn-point placement for promoted joiner ref={playerRef.PlayerId}.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: forced spawn-point placement for promoted joiner ref={playerRef.PlayerId}.");
             }
         }
 
@@ -339,12 +339,12 @@ namespace SpectateMode {
                     .ToList();
                 GiveRandomPerks(champion, player, avgPerkCount, perksBySlot);
 
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XP.Amount}, perks={avgPerkCount}.");
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XP.Amount}, perks={avgPerkCount}.");
             }
             catch (Exception ex) {
-                SpectateModeMod.PublicLogger.LogWarning(
-                    $"SpectateMode: TryApplyAveraging failed for ref={player.FusionPlayerRef.PlayerId}: {ex.Message}");
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    $"JoinAnytime: TryApplyAveraging failed for ref={player.FusionPlayerRef.PlayerId}: {ex.Message}");
             }
         }
 
