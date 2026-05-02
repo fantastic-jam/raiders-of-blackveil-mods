@@ -6,9 +6,11 @@ using RR;
 using RR.Backend.API.V1.Ingress.Message;
 using RR.Game;
 using RR.Game.Character;
+using RR.Game.Pickups;
 using RR.Game.Perk;
 using RR.Level;
 using UnityEngine;
+using WildguardModFramework.Network;
 
 namespace SpectateMode {
     /// <summary>
@@ -20,22 +22,27 @@ namespace SpectateMode {
     /// a lobby joiner.
     /// </summary>
     internal static class SpectateModeManager {
-        private static readonly HashSet<PlayerRef> _preJoiners = new HashSet<PlayerRef>();
+        private static readonly HashSet<PlayerRef> _preJoiners = new();
 
         // Tracks promoted PlayerRefs waiting for their champion to spawn so averaging can be applied.
         private static readonly HashSet<PlayerRef> _pendingAveraging = new();
 
         // Pre-joiners confirmed to have WMF/SpectateMode installed.
-        private static readonly HashSet<PlayerRef> _moddedPreJoiners = new HashSet<PlayerRef>();
+        private static readonly HashSet<PlayerRef> _moddedPreJoiners = new();
 
         // Tracks PlayerRefs promoted mid-run without the mod — their ShrineHandler._perPlayerData
-        // was never initialized so they get a random perk instead of a shrine.
-        private static readonly HashSet<PlayerRef> _unmoddedPromotedJoiners = new HashSet<PlayerRef>();
+        // was never initialized so they get perk choice pickups instead of a shrine.
+        private static readonly HashSet<PlayerRef> _unmoddedPromotedJoiners = new();
+
+        // Tracks the 3 perk choice pickups spawned per unmodded joiner so siblings can be
+        // despawned when one is collected.
+        private static readonly Dictionary<PlayerRef, List<NetworkObject>> _unmoddedPerkChoices = new();
 
         internal static int PreJoinerCount => _preJoiners.Count;
 
-        // True if any pre-joiner confirmed with WMF, so the host knows to call RunStart()
-        // via the RPC_TriggerLevelExit postfix.
+        // RpcTriggerLevelExitPostfix checks this to decide whether to call ShrineHandler.RunStart().
+        // It runs before NextLevel (which calls PromoteAll, which clears _moddedPreJoiners), so
+        // the flag is still set when the postfix fires.
         internal static bool HasModdedPreJoiner => _moddedPreJoiners.Count > 0;
 
         internal static bool IsPreJoiner(PlayerRef playerRef) => _preJoiners.Contains(playerRef);
@@ -49,31 +56,43 @@ namespace SpectateMode {
             _pendingAveraging.Clear();
             _moddedPreJoiners.Clear();
             _unmoddedPromotedJoiners.Clear();
+            _unmoddedPerkChoices.Clear();
         }
 
         // ── Mod detection ─────────────────────────────────────────────────────
 
         /// <summary>
-        /// Called from <c>WmfNetwork.OnPlayerConfirmed</c> on the host.
-        /// Marks the pre-joiner as modded so the host knows to use the full
-        /// shrine lifecycle instead of a random perk fallback.
+        /// Called on the host via <c>WmfNetwork.Subscribe("spectatemode:present", …)</c>.
+        /// The joining client sends this message when they detect they are mid-run spectating,
+        /// which requires SpectateMode to be installed on their end. "isModded" from WMF's
+        /// generic <c>OnPlayerConfirmed</c> is NOT used — everyone has WMF as a dependency.
         /// </summary>
-        internal static void OnPlayerConfirmed(PlayerRef playerRef, bool isModded) {
+        internal static void OnSpectateModePresentReceived(PlayerRef playerRef, byte[] _) {
             if (!_preJoiners.Contains(playerRef)) { return; }
-            if (isModded) {
-                _moddedPreJoiners.Add(playerRef);
+            if (_moddedPreJoiners.Add(playerRef)) {
                 SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: pre-joiner ref={playerRef.PlayerId} confirmed with mod.");
+                    $"SpectateMode: pre-joiner ref={playerRef.PlayerId} confirmed SpectateMode installed.");
             }
         }
 
         // ── Join / leave hooks ────────────────────────────────────────────────
 
         /// <summary>
-        /// Called from <c>PlayerManager.OnPlayerJoined</c> prefix on the server.
-        /// Returns true if the join should be intercepted (run is in progress) — the
-        /// caller must skip the vanilla spawn. Returns false to let vanilla run.
+        /// Called from <c>PlayerManager.OnPlayerJoined</c> prefix on all machines.
+        /// On the server: delegates to <see cref="TryBeginPreJoin"/> and returns its result.
+        /// On clients: if this is the local player joining mid-run, sends the
+        /// SpectateMode presence message to the host so the host can detect mod presence.
+        /// Always returns false on clients (vanilla spawn must proceed normally).
         /// </summary>
+        internal static bool TryHandleOnPlayerJoined(NetworkRunner runner, PlayerRef playerRef) {
+            if (runner == null) { return false; }
+            if (runner.IsServer) { return TryBeginPreJoin(runner, playerRef); }
+            if (playerRef == runner.LocalPlayer && GameManager.Instance?.IsInActiveRun == true) {
+                WmfNetwork.SendToHost("spectatemode:present", System.Array.Empty<byte>());
+            }
+            return false;
+        }
+
         internal static bool TryBeginPreJoin(NetworkRunner runner, PlayerRef playerRef) {
             if (runner == null || !runner.IsServer) { return false; }
             if (GameManager.Instance == null || !GameManager.Instance.IsInActiveRun) { return false; }
@@ -95,6 +114,11 @@ namespace SpectateMode {
         internal static bool TryCancelPreJoin(NetworkRunner runner, PlayerRef playerRef) {
             if (runner == null || !runner.IsServer) { return false; }
             if (!_preJoiners.Remove(playerRef)) { return false; }
+
+            // Also clean up any promotion-phase state in case they disconnect after PromoteAll
+            // but before their champion spawns or a shrine activates.
+            _pendingAveraging.Remove(playerRef);
+            _unmoddedPromotedJoiners.Remove(playerRef);
 
             SpectateModeMod.PublicLogger.LogInfo(
                 $"SpectateMode: pre-joiner ref={playerRef.PlayerId} disconnected — dropped (pre={_preJoiners.Count}).");
@@ -176,36 +200,78 @@ namespace SpectateMode {
         }
 
         /// <summary>
-        /// Called server-side instead of spawning a shrine for a promoted joiner.
-        /// Their unmodded client never ran <c>ShrineHandler.SceneInit()</c> so
-        /// <c>_perPlayerData</c> is null — spawning a shrine would crash them.
-        /// We grant a random perk directly on the host instead.
+        /// Called server-side instead of spawning a shrine for a promoted unmodded joiner.
+        /// Their client never ran <c>ShrineHandler.SceneInit()</c> so <c>_perPlayerData</c>
+        /// is uninitialised — a shrine would be broken for them. Instead we spawn three
+        /// <see cref="PerkPickup"/> NetworkObjects assigned to that player: they walk over one
+        /// to collect it, and the other two are despawned via
+        /// <see cref="OnPerkPickupCollected"/>.
         /// </summary>
-        internal static void GrantRandomPerk(PlayerRef playerRef, int slotIndex) {
-            try {
-                var player = PlayerManager.Instance?.GetPlayerBySlot(slotIndex);
-                if (player?.PlayableChampion == null) {
-                    SpectateModeMod.PublicLogger.LogWarning(
-                        $"SpectateMode: GrantRandomPerk — no champion for slot {slotIndex}, skipping.");
-                    return;
-                }
-
-                var perks = PerkDatabase.Instance.GetRandomPerkAmount(
-                    1, Category.None, Rarity.Common, player.PlayerFilter, new List<PerkDescriptor>());
-
-                if (perks.Count == 0) {
-                    SpectateModeMod.PublicLogger.LogWarning(
-                        $"SpectateMode: GrantRandomPerk — no perk generated for slot {slotIndex}.");
-                    return;
-                }
-
-                player.PlayableChampion.PerkHandler.CollectPerkOnHost(perks[0]);
-                SpectateModeMod.PublicLogger.LogInfo(
-                    $"SpectateMode: granted perk {perks[0].PerkID} to promoted joiner ref={playerRef.PlayerId} (slot {slotIndex}).");
-            }
-            catch (Exception ex) {
+        internal static void SpawnPerkChoices(NetworkRunner runner, PlayerRef playerRef, int slotIndex) {
+            var player = PlayerManager.Instance?.GetPlayerBySlot(slotIndex);
+            if (player?.PlayableChampion == null) {
                 SpectateModeMod.PublicLogger.LogWarning(
-                    $"SpectateMode: GrantRandomPerk failed for ref={playerRef.PlayerId} — {ex.Message}");
+                    $"SpectateMode: SpawnPerkChoices — no champion for slot {slotIndex}, skipping.");
+                return;
+            }
+
+            var prefab = RewardManager.Instance?.RewardPerkPickupPrefab;
+            if (prefab == null) {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: SpawnPerkChoices — RewardPerkPickupPrefab not available.");
+                return;
+            }
+
+            var perks = PerkDatabase.Instance.GetRandomPerkAmount(
+                3, Category.None, Rarity.Common, player.PlayerFilter, new List<PerkDescriptor>());
+            if (perks.Count == 0) { return; }
+
+            // Despawn any leftover choices from a previous shrine room (shouldn't normally happen).
+            if (_unmoddedPerkChoices.TryGetValue(playerRef, out var stale)) {
+                foreach (var obj in stale) {
+                    if (obj != null && obj.IsValid) { runner.Despawn(obj); }
+                }
+            }
+
+            var basePos = player.PlayableChampion.transform.position;
+            var pickups = new List<NetworkObject>(perks.Count);
+
+            for (int i = 0; i < perks.Count; i++) {
+                var perk = perks[i];
+                float angle = i * (360f / perks.Count) * Mathf.Deg2Rad;
+                var offset = new Vector3(Mathf.Sin(angle) * 1.5f, 0f, Mathf.Cos(angle) * 1.5f);
+                var spawned = runner.Spawn(prefab, basePos + offset, Quaternion.identity, playerRef,
+                    (_, no) => {
+                        var pickup = no.GetComponent<PerkPickup>();
+                        pickup.PerkID = perk.PerkID;
+                        pickup.Category = perk.Category;
+                    });
+                if (spawned != null) { pickups.Add(spawned); }
+            }
+
+            if (pickups.Count > 0) {
+                _unmoddedPerkChoices[playerRef] = pickups;
+                SpectateModeMod.PublicLogger.LogInfo(
+                    $"SpectateMode: spawned {pickups.Count} perk choices for unmodded joiner ref={playerRef.PlayerId}.");
+            }
+        }
+
+        /// <summary>
+        /// Called from the <c>RewardManager.RPC_OnPerkPickup</c> postfix on the server.
+        /// When a pickup belonging to an unmodded joiner's choice set is collected,
+        /// despawns the remaining unchosen pickups.
+        /// </summary>
+        internal static void OnPerkPickupCollected(NetworkRunner runner, NetworkObject pickup) {
+            if (!runner.IsServer) { return; }
+            foreach (var kvp in _unmoddedPerkChoices) {
+                if (!kvp.Value.Contains(pickup)) { continue; }
+                foreach (var sibling in kvp.Value) {
+                    if (sibling != pickup && sibling != null && sibling.IsValid) {
+                        runner.Despawn(sibling);
+                    }
+                }
+                _unmoddedPerkChoices.Remove(kvp.Key);
+                return;
             }
         }
 
@@ -228,20 +294,14 @@ namespace SpectateMode {
                     .ToList();
                 if (existing.Count == 0) { return; }
 
-                // XP amount (floor average).
                 champion.XP.Amount = (int)existing.Average(p => (double)p.PlayableChampion.XP.Amount);
 
-                // Ability levels: bring each ability up to the floor average of existing players.
-                ApplyAverageAbilityLevel(champion.Attack, existing.Select(p => p.PlayableChampion.Attack.ActualXPLevel));
-                ApplyAverageAbilityLevel(champion.Power, existing.Select(p => p.PlayableChampion.Power.ActualXPLevel));
-                ApplyAverageAbilityLevel(champion.Special, existing.Select(p => p.PlayableChampion.Special.ActualXPLevel));
-                ApplyAverageAbilityLevel(champion.Defensive, existing.Select(p => p.PlayableChampion.Defensive.ActualXPLevel));
-                ApplyAverageAbilityLevel(champion.Dash, existing.Select(p => p.PlayableChampion.Dash.ActualXPLevel));
-                ApplyAverageAbilityLevel(champion.Ultimate, existing.Select(p => p.PlayableChampion.Ultimate.ActualXPLevel));
-
-                // Perks: give the joiner floor(average perk count) random perks from their own pool.
-                int avgPerkCount = (int)existing.Average(p => (double)p.PlayableChampion.Stats.PerkHandler.CollectedPerks.Count);
-                GiveRandomPerks(champion, player, avgPerkCount);
+                int avgPerkCount = (int)existing.Average(p => (double)p.PlayableChampion.PerkHandler.CollectedPerks.Count);
+                var perksBySlot = existing
+                    .Select(p => p.PlayableChampion.PerkHandler.CollectedPerks
+                        .OrderBy(pk => (int)pk.Rarity).ToList())
+                    .ToList();
+                GiveRandomPerks(champion, player, avgPerkCount, perksBySlot);
 
                 SpectateModeMod.PublicLogger.LogInfo(
                     $"SpectateMode: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XP.Amount}, perks={avgPerkCount}.");
@@ -252,23 +312,25 @@ namespace SpectateMode {
             }
         }
 
-        private static void ApplyAverageAbilityLevel(ChampionAbility ability, IEnumerable<int> existingLevels) {
-            if (ability == null) { return; }
-            int avg = (int)existingLevels.Average();
-            int delta = avg - ability.ActualXPLevel;
-            if (delta > 0) { ability.OnUpgraded(delta, developerUpgrade: true); }
-        }
-
-        private static void GiveRandomPerks(NetworkChampionBase champion, Player player, int count) {
-            var perkHandler = champion.Stats?.PerkHandler;
+        private static void GiveRandomPerks(NetworkChampionBase champion, Player player, int count, List<List<PerkDescriptor>> perksBySlot) {
+            var perkHandler = champion.PerkHandler;
             if (perkHandler == null || count <= 0) { return; }
             var ignore = new List<PerkDescriptor>(perkHandler.CollectedPerks);
             for (int i = 0; i < count; i++) {
-                var result = PerkDatabase.Instance.GetRandomPerkAmount(1, Category.None, Rarity.Common, player.PlayerFilter, ignore);
+                var rarity = perksBySlot != null ? AverageRarityAtSlot(perksBySlot, i) : Rarity.Common;
+                var result = PerkDatabase.Instance.GetRandomPerkAmount(1, Category.None, rarity, player.PlayerFilter, ignore);
                 if (result.Count == 0) { break; }
                 perkHandler.CollectPerkOnHost(result[0]);
                 ignore.Add(result[0]);
             }
+        }
+
+        private static Rarity AverageRarityAtSlot(List<List<PerkDescriptor>> perksBySlot, int slot) {
+            var values = perksBySlot
+                .Where(list => slot < list.Count)
+                .Select(list => (int)list[slot].Rarity)
+                .ToList();
+            return values.Count == 0 ? Rarity.Common : (Rarity)(int)values.Average();
         }
 
         // ── Block "run started" backend signal ────────────────────────────────

@@ -166,15 +166,27 @@ namespace SpectateMode.Patch {
                     "SpectateMode: DoorManager.UpdateFriendState not found — modded joiners may see door NPEs.");
             }
 
-            // Hook WmfNetwork to detect which pre-joiners have the mod.
-            WmfNetwork.OnPlayerConfirmed += SpectateModeManager.OnPlayerConfirmed;
+            // ── Despawn unchosen perk pickups when unmodded joiner collects one ──
+            var rpcOnPerkPickup = AccessTools.Method(typeof(RewardManager), nameof(RewardManager.RPC_OnPerkPickup));
+            if (rpcOnPerkPickup != null) {
+                harmony.Patch(rpcOnPerkPickup,
+                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcOnPerkPickupPostfix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: RewardManager.RPC_OnPerkPickup not found — unchosen perk pickups will not be cleaned up.");
+            }
+
+            // Subscribe to the SpectateMode-specific handshake channel.
+            // Joining clients with SpectateMode installed send "spectatemode:present" on join;
+            // the host uses this (not WMF's generic isModded flag) to detect mod presence.
+            WmfNetwork.Subscribe("spectatemode:present", SpectateModeManager.OnSpectateModePresentReceived);
 
             SpectateModeMod.PublicLogger.LogInfo("SpectateMode patch applied.");
             _patched = true;
         }
 
         internal static void Unpatch() {
-            WmfNetwork.OnPlayerConfirmed -= SpectateModeManager.OnPlayerConfirmed;
+            WmfNetwork.Unsubscribe("spectatemode:present", SpectateModeManager.OnSpectateModePresentReceived);
             _harmony?.UnpatchSelf();
             _patched = false;
         }
@@ -201,7 +213,7 @@ namespace SpectateMode.Patch {
         }
 
         private static bool OnPlayerJoinedPrefix(NetworkRunner runner, PlayerRef playerRef) =>
-            Disabled || !SpectateModeManager.TryBeginPreJoin(runner, playerRef);
+            Disabled || !SpectateModeManager.TryHandleOnPlayerJoined(runner, playerRef);
 
         private static bool OnPlayerLeftPrefix(NetworkRunner runner, PlayerRef playerRef) =>
             Disabled || !SpectateModeManager.TryCancelPreJoin(runner, playerRef);
@@ -229,9 +241,12 @@ namespace SpectateMode.Patch {
             var slotIndex = (int)_perPlayerDataSlotIndexProp.GetValue(__instance);
             var playerRef = PlayerManager.Instance?.GetPlayerRefBySlot(slotIndex);
             if (playerRef == null || !SpectateModeManager.IsUnmoddedPromotedJoiner(playerRef.Value)) { return true; }
-            SpectateModeManager.GrantRandomPerk(playerRef.Value, slotIndex);
+            SpectateModeManager.SpawnPerkChoices(runner, playerRef.Value, slotIndex);
             return false;
         }
+
+        private static void RpcOnPerkPickupPostfix(RewardManager __instance, NetworkObject networkObj) =>
+            SpectateModeManager.OnPerkPickupCollected(__instance.Runner, networkObj);
 
         private static void ChampionAfterSpawnedPostfix(NetworkChampionBase __instance) {
             if (Disabled) { return; }
