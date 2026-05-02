@@ -7,6 +7,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using ModRegistry;
 using ThePit.Patch;
+using WildguardModFramework;
 using WildguardModFramework.Translation;
 
 namespace ThePit {

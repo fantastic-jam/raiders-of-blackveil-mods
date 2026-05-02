@@ -2,6 +2,18 @@
 
 WildguardModFramework (WMF) can discover mods via reflection rather than requiring them to explicitly implement `IModRegistrant`. This is called **duck typing** — if the plugin class has the right public methods, WMF treats it as a registrant without a compile-time interface reference.
 
+## Scope: discovery only
+
+Duck typing is limited to basic mod discovery (appearing in the WMF Mods list with a toggle). Any mod that calls a WMF API **must** compile against `WildguardModFramework.dll` and declare the dependency:
+
+```csharp
+[BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
+```
+
+This collapses the compatibility matrix to two states — *has WMF* or *doesn't have the mod* — and lets BepInEx enforce load order. It makes the "mod without WMF" state impossible for any mod that needs WMF features.
+
+The APIs that require a WMF reference are: game modes (`IGameModeProvider`, `GameModeVariant`), networking (`WmfNetwork`), and notifications (`WmfNotifications`, `NotificationLevel`).
+
 ## Why use duck typing instead of `IModRegistrant`?
 
 - No `ProjectReference` to `ModRegistry` required — keeps the mod self-contained.
@@ -109,6 +121,23 @@ public class [ModName]Mod : BaseUnityPlugin {
     }
 }
 ```
+
+## Sending notifications 
+
+Any mod can push a corner notification to all WMF players in the session by broadcasting on the `"wmf.notification"` channel. WMF subscribes to that channel and displays the message locally; **older WMF versions that do not subscribe silently drop the message — they never crash.**
+
+```csharp
+using WildguardModFramework;
+using WildguardModFramework.Notifications;
+
+WmfNotifications.Notify("Install JoinAnytime!", NotificationLevel.Info, autoClose: true);
+```
+
+`Notify()` shows the notification locally and broadcasts to all WMF clients if the caller is the host.
+
+See [API.md](../../mods/WildguardModFramework/API.md#notifications-api) for the full reference.
+
+---
 
 ## Rules
 

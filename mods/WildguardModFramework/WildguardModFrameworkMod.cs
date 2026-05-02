@@ -10,6 +10,7 @@ using WildguardModFramework.Chat;
 using WildguardModFramework.Fixes;
 using WildguardModFramework.ModMenu;
 using WildguardModFramework.Network;
+using WildguardModFramework.Notifications;
 using WildguardModFramework.PlayerManagement;
 using WildguardModFramework.Translation;
 
@@ -74,6 +75,7 @@ namespace WildguardModFramework {
                 var runnerGo = new GameObject("WMF.CoroutineRunner");
                 DontDestroyOnLoad(runnerGo);
                 Runner = runnerGo.AddComponent<CoroutineRunner>();
+                WmfNotifications.Init(runnerGo.AddComponent<ModNotificationOverlay>());
 
                 t = TranslationService.For(Name, Info.Location);
                 _harmony = new Harmony(Id);
