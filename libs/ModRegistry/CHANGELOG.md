@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] - minor
+
+### Changed
+- GameModeVariant and IGameModeProvider moved to WildguardModFramework.GameMode
 
 ## [0.3.0] - 2026-04-08
 
