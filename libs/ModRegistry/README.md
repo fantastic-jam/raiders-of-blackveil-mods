@@ -1,18 +1,14 @@
 # ModRegistry
 
-Shared contract library for [ModManager](../../mods/ModManager/README.md). Provides the `IModRegistrant` interface and `ModType` enum so mods can declare themselves to ModManager in a strongly-typed way.
+Minimal contract library for WMF mod discovery. Provides `IModRegistrant`, `IModMenuProvider`, and `ModType` — the surface WMF needs to discover, toggle, and display any mod.
 
-Referencing this DLL is **optional** — ModManager also discovers mods via duck typing (matching method names by convention). Use this library when you want compile-time safety and IDE support.
+Game mode support (`IGameModeProvider`, `GameModeVariant`) and notifications (`NotificationLevel`) live in `WildguardModFramework.dll` — those features require WMF to be installed, so there is no reason to keep them in a separate lib.
+
+Referencing this DLL is **optional** — WMF also discovers mods via duck typing. Use it when you want compile-time safety and IDE support.
 
 ---
 
 ## Usage
-
-### 1. Reference the DLL
-
-Add a project reference or drop `ModRegistry.dll` next to your mod's DLL in `BepInEx/plugins/`.
-
-In your `.csproj`:
 
 ```xml
 <ItemGroup>
@@ -22,46 +18,42 @@ In your `.csproj`:
 </ItemGroup>
 ```
 
-### 2. Implement the interface
-
 ```csharp
 using ModRegistry;
 
 [BepInPlugin(Id, Name, Version)]
 public class MyMod : BaseUnityPlugin, IModRegistrant {
-    public string GetModType() => nameof(ModType.Mod); // or Cheat, Cosmetics, Utility
+    public string GetModType() => nameof(ModType.Mod); // Mod | Cheat | Cosmetics | Utility | GameMode
     public string GetModName() => "My Mod";
     public bool Disabled { get; private set; }
-    public void Disable() {
-        Disabled = true;
-        _harmony?.UnpatchSelf();
-    }
+    public void Disable() { Disabled = true; _harmony?.UnpatchSelf(); }
+    public void Enable()  { Disabled = false; _harmony?.PatchAll(); }
 }
 ```
 
 ### `ModType` values
 
 | Value | Meaning |
-|-------|---------|
+|---|---|
 | `Mod` | Gameplay-affecting mod |
 | `Cheat` | Cheat / debug tool |
 | `Cosmetics` | Visual/audio only |
 | `Utility` | Infrastructure, no direct gameplay effect |
-
-### Optional members
-
-`GetModName()` and `GetModDescription()` have default implementations (empty string). If omitted or empty, ModManager falls back to the BepInEx plugin name and an empty description respectively.
+| `GameMode` | Selectable game mode (requires WMF reference + `IGameModeProvider`) |
 
 ---
 
 ## Duck typing (no DLL reference)
 
-If you'd rather not take a dependency on this DLL, ModManager will still pick up your mod if your plugin class exposes these members by name:
+WMF picks up any plugin that exposes these members by name:
 
 ```csharp
-public string GetModType()   // required — must return one of the ModType names
-public void Disable()        // required
+public string GetModType()    // required — ModType name (case-insensitive)
+public void Disable()         // required
 public bool Disabled { get; } // required
-public string GetModName()   // optional
+public void Enable()          // optional
+public string GetModName()    // optional
 public string GetModDescription() // optional
 ```
+
+For features beyond basic discovery (game modes, networking, notifications), reference `WildguardModFramework.dll` directly and add `[BepInDependency(WmfMod.Id)]`.
