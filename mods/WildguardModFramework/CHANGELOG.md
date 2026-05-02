@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Added
+- API.md reference doc for mod authors
+- Game mode types moved from ModRegistry: GameModeVariant and IGameModeProvider now live in WildguardModFramework.GameMode
+- Notifications API: WmfNotifications.Show() for displaying in-game toast notifications with configurable level (Info, Warning, Error)
+
 ## [0.5.0] - 2026-04-29
 
 ### Added
