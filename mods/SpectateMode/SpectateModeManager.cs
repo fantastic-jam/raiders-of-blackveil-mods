@@ -27,6 +27,10 @@ namespace SpectateMode {
         // Tracks promoted PlayerRefs waiting for their champion to spawn so averaging can be applied.
         private static readonly HashSet<PlayerRef> _pendingAveraging = new();
 
+        // Tracks promoted PlayerRefs waiting to be placed at their spawn point by IntroManager.
+        // Cleared in TryPlaceAtSpawnPoint after IntroManager.RPC_IntroActivation fires.
+        private static readonly HashSet<PlayerRef> _pendingPlacement = new();
+
         // Pre-joiners confirmed to have WMF/SpectateMode installed.
         private static readonly HashSet<PlayerRef> _moddedPreJoiners = new();
 
@@ -54,6 +58,7 @@ namespace SpectateMode {
         internal static void Reset() {
             _preJoiners.Clear();
             _pendingAveraging.Clear();
+            _pendingPlacement.Clear();
             _moddedPreJoiners.Clear();
             _unmoddedPromotedJoiners.Clear();
             _unmoddedPerkChoices.Clear();
@@ -118,6 +123,7 @@ namespace SpectateMode {
             // Also clean up any promotion-phase state in case they disconnect after PromoteAll
             // but before their champion spawns or a shrine activates.
             _pendingAveraging.Remove(playerRef);
+            _pendingPlacement.Remove(playerRef);
             _unmoddedPromotedJoiners.Remove(playerRef);
 
             SpectateModeMod.PublicLogger.LogInfo(
@@ -191,6 +197,7 @@ namespace SpectateMode {
                 SpectateModeMod.PublicLogger.LogInfo(
                     $"SpectateMode: promoting pre-joiner ref={playerRef.PlayerId} (modded={isModded}) — spawning Player prefab.");
                 _pendingAveraging.Add(playerRef);
+                _pendingPlacement.Add(playerRef);
                 if (!isModded) {
                     _unmoddedPromotedJoiners.Add(playerRef);
                 }
@@ -272,6 +279,35 @@ namespace SpectateMode {
                 }
                 _unmoddedPerkChoices.Remove(kvp.Key);
                 return;
+            }
+        }
+
+        // ── Spawn point placement ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Called from the <c>IntroManager.RPC_IntroActivation</c> postfix on the server.
+        /// IntroManager's own loop already calls <c>InitPlayerCharacterAtSpawnPoint</c> for
+        /// every player whose champion is ready. This postfix covers the race where a promoted
+        /// joiner's champion finishes spawning after that loop ran, leaving them stuck at
+        /// <c>Vector3.zero</c>. For joiners already placed by IntroManager the call is a
+        /// harmless double-teleport to the same point.
+        /// </summary>
+        internal static void TryPlaceAtSpawnPoint() {
+            if (_pendingPlacement.Count == 0) { return; }
+            var runner = PlayerManager.Instance?.Runner;
+            if (runner == null || !runner.IsServer) { return; }
+            var lm = GameManager.Instance?.GetLevelManager();
+            if (lm == null) { return; }
+
+            var snapshot = new List<PlayerRef>(_pendingPlacement);
+            _pendingPlacement.Clear();
+
+            foreach (var playerRef in snapshot) {
+                var player = PlayerManager.Instance?.GetPlayerByRef(playerRef);
+                if (player?.PlayableChampion == null) { continue; }
+                lm.InitPlayerCharacterAtSpawnPoint(player);
+                SpectateModeMod.PublicLogger.LogInfo(
+                    $"SpectateMode: forced spawn-point placement for promoted joiner ref={playerRef.PlayerId}.");
             }
         }
 

@@ -15,6 +15,7 @@ namespace SpectateMode.Patch {
         internal static bool Disabled;
 
         private static PropertyInfo _perPlayerDataSlotIndexProp;
+        private static FieldInfo _doorPageField;
 
         internal static bool Init() => true;
 
@@ -157,13 +158,38 @@ namespace SpectateMode.Patch {
             // LocalPlayer being null. Guard them so modded joiners have a clean
             // experience. Unmodded clients are not affected (mod not installed).
 
-            var updateFriendState = AccessTools.Method(typeof(DoorManager), "UpdateFriendState");
-            if (updateFriendState != null) {
-                harmony.Patch(updateFriendState,
-                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(DoorManagerUpdateFriendStatePrefix)));
+            // Skip Render() entirely when _doorPage is null — covers both the
+            // DoorState.Activated (_doorPage.IsOpen) and DoorState.FinalizeVotes
+            // (UpdateFriendState → _doorPage.Page.SetVotes) crash paths that fire
+            // every frame while a modded joiner has no LocalPlayer yet.
+            _doorPageField = AccessTools.Field(typeof(DoorManager), "_doorPage");
+            if (_doorPageField == null) {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: DoorManager._doorPage not found — Render guard inactive.");
+            }
+
+            var doorManagerRender = AccessTools.Method(typeof(DoorManager), nameof(DoorManager.Render));
+            if (doorManagerRender != null) {
+                harmony.Patch(doorManagerRender,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(DoorManagerRenderPrefix)));
             } else {
                 SpectateModeMod.PublicLogger.LogWarning(
-                    "SpectateMode: DoorManager.UpdateFriendState not found — modded joiners may see door NPEs.");
+                    "SpectateMode: DoorManager.Render not found — modded joiners may see door NPEs.");
+            }
+
+            // ── Suppress RPC_ClassBonusActivated for unmodded promoted joiners ──
+            // Our averaging code calls CollectPerkOnHost which can trigger class-bonus
+            // RPCs. The unmodded client crashes in RPC_ClassBonusActivated because
+            // GetPlayerBySlot() returns null for the promoted player's slot on their
+            // machine. Prefix the RPC on the server so it is never broadcast when it
+            // would target an unmodded promoted joiner's slot.
+            var rpcClassBonusActivated = AccessTools.Method(typeof(RewardManager), nameof(RewardManager.RPC_ClassBonusActivated));
+            if (rpcClassBonusActivated != null) {
+                harmony.Patch(rpcClassBonusActivated,
+                    prefix: new HarmonyMethod(typeof(SpectateModePatch), nameof(RpcClassBonusActivatedPrefix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: RewardManager.RPC_ClassBonusActivated not found — class bonus RPC may crash unmodded promoted joiners.");
             }
 
             // ── Despawn unchosen perk pickups when unmodded joiner collects one ──
@@ -174,6 +200,23 @@ namespace SpectateMode.Patch {
             } else {
                 SpectateModeMod.PublicLogger.LogWarning(
                     "SpectateMode: RewardManager.RPC_OnPerkPickup not found — unchosen perk pickups will not be cleaned up.");
+            }
+
+            // ── Force spawn-point placement for promoted joiners ─────────────────
+            // IntroManager.RPC_IntroActivation iterates GetPlayers() and calls
+            // InitPlayerCharacterAtSpawnPoint — but only for players whose champion is
+            // already ready. If the promoted joiner's champion spawn RPC hasn't resolved
+            // yet when the intro fires, they are skipped and their champion stays at
+            // Vector3.zero, showing a grey fog-of-war circle. The postfix re-runs
+            // placement for any promoted joiner still in _pendingPlacement.
+
+            var introActivation = AccessTools.Method(typeof(IntroManager), "RPC_IntroActivation");
+            if (introActivation != null) {
+                harmony.Patch(introActivation,
+                    postfix: new HarmonyMethod(typeof(SpectateModePatch), nameof(IntroManagerRpcIntroActivationPostfix)));
+            } else {
+                SpectateModeMod.PublicLogger.LogWarning(
+                    "SpectateMode: IntroManager.RPC_IntroActivation not found — promoted joiners may spawn at wrong position.");
             }
 
             // Subscribe to the SpectateMode-specific handshake channel.
@@ -226,14 +269,25 @@ namespace SpectateMode.Patch {
             SpectateModeManager.PromoteAll();
         }
 
+        private static void IntroManagerRpcIntroActivationPostfix() {
+            if (Disabled) { return; }
+            SpectateModeManager.TryPlaceAtSpawnPoint();
+        }
+
         private static void RpcTriggerLevelExitPostfix() {
             if (Disabled) { return; }
             if (!SpectateModeManager.HasModdedPreJoiner) { return; }
             ShrineHandler.Instance?.RunStart();
         }
 
-        private static bool DoorManagerUpdateFriendStatePrefix() =>
-            PlayerManager.Instance?.LocalPlayer != null;
+        private static bool DoorManagerRenderPrefix(DoorManager __instance) =>
+            _doorPageField?.GetValue(__instance) != null;
+
+        private static bool RpcClassBonusActivatedPrefix(int playerSlotId) {
+            if (Disabled) { return true; }
+            var player = PlayerManager.Instance?.GetPlayerBySlot(playerSlotId);
+            return player == null || !SpectateModeManager.IsUnmoddedPromotedJoiner(player.FusionPlayerRef);
+        }
 
         private static bool PerPlayerShrineDataActivatePrefix(object __instance, NetworkRunner runner) {
             if (Disabled) { return true; }

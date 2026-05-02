@@ -243,3 +243,9 @@ player at the start of the next room.
   WMF-only. A small in-game toast (e.g. via `CornerNotificationContainer`)
   would let vanilla clients also see "a player is joining" without requiring
   WMF.
+- **Notify unmodded joiners to install SpectateMode.** When a pre-joiner has
+  WMF but no SpectateMode (detected by absence of the `"spectatemode:present"`
+  handshake message), the host should send them a WMF chat message explaining
+  that they need to install SpectateMode to get the full shrine experience.
+  Currently they silently receive perk-choice pickups instead of shrines with
+  no explanation.
