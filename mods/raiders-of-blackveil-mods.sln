@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HandyPurse.Tests", "..\test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RaiderRoughPatches.Tests", "..\tests\RaiderRoughPatches.Tests\RaiderRoughPatches.Tests.csproj", "{A7C3E1F5-2B4D-4E9A-C8F6-0D3B5E7A2C4F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinAnytime", "JoinAnytime\JoinAnytime.csproj", "{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,10 @@ Global
 		{A7C3E1F5-2B4D-4E9A-C8F6-0D3B5E7A2C4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A7C3E1F5-2B4D-4E9A-C8F6-0D3B5E7A2C4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7C3E1F5-2B4D-4E9A-C8F6-0D3B5E7A2C4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

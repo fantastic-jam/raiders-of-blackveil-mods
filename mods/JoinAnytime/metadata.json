@@ -1,0 +1,5 @@
+{
+  "nexus_mod_id": null,
+  "nexus_file_group_id": null,
+  "nexus_short_description": "Lets players join a session mid-run. They wait out the current room and spawn at the start of the next one, with XP and perks averaged to match the existing players. Host-only install."
+}
