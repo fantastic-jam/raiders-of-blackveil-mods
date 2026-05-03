@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.3.0] - 2026-05-03
 
 ### Changed
 - update WildguardModFramework namespace import for relocated game mode types
