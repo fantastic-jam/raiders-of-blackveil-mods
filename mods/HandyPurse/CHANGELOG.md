@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.7.1] - 2026-05-03
 
 ### Fixed
 - topup entries that cannot be restored due to an inventory layout change are now deposited to the bank instead of being silently lost
