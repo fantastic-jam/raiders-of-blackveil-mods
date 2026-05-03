@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.6.0] - 2026-05-03
 
 ### Added
 - API.md reference doc for mod authors
