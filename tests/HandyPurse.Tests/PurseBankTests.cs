@@ -7,6 +7,10 @@ namespace HandyPurse.Tests {
     public class PurseBankTests : System.IDisposable {
         private readonly string _tempDir;
 
+        // Fake DataHash hex strings (32 bytes = 64 hex chars, but any length works for tests)
+        private const long Ts1 = 639133464880300758L;
+        private const long Ts2 = 639133464880417294L;
+
         public PurseBankTests() {
             _tempDir = Path.Combine(Path.GetTempPath(), "HandyPurse_Tests_" + System.Guid.NewGuid().ToString("N"));
             PurseBank.OverrideDataDir(_tempDir);
@@ -18,61 +22,82 @@ namespace HandyPurse.Tests {
             }
         }
 
-        // ── Topup file ────────────────────────────────────────────────────
+        // ── Topup save files ──────────────────────────────────────────────
 
         [Fact]
-        public void SaveAndLoadTopup_RoundTrip() {
-            var data = new TopupData();
-            var compartment = PurseBank.GetOrCreateCompartment(data, "Common");
-            compartment.Hash = "58:3000";
-            compartment.Entries.Add(new TopupEntry {
-                CurrencyKey = "Scrap",
-                AssetId = 71,
-                VanillaAmount = 3000,
-                Excess = 6999,
-                SlotIndex = 0,
-            });
+        public void WriteAndFindTopupSave_RoundTrip() {
+            var save = new TopupSave {
+                Timestamp = Ts1,
+                Compartments = new List<TopupCompartment> {
+                    new TopupCompartment {
+                        Key = "Common",
+                        Entries = new List<TopupEntry> {
+                            new TopupEntry { CurrencyKey = "Scrap", AssetId = 71, VanillaAmount = 3000, Excess = 6999, SlotIndex = 0 },
+                        },
+                    },
+                },
+            };
 
-            PurseBank.SaveTopup(data);
-            var loaded = PurseBank.LoadTopup();
+            PurseBank.WriteTopupSave(save);
+            var loaded = PurseBank.FindTopupSave(Ts1);
 
+            Assert.NotNull(loaded);
+            Assert.Equal(Ts1, loaded.Timestamp);
             Assert.Single(loaded.Compartments);
             Assert.Equal("Common", loaded.Compartments[0].Key);
-            Assert.Equal("58:3000", loaded.Compartments[0].Hash);
             Assert.Single(loaded.Compartments[0].Entries);
             Assert.Equal(6999, loaded.Compartments[0].Entries[0].Excess);
         }
 
         [Fact]
-        public void SaveTopup_EmptyData_DeletesFile() {
-            // First write a non-empty topup
-            var data = new TopupData();
-            PurseBank.GetOrCreateCompartment(data, "Common").Entries.Add(
-                new TopupEntry { CurrencyKey = "Scrap", AssetId = 71, Excess = 100 });
-            PurseBank.SaveTopup(data);
-            Assert.True(File.Exists(Path.Combine(_tempDir, "topup.json")));
-
-            // Now save empty — should delete the file
-            PurseBank.SaveTopup(new TopupData());
-            Assert.False(File.Exists(Path.Combine(_tempDir, "topup.json")));
+        public void FindTopupSave_NoMatchingFile_ReturnsNull() {
+            var result = PurseBank.FindTopupSave(0L);
+            Assert.Null(result);
         }
 
         [Fact]
-        public void LoadTopup_NoFile_ReturnsEmpty() {
-            var data = PurseBank.LoadTopup();
-            Assert.Empty(data.Compartments);
+        public void DeleteTopupSave_RemovesFile() {
+            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts1 });
+            Assert.NotNull(PurseBank.FindTopupSave(Ts1));
+
+            PurseBank.DeleteTopupSave(Ts1);
+            Assert.Null(PurseBank.FindTopupSave(Ts1));
         }
 
         [Fact]
-        public void RemoveCompartment_RemovesCorrectKey() {
-            var data = new TopupData();
-            PurseBank.GetOrCreateCompartment(data, "Common");
-            PurseBank.GetOrCreateCompartment(data, "Warrior");
+        public void GetAllTopupSaves_ReturnsAllFiles() {
+            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts1 });
+            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts2 });
 
-            PurseBank.RemoveCompartment(data, "Common");
+            var all = PurseBank.GetAllTopupSaves();
+            Assert.Equal(2, all.Count);
+        }
 
-            Assert.Single(data.Compartments);
-            Assert.Equal("Warrior", data.Compartments[0].Key);
+        [Fact]
+        public void GetAllTopupSaves_NoFiles_ReturnsEmpty() {
+            var all = PurseBank.GetAllTopupSaves();
+            Assert.Empty(all);
+        }
+
+        [Fact]
+        public void WriteTopupSave_MultipleCompartments_RoundTrip() {
+            var save = new TopupSave {
+                Timestamp = Ts1,
+                Compartments = new List<TopupCompartment> {
+                    new TopupCompartment { Key = "Common", Entries = new List<TopupEntry> {
+                        new TopupEntry { CurrencyKey = "Scrap", AssetId = 71, Excess = 6999, SlotIndex = 0 },
+                    }},
+                    new TopupCompartment { Key = "Warrior", Entries = new List<TopupEntry> {
+                        new TopupEntry { CurrencyKey = "BlackCoin", AssetId = 58, Excess = 400, SlotIndex = 0 },
+                    }},
+                },
+            };
+
+            PurseBank.WriteTopupSave(save);
+            var loaded = PurseBank.FindTopupSave(Ts1);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(2, loaded.Compartments.Count);
         }
 
         // ── Bank file ─────────────────────────────────────────────────────

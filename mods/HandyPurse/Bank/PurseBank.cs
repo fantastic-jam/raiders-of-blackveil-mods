@@ -18,18 +18,21 @@ namespace HandyPurse.Bank {
         [DataMember] internal int AssetId;
         [DataMember] internal int VanillaAmount;
         [DataMember] internal int Excess;
+        // Nullable to survive round-trips from older file versions where this field was absent.
         [DataMember] internal int? SlotIndex;
     }
 
+    // Compartment key = "Common" or champion type name.
     [DataContract]
     internal sealed class TopupCompartment {
         [DataMember] internal string Key = "";
-        [DataMember] internal string Hash = "";
         [DataMember] internal List<TopupEntry> Entries = new List<TopupEntry>();
     }
 
+    // One file per save event, identified by PlayerGameState.TimeStamp.
     [DataContract]
-    internal sealed class TopupData {
+    internal sealed class TopupSave {
+        [DataMember] internal long Timestamp;   // PlayerGameState.TimeStamp — stable through cloud round-trip
         [DataMember] internal List<TopupCompartment> Compartments = new List<TopupCompartment>();
     }
 
@@ -39,7 +42,7 @@ namespace HandyPurse.Bank {
     }
 
     internal static class PurseBank {
-        // Overridable for tests — defaults to a sibling of the executing assembly.
+        // Overridable for tests — defaults to BepInEx data directory (set in HandyPurseMod.Awake).
         private static string _dataDir;
         internal static string DataDir => _dataDir ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "HandyPurse");
         internal static void OverrideDataDir(string path) => _dataDir = path;
@@ -48,69 +51,92 @@ namespace HandyPurse.Bank {
         internal static Action<string> Warn = _ => { };
         internal static Action<string> Error = _ => { };
 
-        private static string TopupPath => Path.Combine(DataDir, "topup.json");
         private static string BankPath => Path.Combine(DataDir, "bank.json");
 
-        // ── Topup file ────────────────────────────────────────────────────
+        // ── Topup files (one per save, named by timestamp) ────────────────
 
-        internal static TopupData LoadTopup() {
+        /// <summary>
+        /// Writes the topup save to disk. Returns false if the write failed.
+        /// </summary>
+        internal static bool WriteTopupSave(TopupSave save) {
             try {
-                var path = TopupPath;
-                if (!File.Exists(path)) {
-                    return new TopupData();
-                }
-                using var stream = File.OpenRead(path);
-                return (TopupData)MakeSerializer<TopupData>().ReadObject(stream) ?? new TopupData();
-            }
-            catch (Exception ex) {
-                Warn($"HandyPurse: topup load failed — {ex.Message}");
-                return new TopupData();
-            }
-        }
-
-        internal static void SaveTopup(TopupData data) {
-            try {
-                if (data.Compartments.Count == 0) {
-                    var path = TopupPath;
-                    if (File.Exists(path)) { File.Delete(path); }
-                    return;
-                }
                 Directory.CreateDirectory(DataDir);
-                using var stream = File.Create(TopupPath);
-                MakeSerializer<TopupData>().WriteObject(stream, data);
+                var path = TopupSavePath(save.Timestamp);
+                var tmp = path + ".tmp";
+                using (var stream = File.Create(tmp)) {
+                    MakeSerializer<TopupSave>().WriteObject(stream, save);
+                }
+                if (File.Exists(path)) { File.Delete(path); }
+                File.Move(tmp, path);
+                return true;
             }
             catch (Exception ex) {
-                Error($"HandyPurse: topup save failed — {ex.Message}");
+                Error($"HandyPurse: topup write failed — {ex.Message}");
+                return false;
             }
         }
 
-        internal static TopupCompartment GetOrCreateCompartment(TopupData data, string key) {
-            foreach (var c in data.Compartments) {
-                if (c.Key == key) {
-                    return c;
-                }
+        /// <summary>
+        /// O(1) direct lookup — TopupSave filename is keyed by PlayerGameState.TimeStamp,
+        /// which is set by the game before save and returned unchanged from the cloud on load.
+        /// </summary>
+        internal static TopupSave FindTopupSave(long timestamp) {
+            try {
+                var path = TopupSavePath(timestamp);
+                if (!File.Exists(path)) { return null; }
+                using var stream = File.OpenRead(path);
+                return (TopupSave)MakeSerializer<TopupSave>().ReadObject(stream);
             }
-            var newCompartment = new TopupCompartment { Key = key };
-            data.Compartments.Add(newCompartment);
-            return newCompartment;
+            catch (Exception ex) {
+                Warn($"HandyPurse: topup lookup failed — {ex.Message}");
+                return null;
+            }
         }
 
-        internal static TopupCompartment FindCompartment(TopupData data, string key) {
-            foreach (var c in data.Compartments) {
-                if (c.Key == key) {
-                    return c;
-                }
+        internal static void DeleteTopupSave(long timestamp) {
+            try {
+                var path = TopupSavePath(timestamp);
+                if (File.Exists(path)) { File.Delete(path); }
             }
-            return null;
+            catch (Exception ex) {
+                Warn($"HandyPurse: topup delete failed — {ex.Message}");
+            }
         }
 
-        internal static void RemoveCompartment(TopupData data, string key) {
-            for (int i = data.Compartments.Count - 1; i >= 0; i--) {
-                if (data.Compartments[i].Key == key) {
-                    data.Compartments.RemoveAt(i);
-                    return;
+        /// <summary>
+        /// Returns all topup save files on disk.
+        /// </summary>
+        internal static List<TopupSave> GetAllTopupSaves() {
+            var result = new List<TopupSave>();
+            try {
+                if (!Directory.Exists(DataDir)) { return result; }
+                var files = Directory.GetFiles(DataDir, "topup-*.json");
+                foreach (var file in files) {
+                    try {
+                        using var stream = File.OpenRead(file);
+                        var save = (TopupSave)MakeSerializer<TopupSave>().ReadObject(stream);
+                        if (save != null) { result.Add(save); }
+                    }
+                    catch (Exception ex) {
+                        Warn($"HandyPurse: skipping corrupt topup file {file} — {ex.Message}");
+                    }
                 }
             }
+            catch (Exception ex) {
+                Warn($"HandyPurse: topup scan failed — {ex.Message}");
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Deletes the legacy single topup.json if it exists (upgrade from pre-0.8 format).
+        /// </summary>
+        internal static void DeleteLegacyTopup() {
+            try {
+                var path = Path.Combine(DataDir, "topup.json");
+                if (File.Exists(path)) { File.Delete(path); }
+            }
+            catch { }
         }
 
         // ── Bank file ─────────────────────────────────────────────────────
@@ -130,16 +156,8 @@ namespace HandyPurse.Bank {
             }
         }
 
-        internal static BankEntry FindBankEntry(BankData bank, string currencyKey) {
-            foreach (var e in bank.Entries) {
-                if (e.CurrencyKey == currencyKey) {
-                    return e;
-                }
-            }
-            return null;
-        }
-
         internal static bool TryDeposit(List<BankEntry> deposit) {
+            if (deposit == null || deposit.Count == 0) { return true; }
             try {
                 var bank = LoadBank();
                 foreach (var incoming in deposit) {
@@ -177,11 +195,29 @@ namespace HandyPurse.Bank {
             }
         }
 
+        private static BankEntry FindBankEntry(BankData bank, string currencyKey) {
+            foreach (var e in bank.Entries) {
+                if (e.CurrencyKey == currencyKey) {
+                    return e;
+                }
+            }
+            return null;
+        }
+
         private static void SaveBank(BankData bank) {
             Directory.CreateDirectory(DataDir);
-            using var stream = File.Create(BankPath);
-            MakeSerializer<BankData>().WriteObject(stream, bank);
+            var tmp = BankPath + ".tmp";
+            using (var stream = File.Create(tmp)) {
+                MakeSerializer<BankData>().WriteObject(stream, bank);
+            }
+            if (File.Exists(BankPath)) { File.Delete(BankPath); }
+            File.Move(tmp, BankPath);
         }
+
+        // ── Helpers ───────────────────────────────────────────────────────
+
+        private static string TopupSavePath(long timestamp) =>
+            Path.Combine(DataDir, $"topup-{timestamp}.json");
 
         private static DataContractJsonSerializer MakeSerializer<T>() =>
             new DataContractJsonSerializer(typeof(T));

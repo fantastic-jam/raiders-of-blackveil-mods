@@ -61,6 +61,7 @@ namespace HandyPurse {
             PurseBank.OverrideDataDir(System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "data", "HandyPurse"));
             PurseBank.Warn = msg => Logger.LogWarning(msg);
             PurseBank.Error = msg => Logger.LogError(msg);
+            PurseBank.DeleteLegacyTopup();
 
             try {
                 BindConfig();

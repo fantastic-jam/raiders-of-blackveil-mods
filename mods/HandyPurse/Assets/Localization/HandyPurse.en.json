@@ -23,5 +23,6 @@
   "popup.version_mismatch.text": "HandyPurse v{version} was built against a different game version.\n\nPatches have been applied, but some features may not work correctly.\n\nIf you experience issues, wait for a mod update or set OverrideVersionCheck in the BepInEx config once the community confirms compatibility.\n\nDo NOT uninstall until your stacks are within vanilla limits.",
   "popup.breaking_change.title": "HandyPurse \u2014 Breaking Change",
   "popup.breaking_change.text": "Stack limits are NOT active (v{version}).\n\nCurrencies above vanilla caps WILL be clamped on the next save.\n\nDo NOT uninstall until your stacks are within vanilla limits.\n\nUpdate the mod or report a bug \u2014 include your BepInEx log.",
-  "popup.restore_shortfall": "HandyPurse \u2014 Restore shortfall detected for {compartment}. Some currency could not be fully restored and has been moved to the bank. Use the HandyPurse menu to recover it."
+  "popup.restore_shortfall": "HandyPurse \u2014 Restore shortfall detected for {compartment}. Some currency could not be fully restored and has been moved to the bank. Use the HandyPurse menu to recover it.",
+  "popup.topup_clamped_environment": "You joined this session as a client \u2014 HandyPurse cannot restore your excess currency without state authority. Your excess has been moved to the bank. Use the HandyPurse menu to recover it."
 }

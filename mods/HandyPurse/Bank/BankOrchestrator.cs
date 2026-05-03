@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using HandyPurse.Patch;
 using RR;
 using RR.Game.Items;
@@ -11,13 +10,14 @@ namespace HandyPurse.Bank {
     internal static class BankOrchestrator {
         internal static string PendingPopupText { get; private set; }
 
-        // Populated in ProcessSave (prefix), consumed in OnSavePlayerGameStatesPostfix.
-        private static readonly List<(GenericItemDescriptor Item, int OriginalAmount)> _restoreAfterSave = new();
+        // Stored across PlayerProfile.SavePlayerGameStates prefix → finalizer to restore live amounts.
+        private static List<(GenericItemDescriptor item, int originalAmount)> _saveRestore;
 
-        // ── Save hook (BackendManager.SavePlayerGameStates prefix/postfix) ─
+        // ── Save hook (PlayerProfile.SavePlayerGameStates prefix) ──────────
 
-        internal static void OnSavePlayerGameStates(List<PlayerGameState> gameStates) {
-            if (HandyPursePatch.Disabled || gameStates == null) {
+        internal static void OnPlayerProfileSave(PlayerGameState[] states) {
+            _saveRestore = null;
+            if (HandyPursePatch.Disabled || states == null) {
                 return;
             }
 
@@ -27,46 +27,118 @@ namespace HandyPurse.Bank {
                 return;
             }
 
-            _restoreAfterSave.Clear();
-            foreach (var state in gameStates) {
-                bool isLocal = state.PlayerId == localUUID;
-                ProcessSave("Common", state.InventoryCommonData?.Items, isLocal);
-                if (state.InventoryChampionData != null) {
-                    foreach (var champData in state.InventoryChampionData) {
-                        ProcessSave(champData.ChampionType.ToString(), champData?.Items, isLocal);
-                    }
+            PlayerGameState localState = null;
+            foreach (var s in states) {
+                if (s?.PlayerId == localUUID) { localState = s; break; }
+            }
+            if (localState == null) { return; }
+
+            var db = ItemDatabase.Instance;
+            if (db == null) { return; }
+
+            var restoreList = new List<(GenericItemDescriptor, int)>();
+            var allCompartmentEntries = new List<(string key, List<TopupEntry> entries)>();
+
+            CollectAndClampCompartment("Common", localState.InventoryCommonData?.Items, db, restoreList, allCompartmentEntries);
+            if (localState.InventoryChampionData != null) {
+                foreach (var champData in localState.InventoryChampionData) {
+                    CollectAndClampCompartment(champData.ChampionType.ToString(), champData?.Items, db, restoreList, allCompartmentEntries);
                 }
             }
+
+            bool hasExcess = false;
+            foreach (var (_, entries) in allCompartmentEntries) {
+                if (entries.Count > 0) { hasExcess = true; break; }
+            }
+
+            if (hasExcess) {
+                var save = new TopupSave {
+                    Timestamp = localState.TimeStamp,
+                    Compartments = new List<TopupCompartment>(),
+                };
+                foreach (var (key, entries) in allCompartmentEntries) {
+                    if (entries.Count > 0) {
+                        save.Compartments.Add(new TopupCompartment { Key = key, Entries = entries });
+                    }
+                }
+                if (!PurseBank.WriteTopupSave(save)) {
+                    HandyPurseMod.PublicLogger.LogError(
+                        "HandyPurse: failed to write topup file — excess will not be restored on next load.");
+                }
+            }
+
+            _saveRestore = restoreList.Count > 0 ? restoreList : null;
         }
 
-        // Restores all live GenericItemDescriptor amounts that were clamped by the prefix.
-        // Called from SavePlayerGameStatesPostfix so the player's session is not disrupted.
-        internal static void OnSavePlayerGameStatesPostfix() {
-            foreach (var (item, amount) in _restoreAfterSave) {
-                item.Amount = amount;
+        // ── Save hook (PlayerProfile.SavePlayerGameStates finalizer) ───────
+        // A Harmony Finalizer always runs regardless of exceptions in the original method,
+        // ensuring live amounts are always restored even if the original throws.
+
+        internal static void OnPlayerProfileSaveComplete() {
+            if (_saveRestore == null) { return; }
+            foreach (var (item, original) in _saveRestore) {
+                item.Amount = original;
             }
-            _restoreAfterSave.Clear();
+            _saveRestore = null;
         }
 
         // ── Load hook (BackendManager.LoadPlayerGameState prefix) ─────────
 
-        internal static void WrapLoadCallback(Guid playerUUID, ref Action<Guid, PlayerGameState> callback) {
+        internal static void WrapLoadCallback(Guid playerUUID, ref Action<Guid, PlayerGameState> callback, bool initiatedByClient) {
             if (HandyPursePatch.Disabled) {
                 return;
             }
-            // Do NOT check localUUID here — PlayerManager.LocalPlayer is null when LoadPlayerGameState
-            // fires at session start. Defer the identity check to callback invocation time.
+            // Skip validation loads (ValidatePlayerGameState passes initiatedByClient=true).
+            if (initiatedByClient) {
+                return;
+            }
             var original = callback;
             callback = (uuid, state) => {
                 if (state != null) {
                     var localUUID = PlayerManager.Instance?.LocalPlayer?.ProfileUUID ?? Guid.Empty;
-                    // If LocalPlayer is still null (very early session start), assume it's our own load.
-                    if (localUUID == Guid.Empty || localUUID == uuid) {
+                    if (localUUID != Guid.Empty && localUUID == uuid) {
                         ApplyTopupToState(state);
                     }
                 }
                 original?.Invoke(uuid, state);
             };
+        }
+
+        // ── Join-as-client hook (LobbyHUDPage.OnActivate) ─────────────────
+
+        /// <summary>
+        /// Called when the lobby HUD activates. If the local player is not the host and there
+        /// are pending topup files, deposits them to the bank (can't restore without state authority)
+        /// and deletes the files to prevent duplicate deposits on subsequent lobby visits.
+        /// </summary>
+        internal static void OnJoinedSession() {
+            if (HandyPursePatch.Disabled || HandyPursePatch.IsHost) {
+                return;
+            }
+
+            var allTopups = PurseBank.GetAllTopupSaves();
+            if (allTopups.Count == 0) { return; }
+
+            var allDeposit = new List<BankEntry>();
+            foreach (var save in allTopups) {
+                foreach (var compartment in save.Compartments) {
+                    foreach (var entry in compartment.Entries) {
+                        allDeposit.Add(new BankEntry {
+                            CurrencyKey = entry.CurrencyKey,
+                            AssetId = entry.AssetId,
+                            Amount = entry.Excess,
+                        });
+                    }
+                }
+            }
+
+            if (allDeposit.Count > 0 && PurseBank.TryDeposit(allDeposit)) {
+                foreach (var save in allTopups) {
+                    PurseBank.DeleteTopupSave(save.Timestamp);
+                }
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: joined as client — topup deposited to bank.");
+                AppendPendingPopup(HandyPurseMod.t("popup.topup_clamped_environment"));
+            }
         }
 
         // ── Popup ─────────────────────────────────────────────────────────
@@ -87,128 +159,71 @@ namespace HandyPurse.Bank {
         // ── Internals ─────────────────────────────────────────────────────
 
         private static void ApplyTopupToState(PlayerGameState state) {
-            ApplyTopup("Common", state.InventoryCommonData?.Items);
-            if (state.InventoryChampionData != null) {
-                foreach (var champData in state.InventoryChampionData) {
-                    ApplyTopup(champData.ChampionType.ToString(), champData?.Items);
-                }
-            }
-        }
-
-        private static void ProcessSave(string compartmentKey, List<GenericItemDescriptor> items, bool isLocal) {
-            if (items == null) { return; }
             var db = ItemDatabase.Instance;
             if (db == null) { return; }
 
-            var slots = ToSlots(items);
-            var (entries, hash) = BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
+            var topupSave = PurseBank.FindTopupSave(state.TimeStamp);
+            if (topupSave == null) { return; }
 
-            // Capture originals before clamping so the postfix can restore them.
-            foreach (var item in items) {
-                _restoreAfterSave.Add((item, item.Amount));
+            ApplyCompartmentTopup("Common", state.InventoryCommonData?.Items, topupSave);
+            if (state.InventoryChampionData != null) {
+                foreach (var champData in state.InventoryChampionData) {
+                    ApplyCompartmentTopup(champData.ChampionType.ToString(), champData?.Items, topupSave);
+                }
             }
-
-            // Clamp live items to vanilla cap so the cloud save sees clean amounts.
-            for (int i = 0; i < items.Count; i++) {
-                items[i].Amount = slots[i].Amount;
-            }
-
-            // Non-local players: vanilla clamp only, no topup (they may not have HandyPurse).
-            if (!isLocal) { return; }
-
-            var topup = PurseBank.LoadTopup();
-            if (entries.Count > 0) {
-                var compartment = PurseBank.GetOrCreateCompartment(topup, compartmentKey);
-                compartment.Entries.Clear();
-                compartment.Entries.AddRange(entries);
-                compartment.Hash = hash;
-            } else {
-                PurseBank.RemoveCompartment(topup, compartmentKey);
-            }
-            PurseBank.SaveTopup(topup);
         }
 
-        private static void ApplyTopup(string compartmentKey, List<GenericItemDescriptor> items) {
+        private static void ApplyCompartmentTopup(string compartmentKey, List<GenericItemDescriptor> items, TopupSave topupSave) {
             if (items == null) { return; }
 
-            var topup = PurseBank.LoadTopup();
-            var compartment = PurseBank.FindCompartment(topup, compartmentKey);
-            if (compartment == null || compartment.Entries.Count == 0) { return; }
+            TopupCompartment compartment = null;
+            foreach (var c in topupSave.Compartments) {
+                if (c.Key == compartmentKey) { compartment = c; break; }
+            }
+            if (compartment == null || (compartment.Entries?.Count ?? 0) == 0) { return; }
 
             var slots = ToSlots(items);
+            var unresolved = BankLogic.ApplyTopup(slots, compartment.Entries);
 
-            // Capture pre-restore amounts so the diagnostic log can show before/after.
-            var preRestore = new int[slots.Count];
-            for (int i = 0; i < slots.Count; i++) { preRestore[i] = slots[i].Amount; }
-
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
-
+            // Write restored amounts back to live item descriptors.
             for (int i = 0; i < items.Count; i++) {
                 items[i].Amount = slots[i].Amount;
             }
 
-            if (bankDeposit.Count > 0 && PurseBank.TryDeposit(bankDeposit)) {
-                switch (status) {
-                    case TopupApplyStatus.HashMismatch:
-                        HandyPurseMod.PublicLogger.LogWarning(
-                            $"HandyPurse: topup mismatch for {compartmentKey} — moved to bank.");
-                        AppendPendingPopup(
-                            HandyPurseMod.t("popup.topup_mismatch", ("compartment", compartmentKey)));
-                        break;
-                    case TopupApplyStatus.LayoutChanged:
-                        AppendPendingPopup(HandyPurseMod.t("popup.layout_changed"));
-                        break;
-                    case TopupApplyStatus.Applied:
-                        // Safeguard triggered — hash matched but restored amounts did not add up.
-                        LogRestoreShortfall(compartmentKey, compartment, slots, preRestore, bankDeposit);
-                        AppendPendingPopup(
-                            HandyPurseMod.t("popup.restore_shortfall", ("compartment", compartmentKey)));
-                        break;
+            if (unresolved.Count > 0) {
+                var deposit = new List<BankEntry>(unresolved.Count);
+                foreach (var entry in unresolved) {
+                    deposit.Add(new BankEntry { CurrencyKey = entry.CurrencyKey, AssetId = entry.AssetId, Amount = entry.Excess });
+                }
+                if (PurseBank.TryDeposit(deposit)) {
+                    HandyPurseMod.PublicLogger.LogWarning(
+                        $"HandyPurse: {unresolved.Count} topup entries could not be restored (slot layout changed) — deposited to bank.");
+                    AppendPendingPopup(HandyPurseMod.t("popup.layout_changed"));
+                }
+            }
+        }
+
+        private static void CollectAndClampCompartment(
+                string key,
+                List<GenericItemDescriptor> items,
+                ItemDatabase db,
+                List<(GenericItemDescriptor, int)> restoreList,
+                List<(string, List<TopupEntry>)> allEntries) {
+            if (items == null) { return; }
+
+            var slots = ToSlots(items);
+            var entries = BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
+
+            // Apply clamped amounts back to live item descriptors; record originals for finalizer restore.
+            for (int i = 0; i < items.Count; i++) {
+                if (items[i].Amount != slots[i].Amount) {
+                    restoreList.Add((items[i], items[i].Amount));
+                    items[i].Amount = slots[i].Amount;
                 }
             }
 
-            PurseBank.RemoveCompartment(topup, compartmentKey);
-            PurseBank.SaveTopup(topup);
+            allEntries.Add((key, entries));
         }
-
-        private static void LogRestoreShortfall(
-                string compartmentKey,
-                TopupCompartment compartment,
-                List<ItemSlot> slots,
-                int[] preRestore,
-                List<BankEntry> bankDeposit) {
-            var sb = new StringBuilder();
-            sb.Append("HandyPurse: restore shortfall in '").Append(compartmentKey)
-              .Append("' — hash matched but amounts did not add up.\n");
-            sb.Append("  storedHash=").Append(compartment.Hash).Append('\n');
-            sb.Append("  entries (").Append(compartment.Entries.Count).Append("):\n");
-            foreach (var entry in compartment.Entries) {
-                int idx = entry.SlotIndex ?? -1;
-                int before = idx >= 0 && idx < preRestore.Length ? preRestore[idx] : -1;
-                int after = idx >= 0 && idx < slots.Count ? slots[idx].Amount : -1;
-                int expected = entry.VanillaAmount + entry.Excess;
-                int shortfall = Math.Max(0, expected - after);
-                sb.Append("    ").Append(entry.CurrencyKey)
-                  .Append(" assetId=").Append(entry.AssetId)
-                  .Append(" slot=").Append(idx)
-                  .Append(" recordedVanilla=").Append(entry.VanillaAmount)
-                  .Append(" excess=").Append(entry.Excess)
-                  .Append(" before=").Append(before)
-                  .Append(" after=").Append(after)
-                  .Append(" expected=").Append(expected)
-                  .Append(" shortfall=").Append(shortfall)
-                  .Append('\n');
-            }
-            sb.Append("  deposited to bank (").Append(bankDeposit.Count).Append("):\n");
-            foreach (var e in bankDeposit) {
-                sb.Append("    ").Append(e.CurrencyKey)
-                  .Append(" assetId=").Append(e.AssetId)
-                  .Append(" amount=").Append(e.Amount).Append('\n');
-            }
-            HandyPurseMod.PublicLogger.LogWarning(sb.ToString());
-        }
-
-        // ── Helpers ───────────────────────────────────────────────────────
 
         private static List<ItemSlot> ToSlots(List<GenericItemDescriptor> items) {
             var slots = new List<ItemSlot>(items.Count);
@@ -225,6 +240,5 @@ namespace HandyPurse.Bank {
                 PendingPopupText += "\n\n" + text;
             }
         }
-
     }
 }

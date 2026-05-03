@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace HandyPurse.Bank {
-    internal enum TopupApplyStatus { Applied, HashMismatch, LayoutChanged }
-
     internal struct ItemSlot {
         internal int ItemType;
         internal int AssetId;
@@ -25,11 +23,11 @@ namespace HandyPurse.Bank {
             || itemType == TypeScrap;
 
         /// <summary>
-        /// Strips excess above the vanilla cap from each slot, returns topup entries and the
-        /// post-clamp hash. Mutates slot amounts in place.
+        /// Strips excess above the vanilla cap from each slot and returns topup entries.
+        /// Mutates slot amounts in place.
         /// getStackMaximum returns null if the asset is not found or not managed.
         /// </summary>
-        internal static (List<TopupEntry> entries, string hash) ComputeExcess(
+        internal static List<TopupEntry> ComputeExcess(
                 List<ItemSlot> slots,
                 Func<int, int?> getStackMaximum) {
             var entries = new List<TopupEntry>();
@@ -49,64 +47,35 @@ namespace HandyPurse.Bank {
                     SlotIndex = i,
                 });
             }
-            return (entries, entries.Count > 0 ? ComputeHash(slots) : string.Empty);
+            return entries;
         }
 
         /// <summary>
-        /// Restores topup amounts into the correct slots.
-        /// On hash mismatch or bad layout: deposits everything to bank.
-        /// On successful restore: verifies each slot reached the expected total;
-        /// any shortfall is also deposited to bank (safeguard against partial restores).
+        /// Restores stored excess back into the loaded slots using slot indices.
+        /// Returns any entries whose SlotIndex was null or out of bounds — callers should
+        /// deposit these to the bank so the excess is not silently lost.
         /// </summary>
-        internal static (TopupApplyStatus status, List<BankEntry> bankDeposit) ApplyTopup(
-                List<ItemSlot> slots,
-                TopupCompartment compartment) {
-            var bankDeposit = new List<BankEntry>();
-            if (compartment == null || compartment.Entries.Count == 0) {
-                return (TopupApplyStatus.Applied, bankDeposit);
-            }
-
-            // Hash mismatch — state changed while mod was inactive.
-            if (ComputeHash(slots) != compartment.Hash) {
-                foreach (var e in compartment.Entries) {
-                    bankDeposit.Add(new BankEntry { CurrencyKey = e.CurrencyKey, AssetId = e.AssetId, Amount = e.Excess });
+        internal static List<TopupEntry> ApplyTopup(List<ItemSlot> slots, List<TopupEntry> entries) {
+            List<TopupEntry> unresolved = null;
+            if (entries == null) { return new List<TopupEntry>(); }
+            foreach (var entry in entries) {
+                int idx = entry.SlotIndex ?? -1;
+                if (idx < 0 || idx >= slots.Count) {
+                    (unresolved ??= new List<TopupEntry>()).Add(entry);
+                    continue;
                 }
-                return (TopupApplyStatus.HashMismatch, bankDeposit);
-            }
-
-            // Validate all slot indices before touching anything.
-            bool allValid = true;
-            foreach (var entry in compartment.Entries) {
-                if (!entry.SlotIndex.HasValue
-                        || entry.SlotIndex.Value < 0
-                        || entry.SlotIndex.Value >= slots.Count
-                        || slots[entry.SlotIndex.Value].AssetId != entry.AssetId) {
-                    allValid = false;
-                    break;
-                }
-            }
-            if (!allValid) {
-                foreach (var e in compartment.Entries) {
-                    bankDeposit.Add(new BankEntry { CurrencyKey = e.CurrencyKey, AssetId = e.AssetId, Amount = e.Excess });
-                }
-                return (TopupApplyStatus.LayoutChanged, bankDeposit);
-            }
-
-            // Restore and verify each slot.
-            foreach (var entry in compartment.Entries) {
-                var slot = slots[entry.SlotIndex.Value];
-                int expected = entry.VanillaAmount + entry.Excess;
+                var slot = slots[idx];
                 slot.Amount += entry.Excess;
-                // Safeguard: if the restored amount is below expected, recover the deficit.
-                int shortfall = expected - slot.Amount;
-                if (shortfall > 0) {
-                    bankDeposit.Add(new BankEntry { CurrencyKey = entry.CurrencyKey, AssetId = entry.AssetId, Amount = shortfall });
-                }
-                slots[entry.SlotIndex.Value] = slot;
+                slots[idx] = slot;
             }
-            return (TopupApplyStatus.Applied, bankDeposit);
+            return unresolved ?? new List<TopupEntry>();
         }
 
+        /// <summary>
+        /// Produces a deterministic, order-independent hash of all managed currency slots.
+        /// Slots are sorted by assetId before hashing so reordered inventories with identical
+        /// amounts produce the same string.
+        /// </summary>
         internal static string ComputeHash(List<ItemSlot> slots) {
             var managed = new List<(int assetId, int amount)>();
             foreach (var slot in slots) {

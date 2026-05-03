@@ -55,9 +55,9 @@ namespace HandyPurse {
             balanceLabel.style.marginBottom = 4;
             parent.Add(balanceLabel);
 
-            var topup = PurseBank.LoadTopup();
-            if (topup.Compartments.Count > 0) {
-                var topupText = BuildTopupSummary(topup);
+            var allTopupSaves = PurseBank.GetAllTopupSaves();
+            if (allTopupSaves.Count > 0) {
+                var topupText = BuildTopupSummary(allTopupSaves);
                 var topupLabel = new Label { text = HandyPurseMod.t("menu.bank.topup", ("topup", topupText)) };
                 topupLabel.style.color = new Color(0.85f, 0.75f, 0.35f, 1f);
                 topupLabel.style.fontSize = 12;
@@ -271,12 +271,14 @@ namespace HandyPurse {
             return parts.Count > 0 ? string.Join(" \u00b7 ", parts) : HandyPurseMod.t("label.empty");
         }
 
-        private static string BuildTopupSummary(TopupData topup) {
+        private static string BuildTopupSummary(List<TopupSave> saves) {
             var totals = new Dictionary<string, int>();
-            foreach (var compartment in topup.Compartments) {
-                foreach (var entry in compartment.Entries) {
-                    totals.TryGetValue(entry.CurrencyKey, out var cur);
-                    totals[entry.CurrencyKey] = cur + entry.Excess;
+            foreach (var save in saves) {
+                foreach (var compartment in save.Compartments) {
+                    foreach (var entry in compartment.Entries) {
+                        totals.TryGetValue(entry.CurrencyKey, out var cur);
+                        totals[entry.CurrencyKey] = cur + entry.Excess;
+                    }
                 }
             }
             var parts = new List<string>();

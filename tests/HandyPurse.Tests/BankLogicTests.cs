@@ -36,7 +36,7 @@ namespace HandyPurse.Tests {
                 new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 9999 },
             };
 
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(slots, VanillaCap);
 
             Assert.Single(entries);
             Assert.Equal("Scrap", entries[0].CurrencyKey);
@@ -44,8 +44,8 @@ namespace HandyPurse.Tests {
             Assert.Equal(CapScrap, entries[0].VanillaAmount);
             Assert.Equal(6999, entries[0].Excess);
             Assert.Equal(0, entries[0].SlotIndex);
+            // Slot clamped to vanilla cap.
             Assert.Equal(CapScrap, slots[0].Amount);
-            Assert.False(string.IsNullOrEmpty(hash));
         }
 
         [Fact]
@@ -54,10 +54,9 @@ namespace HandyPurse.Tests {
                 new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 },
             };
 
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(slots, VanillaCap);
 
             Assert.Empty(entries);
-            Assert.Equal(string.Empty, hash);
             Assert.Equal(3000, slots[0].Amount);
         }
 
@@ -67,7 +66,7 @@ namespace HandyPurse.Tests {
                 new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 1500 },
             };
 
-            var (entries, _) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(slots, VanillaCap);
 
             Assert.Empty(entries);
             Assert.Equal(1500, slots[0].Amount);
@@ -80,7 +79,7 @@ namespace HandyPurse.Tests {
                 new ItemSlot { ItemType = 10, AssetId = 56, Amount = 99999 },
             };
 
-            var (entries, _) = BankLogic.ComputeExcess(slots, _ => 5);
+            var entries = BankLogic.ComputeExcess(slots, _ => 5);
 
             Assert.Empty(entries);
             Assert.Equal(99999, slots[0].Amount);
@@ -97,7 +96,7 @@ namespace HandyPurse.Tests {
             slots.Add(new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 100 });
             slots.Add(new ItemSlot { ItemType = Glitter, AssetId = AssetGlitter, Amount = 500 });
 
-            var (entries, _) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(slots, VanillaCap);
 
             // Only the 600 BlackCoin and 500 Glitter are above cap
             Assert.Equal(2, entries.Count);
@@ -116,7 +115,7 @@ namespace HandyPurse.Tests {
         [Fact]
         public void ComputeExcess_RealSaveStructure_NothingToStrip() {
             // The actual save has all currencies already at or below vanilla cap
-            // (HandyPurse previously stripped them to topup.json)
+            // (HandyPurse previously stripped them to topup file)
             var slots = new List<ItemSlot>();
             for (int i = 0; i < 20; i++) {
                 slots.Add(new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 });
@@ -126,10 +125,9 @@ namespace HandyPurse.Tests {
                 slots.Add(new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 200 });
             }
 
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(slots, VanillaCap);
 
             Assert.Empty(entries);
-            Assert.Equal(string.Empty, hash);
         }
 
         // ── ComputeHash ───────────────────────────────────────────────────
@@ -160,168 +158,125 @@ namespace HandyPurse.Tests {
             Assert.Equal(hashWithout, hashWithExtra);
         }
 
-        // ── ApplyTopup — round-trip ───────────────────────────────────────
+        // ── ApplyTopup — normal round-trip ────────────────────────────────
+        // HandyPurse clamps before cloud serialisation. Cloud stores clamped amounts.
+        // On load, cloud returns clamped amounts. ComputeHash documents the invariant
+        // that the post-clamp slot set produces the same hash as the cloud-returned state.
 
         [Fact]
-        public void ApplyTopup_RoundTrip_RestoresExactAmount() {
-            // Simulate: player had 9999 scrap, ProcessSave ran, now loading back
-            var slots = new List<ItemSlot> {
+        public void ApplyTopup_RoundTrip_CloudReturnsClamped_ExcessRestored() {
+            // Save: player had 9999 scrap. ComputeExcess clamps to 3000, stores excess=6999.
+            var saveSlots = new List<ItemSlot> {
                 new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 9999 },
             };
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
-            // slots[0].Amount is now 3000 (clamped) — as the cloud save would return
+            var entries = BankLogic.ComputeExcess(saveSlots, VanillaCap);
+            var saveHash = BankLogic.ComputeHash(saveSlots); // hash of post-clamp state
 
-            var compartment = new TopupCompartment {
-                Key = "Common",
-                Hash = hash,
-                Entries = entries,
+            // Load: cloud returns the clamped amount (as written by HandyPurse).
+            var loadedSlots = new List<ItemSlot> {
+                new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 },
             };
+            // Post-clamp hash matches cloud-returned state.
+            Assert.Equal(saveHash, BankLogic.ComputeHash(loadedSlots));
 
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
+            var unresolved = BankLogic.ApplyTopup(loadedSlots, entries);
 
-            Assert.Equal(TopupApplyStatus.Applied, status);
-            Assert.Empty(bankDeposit);
-            Assert.Equal(9999, slots[0].Amount);
+            Assert.Equal(9999, loadedSlots[0].Amount);  // excess restored
+            Assert.Empty(unresolved);
         }
 
         [Fact]
-        public void ApplyTopup_RoundTrip_MultiCurrency() {
-            var slots = new List<ItemSlot> {
+        public void ApplyTopup_RoundTrip_MultiCurrency_ExcessRestored() {
+            var saveSlots = new List<ItemSlot> {
                 new ItemSlot { ItemType = Scrap,     AssetId = AssetScrap,     Amount = 9999 },
                 new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 600  },
                 new ItemSlot { ItemType = Glitter,   AssetId = AssetGlitter,   Amount = 450  },
                 new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 50   },
             };
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
+            var entries = BankLogic.ComputeExcess(saveSlots, VanillaCap);
+            var saveHash = BankLogic.ComputeHash(saveSlots);
+            // saveSlots now: Scrap=3000, BlackCoin[0]=200, Glitter=200, BlackCoin[1]=50 (untouched)
 
-            var compartment = new TopupCompartment { Key = "Common", Hash = hash, Entries = entries };
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
+            // Load: cloud returns clamped amounts.
+            var loadedSlots = new List<ItemSlot> {
+                new ItemSlot { ItemType = Scrap,     AssetId = AssetScrap,     Amount = 3000 },
+                new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 200  },
+                new ItemSlot { ItemType = Glitter,   AssetId = AssetGlitter,   Amount = 200  },
+                new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 50   },
+            };
+            Assert.Equal(saveHash, BankLogic.ComputeHash(loadedSlots));
 
-            Assert.Equal(TopupApplyStatus.Applied, status);
-            Assert.Empty(bankDeposit);
-            Assert.Equal(9999, slots[0].Amount);
-            Assert.Equal(600, slots[1].Amount);
-            Assert.Equal(450, slots[2].Amount);
-            Assert.Equal(50, slots[3].Amount);  // was under cap, untouched
+            var unresolved = BankLogic.ApplyTopup(loadedSlots, entries);
+
+            Assert.Equal(9999, loadedSlots[0].Amount);
+            Assert.Equal(600, loadedSlots[1].Amount);
+            Assert.Equal(450, loadedSlots[2].Amount);
+            Assert.Equal(50, loadedSlots[3].Amount);  // was under cap, untouched
+            Assert.Empty(unresolved);
         }
 
-        // ── ApplyTopup — hash mismatch ─────────────────────────────────────
+        // ── ApplyTopup — hash is order-independent ────────────────────────
+        // ComputeHash sorts by assetId so reordered slots with the same amounts produce the
+        // same hash — useful as an integrity check for slot layout identity.
 
         [Fact]
-        public void ApplyTopup_HashMismatch_DepositsEverythingToBank() {
-            var slots = new List<ItemSlot> {
-                new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 9999 },
+        public void ApplyTopup_HashIsOrderIndependent_SortedByAssetId() {
+            var slots1 = new List<ItemSlot> {
+                new ItemSlot { ItemType = Scrap,     AssetId = AssetScrap,     Amount = 3000 },
+                new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 200  },
             };
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
-            // Simulate state change: player spent some scrap while mod was inactive
-            slots[0] = new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 1000 };
-
-            var compartment = new TopupCompartment { Key = "Common", Hash = hash, Entries = entries };
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
-
-            Assert.Equal(TopupApplyStatus.HashMismatch, status);
-            Assert.Single(bankDeposit);
-            Assert.Equal(6999, bankDeposit[0].Amount);
-            Assert.Equal(1000, slots[0].Amount);  // unchanged
-        }
-
-        // ── ApplyTopup — layout changed ────────────────────────────────────
-
-        [Fact]
-        public void ApplyTopup_SlotReordered_LayoutChanged_DepositsToBank() {
-            // Two managed currency slots: Scrap at slot 0, BlackCoin at slot 1.
-            // ComputeExcess strips excess from both.
-            var slots = new List<ItemSlot> {
-                new ItemSlot { ItemType = Scrap,     AssetId = AssetScrap,     Amount = 9999 },
-                new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 600  },
-            };
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
-            // entries[0]: Scrap, SlotIndex=0; entries[1]: BlackCoin, SlotIndex=1
-            // slots now: [3000, 200]
-
-            // Simulate: slots were reordered between save and load (same hash — sorted by assetId)
-            var reordered = new List<ItemSlot> {
+            var slots2 = new List<ItemSlot> {
                 new ItemSlot { ItemType = BlackCoin, AssetId = AssetBlackCoin, Amount = 200  },
                 new ItemSlot { ItemType = Scrap,     AssetId = AssetScrap,     Amount = 3000 },
             };
-            // Hash of reordered is the same (ComputeHash sorts by assetId)
-            Assert.Equal(hash, BankLogic.ComputeHash(reordered));
-
-            var compartment = new TopupCompartment { Key = "Common", Hash = hash, Entries = entries };
-            var (status, bankDeposit) = BankLogic.ApplyTopup(reordered, compartment);
-
-            Assert.Equal(TopupApplyStatus.LayoutChanged, status);
-            Assert.Equal(2, bankDeposit.Count);
+            Assert.Equal(BankLogic.ComputeHash(slots1), BankLogic.ComputeHash(slots2));
         }
 
-        // ── Safeguard ─────────────────────────────────────────────────────
+        // ── ApplyTopup — empty entries ────────────────────────────────────
 
         [Fact]
-        public void ApplyTopup_SlotPartiallyFilled_ShortfallDepositedToBank() {
-            // Record topup when slot was at 3000 with 6999 excess
-            var slots = new List<ItemSlot> {
-                new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 9999 },
-            };
-            var (entries, hash) = BankLogic.ComputeExcess(slots, VanillaCap);
-            // slots[0].Amount = 3000 after ComputeExcess
-
-            // Simulate: something reduced the slot to only 1000 after cloud load
-            // (hash still matches because hash was computed at 3000)
-            slots[0] = new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 1000 };
-            // Re-hash at this amount so the hash check passes despite the lower amount
-            string manipulatedHash = BankLogic.ComputeHash(slots);
-            entries[0] = new TopupEntry {
-                CurrencyKey = entries[0].CurrencyKey,
-                AssetId = entries[0].AssetId,
-                VanillaAmount = 1000,           // records what was in slot when we "saved"
-                Excess = entries[0].Excess, // still 6999
-                SlotIndex = 0,
-            };
-
-            var compartment = new TopupCompartment {
-                Key = "Common",
-                Hash = manipulatedHash,
-                Entries = entries,
-            };
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
-
-            // Applied, but with a shortfall because 1000+6999=7999 < VanillaAmount+Excess=1000+6999
-            // Actually in this test, VanillaAmount=1000, Excess=6999, expected=7999
-            // slot.Amount=1000+6999=7999, shortfall=7999-7999=0
-            // Let's instead set a manipulated entry where expected > actual:
-            Assert.Equal(TopupApplyStatus.Applied, status);
-        }
-
-        [Fact]
-        public void ApplyTopup_Safeguard_RecordedVanillaMismatch_ShortfallDeposited() {
-            // Slot loaded at 3000, but the topup claims VanillaAmount was 5000 (data corruption).
-            // After adding Excess, slot can't reach VanillaAmount+Excess.
+        public void ApplyTopup_EmptyEntries_NoChange() {
             var slots = new List<ItemSlot> {
                 new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 },
             };
-            var hash = BankLogic.ComputeHash(slots);
 
-            var compartment = new TopupCompartment {
-                Key = "Common",
-                Hash = hash,
-                Entries = new List<TopupEntry> {
-                    new TopupEntry {
-                        CurrencyKey   = "Scrap",
-                        AssetId       = AssetScrap,
-                        VanillaAmount = 5000,  // corrupt: claims slot was at 5000, but it's 3000
-                        Excess        = 4999,
-                        SlotIndex     = 0,
-                    },
-                },
+            var unresolved = BankLogic.ApplyTopup(slots, new List<TopupEntry>());
+
+            Assert.Equal(3000, slots[0].Amount);
+            Assert.Empty(unresolved);
+        }
+
+        // ── ApplyTopup — invalid slot indices ────────────────────────────
+
+        [Fact]
+        public void ApplyTopup_NullSlotIndex_EntryReturnedAsUnresolved() {
+            var slots = new List<ItemSlot> {
+                new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 },
+            };
+            var entries = new List<TopupEntry> {
+                new TopupEntry { CurrencyKey = "Scrap", AssetId = AssetScrap, Excess = 1000, SlotIndex = null },
             };
 
-            var (status, bankDeposit) = BankLogic.ApplyTopup(slots, compartment);
+            var unresolved = BankLogic.ApplyTopup(slots, entries);
 
-            // 3000 + 4999 = 7999, expected = 5000+4999 = 9999, shortfall = 9999-7999 = 2000
-            Assert.Equal(TopupApplyStatus.Applied, status);
-            Assert.Single(bankDeposit);
-            Assert.Equal(2000, bankDeposit[0].Amount);
-            Assert.Equal(7999, slots[0].Amount);
+            Assert.Equal(3000, slots[0].Amount);  // not modified
+            Assert.Single(unresolved);
+            Assert.Equal("Scrap", unresolved[0].CurrencyKey);
+        }
+
+        [Fact]
+        public void ApplyTopup_OutOfBoundsSlotIndex_EntryReturnedAsUnresolved() {
+            var slots = new List<ItemSlot> {
+                new ItemSlot { ItemType = Scrap, AssetId = AssetScrap, Amount = 3000 },
+            };
+            var entries = new List<TopupEntry> {
+                new TopupEntry { CurrencyKey = "Scrap", AssetId = AssetScrap, Excess = 1000, SlotIndex = 5 },
+            };
+
+            var unresolved = BankLogic.ApplyTopup(slots, entries);
+
+            Assert.Equal(3000, slots[0].Amount);  // not modified
+            Assert.Single(unresolved);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────

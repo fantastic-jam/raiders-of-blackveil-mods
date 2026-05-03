@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- topup entries that cannot be restored due to an inventory layout change are now deposited to the bank instead of being silently lost
+- bank.json and topup files now written atomically — no data loss if the game crashes during save
+- bank balance no longer doubles when joining as client multiple times in the same session
+
 ## [0.7.0] - 2026-04-30
 
 ### Added
