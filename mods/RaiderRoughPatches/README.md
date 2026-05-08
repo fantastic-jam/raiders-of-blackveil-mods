@@ -11,6 +11,7 @@ Each fix can be toggled individually in the BepInEx config file.
 - **Cross-item merge** — items of the same type (e.g. hex doll and pig stew) could be merged into the same stack by dragging or double-clicking
 - **Barrier self-grant** — self-and-nearest-ally perk effects do not apply to the caster in multiplayer
 - **Door vote on disconnect** — door vote gets stuck when a player disconnects mid-vote
+- **Fusion stale refs** — 'Failed to unwrap' log spam at end of match caused by fake-null NetworkBehaviourId backing fields in SunStrikeArea and NetworkCharacterBase
 
 ---
 
