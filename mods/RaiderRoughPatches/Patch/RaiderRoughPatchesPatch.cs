@@ -3,6 +3,7 @@ using BepInEx.Configuration;
 using Fusion;
 using HarmonyLib;
 using RR;
+using RR.Game.Character;
 using RR.Game.Perk;
 using RR.Level;
 using RR.UI.Controls.Inventory;
@@ -18,12 +19,15 @@ namespace RaiderRoughPatches.Patch {
         private static MethodInfo _doorActivate;
         private static MethodInfo _rpcVoteState;
         private static MethodInfo _onPlayerLeft;
+        private static MethodInfo _sunStrikeFixedUpdate;
+        private static MethodInfo _charBaseFixedUpdate;
 
         // Config entries — bound once in Init().
         private static ConfigEntry<bool> _fixSessionVisibility;
         private static ConfigEntry<bool> _fixStashAutoStack;
         private static ConfigEntry<bool> _fixBarrierSelfGrant;
         private static ConfigEntry<bool> _fixDoorVoteOnDisconnect;
+        private static ConfigEntry<bool> _fixFusionStaleRefs;
 
         private static HarmonyMethod Fix(string methodName) =>
             new HarmonyMethod(typeof(RaiderRoughPatchesPatch), methodName) { priority = Priority.First };
@@ -105,6 +109,26 @@ namespace RaiderRoughPatches.Patch {
                         "RaiderRoughPatches: PlayerManager.OnPlayerLeft not found — door vote disconnect fix inactive.");
                 }
             }
+
+            _fixFusionStaleRefs = config.Bind(
+                "Fixes", "FusionStaleRefFix", true,
+                "Detect and clear fake-null Fusion NetworkBehaviourId backing fields (SunStrikeArea.Caster, NetworkCharacterBase.PullCenter) — fixes \"Failed to unwrap\" log spam at end of match.");
+
+            if (_fixFusionStaleRefs.Value) {
+                FusionStaleRefFix.Init();
+
+                _sunStrikeFixedUpdate = AccessTools.Method(typeof(SunStrikeArea), "FixedUpdateNetwork");
+                if (_sunStrikeFixedUpdate == null) {
+                    RaiderRoughPatchesMod.PublicLogger.LogWarning(
+                        "RaiderRoughPatches: SunStrikeArea.FixedUpdateNetwork not found — SunStrikeArea stale ref guard inactive.");
+                }
+
+                _charBaseFixedUpdate = AccessTools.Method(typeof(NetworkCharacterBase), "FixedUpdateNetwork");
+                if (_charBaseFixedUpdate == null) {
+                    RaiderRoughPatchesMod.PublicLogger.LogWarning(
+                        "RaiderRoughPatches: NetworkCharacterBase.FixedUpdateNetwork not found — PullCenter stale ref guard inactive.");
+                }
+            }
         }
 
         // Re-callable from Enable(). Registers all patches for which handles were resolved.
@@ -142,6 +166,16 @@ namespace RaiderRoughPatches.Patch {
                 }
             }
 
+            if (_fixFusionStaleRefs?.Value == true) {
+                if (_sunStrikeFixedUpdate != null) {
+                    harmony.Patch(_sunStrikeFixedUpdate, prefix: Fix(nameof(SunStrikeFixedUpdateNetworkPrefix)));
+                }
+
+                if (_charBaseFixedUpdate != null) {
+                    harmony.Patch(_charBaseFixedUpdate, prefix: Fix(nameof(CharBaseFixedUpdateNetworkPrefix)));
+                }
+            }
+
             RaiderRoughPatchesMod.PublicLogger.LogInfo("RaiderRoughPatches patches applied.");
         }
 
@@ -168,5 +202,11 @@ namespace RaiderRoughPatches.Patch {
 
         private static void DoAreaSelectionPostfix(AreaCharacterSelector __instance) =>
             BarrierSelfGrantFix.OnDoAreaSelectionDone(__instance);
+
+        private static bool SunStrikeFixedUpdateNetworkPrefix(SunStrikeArea __instance) =>
+            FusionStaleRefFix.OnSunStrikeFixedUpdate(__instance);
+
+        private static void CharBaseFixedUpdateNetworkPrefix(NetworkCharacterBase __instance) =>
+            FusionStaleRefFix.OnCharBaseFixedUpdate(__instance);
     }
 }
