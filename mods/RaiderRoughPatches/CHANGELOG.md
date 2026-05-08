@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.3] - 2026-05-08
 
 ### Fixed
 - Fusion stale refs — clear fake-null NetworkBehaviourId backing fields (SunStrikeArea.Caster, NetworkCharacterBase.PullCenter) to prevent 'Failed to unwrap' log spam at end of match
