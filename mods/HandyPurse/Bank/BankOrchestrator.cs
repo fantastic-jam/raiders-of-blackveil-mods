@@ -16,22 +16,30 @@ namespace HandyPurse.Bank {
         // ── Save hook (PlayerProfile.SavePlayerGameStates prefix) ──────────
 
         internal static void OnPlayerProfileSave(PlayerGameState[] states) {
+            HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook fired: states={(states == null ? "null" : states.Length.ToString())}, disabled={HandyPursePatch.Disabled}");
             _saveRestore = null;
             if (HandyPursePatch.Disabled || states == null) {
                 return;
             }
 
             var localUUID = PlayerManager.Instance?.LocalPlayer?.ProfileUUID ?? Guid.Empty;
-            if (localUUID == Guid.Empty) {
-                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: save hook fired but LocalPlayer UUID is empty — topup not recorded.");
+
+            PlayerGameState localState = null;
+            if (localUUID != Guid.Empty) {
+                foreach (var s in states) {
+                    if (s?.PlayerId == localUUID) { localState = s; break; }
+                }
+            } else if (states.Length == 1) {
+                // LocalPlayer not yet populated (early init save) — safe to assume sole state is ours.
+                localState = states[0];
+            } else {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: save hook fired but LocalPlayer UUID is empty and multiple states present — topup not recorded.");
                 return;
             }
 
-            PlayerGameState localState = null;
-            foreach (var s in states) {
-                if (s?.PlayerId == localUUID) { localState = s; break; }
-            }
             if (localState == null) { return; }
+
+            HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook: ts={localState.TimeStamp}, uuid={localState.PlayerId}");
 
             var db = ItemDatabase.Instance;
             if (db == null) { return; }
@@ -56,15 +64,21 @@ namespace HandyPurse.Bank {
                     Timestamp = localState.TimeStamp,
                     Compartments = new List<TopupCompartment>(),
                 };
+                int totalExcess = 0;
                 foreach (var (key, entries) in allCompartmentEntries) {
                     if (entries.Count > 0) {
                         save.Compartments.Add(new TopupCompartment { Key = key, Entries = entries });
+                        foreach (var e in entries) { totalExcess += e.Excess; }
                     }
                 }
                 if (!PurseBank.WriteTopupSave(save)) {
                     HandyPurseMod.PublicLogger.LogError(
                         "HandyPurse: failed to write topup file — excess will not be restored on next load.");
+                } else {
+                    HandyPurseMod.PublicLogger.LogInfo($"[Topup] wrote topup ts={localState.TimeStamp} totalExcess={totalExcess}");
                 }
+            } else {
+                HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook: no excess detected, no topup written");
             }
 
             _saveRestore = restoreList.Count > 0 ? restoreList : null;
@@ -94,13 +108,25 @@ namespace HandyPurse.Bank {
             }
             var original = callback;
             callback = (uuid, state) => {
+                bool isLocal = false;
                 if (state != null) {
                     var localUUID = PlayerManager.Instance?.LocalPlayer?.ProfileUUID ?? Guid.Empty;
-                    if (localUUID != Guid.Empty && localUUID == uuid) {
-                        ApplyTopupToState(state);
+                    isLocal = localUUID != Guid.Empty ? localUUID == uuid : PurseBank.FindTopupSave(state.TimeStamp) != null;
+                    HandyPurseMod.PublicLogger.LogInfo(
+                        $"[Topup] load callback: uuid={uuid}, ts={state.TimeStamp}, localUUID={localUUID}, isLocal={isLocal}");
+                    if (isLocal) {
+                        var topup = PurseBank.FindTopupSave(state.TimeStamp);
+                        HandyPurseMod.PublicLogger.LogInfo(
+                            $"[Topup] topup file found={topup != null}, compartments={topup?.Compartments?.Count ?? 0}");
                     }
                 }
                 original?.Invoke(uuid, state);
+                // Apply AFTER original so live GenericItemDescriptor objects are in the inventory
+                // and InitGenericItemsFromBackend's AmountMaximum clamp has already run.
+                // Writing to the same object references now updates the live inventory directly.
+                if (isLocal && state != null) {
+                    ApplyTopupToState(state);
+                }
             };
         }
 
@@ -160,9 +186,10 @@ namespace HandyPurse.Bank {
 
         private static void ApplyTopupToState(PlayerGameState state) {
             var db = ItemDatabase.Instance;
-            if (db == null) { return; }
+            if (db == null) { HandyPurseMod.PublicLogger.LogWarning("[Topup] ApplyTopupToState: ItemDatabase null"); return; }
 
             var topupSave = PurseBank.FindTopupSave(state.TimeStamp);
+            HandyPurseMod.PublicLogger.LogInfo($"[Topup] ApplyTopupToState: ts={state.TimeStamp}, found={topupSave != null}");
             if (topupSave == null) { return; }
 
             ApplyCompartmentTopup("Common", state.InventoryCommonData?.Items, topupSave);
@@ -186,9 +213,12 @@ namespace HandyPurse.Bank {
             var unresolved = BankLogic.ApplyTopup(slots, compartment.Entries);
 
             // Write restored amounts back to live item descriptors.
+            int applied = 0;
             for (int i = 0; i < items.Count; i++) {
+                if (items[i].Amount != slots[i].Amount) { applied++; }
                 items[i].Amount = slots[i].Amount;
             }
+            HandyPurseMod.PublicLogger.LogInfo($"[Topup] compartment={compartmentKey} entries={compartment.Entries.Count} applied={applied} unresolved={unresolved.Count}");
 
             if (unresolved.Count > 0) {
                 var deposit = new List<BankEntry>(unresolved.Count);
@@ -199,6 +229,51 @@ namespace HandyPurse.Bank {
                     HandyPurseMod.PublicLogger.LogWarning(
                         $"HandyPurse: {unresolved.Count} topup entries could not be restored (slot layout changed) — deposited to bank.");
                     AppendPendingPopup(HandyPurseMod.t("popup.layout_changed"));
+                }
+            }
+        }
+
+        // ── Local save hook (PlayerProfile.SavePlayerGameStateLocallyAsync prefix + finalizer) ──
+        // GetCommonBackendData() returns references to live _itemsArray objects, so clamping here
+        // touches the live inventory — same restore pattern as the cloud save is required.
+        // JsonConvert.SerializeObject runs synchronously before the first await, so the finalizer
+        // fires after serialization is done but before the async file write completes — safe to restore.
+
+        private static List<(GenericItemDescriptor item, int originalAmount)> _localSaveRestore;
+
+        internal static void OnLocalSave(PlayerGameState state) {
+            _localSaveRestore = null;
+            if (HandyPursePatch.Disabled || state == null) { return; }
+
+            var db = ItemDatabase.Instance;
+            if (db == null) { return; }
+
+            var restoreList = new List<(GenericItemDescriptor, int)>();
+            ClampCompartmentForLocalSave(state.InventoryCommonData?.Items, db, restoreList);
+            if (state.InventoryChampionData != null) {
+                foreach (var champData in state.InventoryChampionData) {
+                    ClampCompartmentForLocalSave(champData?.Items, db, restoreList);
+                }
+            }
+            _localSaveRestore = restoreList.Count > 0 ? restoreList : null;
+        }
+
+        internal static void OnLocalSaveComplete() {
+            if (_localSaveRestore == null) { return; }
+            foreach (var (item, original) in _localSaveRestore) {
+                item.Amount = original;
+            }
+            _localSaveRestore = null;
+        }
+
+        private static void ClampCompartmentForLocalSave(List<GenericItemDescriptor> items, ItemDatabase db, List<(GenericItemDescriptor, int)> restoreList) {
+            if (items == null) { return; }
+            var slots = ToSlots(items);
+            BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
+            for (int i = 0; i < items.Count; i++) {
+                if (items[i].Amount != slots[i].Amount) {
+                    restoreList.Add((items[i], items[i].Amount));
+                    items[i].Amount = slots[i].Amount;
                 }
             }
         }

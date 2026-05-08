@@ -82,10 +82,18 @@ namespace HandyPurse.Bank {
         /// </summary>
         internal static TopupSave FindTopupSave(long timestamp) {
             try {
-                var path = TopupSavePath(timestamp);
-                if (!File.Exists(path)) { return null; }
-                using var stream = File.OpenRead(path);
-                return (TopupSave)MakeSerializer<TopupSave>().ReadObject(stream);
+                // Exact match first.
+                var exact = TopupSavePath(timestamp);
+                if (File.Exists(exact)) {
+                    using var stream = File.OpenRead(exact);
+                    return (TopupSave)MakeSerializer<TopupSave>().ReadObject(stream);
+                }
+                // Prefix match: tolerate small stamp differences (cloud vs local save).
+                var prefix = TopupSavePrefix(timestamp);
+                var matches = Directory.GetFiles(DataDir, $"{Path.GetFileName(prefix)}*.json");
+                if (matches.Length == 0) { return null; }
+                using var fallback = File.OpenRead(matches[0]);
+                return (TopupSave)MakeSerializer<TopupSave>().ReadObject(fallback);
             }
             catch (Exception ex) {
                 Warn($"HandyPurse: topup lookup failed — {ex.Message}");
@@ -126,6 +134,33 @@ namespace HandyPurse.Bank {
                 Warn($"HandyPurse: topup scan failed — {ex.Message}");
             }
             return result;
+        }
+
+        /// <summary>
+        /// Returns the topup save with the highest timestamp, or null if none exist.
+        /// </summary>
+        internal static TopupSave GetLatestTopupSave() {
+            try {
+                if (!Directory.Exists(DataDir)) { return null; }
+                var files = Directory.GetFiles(DataDir, "topup-*.json");
+                if (files.Length == 0) { return null; }
+                Array.Sort(files);
+                for (int i = files.Length - 1; i >= 0; i--) {
+                    try {
+                        using var stream = File.OpenRead(files[i]);
+                        var save = (TopupSave)MakeSerializer<TopupSave>().ReadObject(stream);
+                        if (save?.Compartments?.Count > 0) { return save; }
+                    }
+                    catch (Exception ex) {
+                        Warn($"HandyPurse: skipping corrupt topup file {files[i]} — {ex.Message}");
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex) {
+                Warn($"HandyPurse: topup latest lookup failed — {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -218,6 +253,10 @@ namespace HandyPurse.Bank {
 
         private static string TopupSavePath(long timestamp) =>
             Path.Combine(DataDir, $"topup-{timestamp}.json");
+
+        // Truncate to 10-second precision for prefix-matching on lookup.
+        private static string TopupSavePrefix(long timestamp) =>
+            Path.Combine(DataDir, $"topup-{timestamp / 100_000_000L}");
 
         private static DataContractJsonSerializer MakeSerializer<T>() =>
             new DataContractJsonSerializer(typeof(T));

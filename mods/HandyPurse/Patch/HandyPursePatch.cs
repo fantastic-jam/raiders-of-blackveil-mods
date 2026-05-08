@@ -37,6 +37,7 @@ namespace HandyPurse.Patch {
         private static FieldInfo _itemsArrayField;
         private static FieldInfo _syncedItemsField;
         private static MethodInfo _savePlayerGameStatesMethod;
+        private static MethodInfo _savePlayerGameStateLocallyMethod;
         private static MethodInfo _loadPlayerGameStateMethod;
 
         // Always register the main menu hook so the breaking-change popup fires even on failure.
@@ -102,6 +103,17 @@ namespace HandyPurse.Patch {
                     finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(PlayerProfileSavePlayerGameStatesFinalizer))));
             }
 
+            // Local save hook — local and cloud save build separate PlayerGameState objects from the
+            // same live inventory; without clamping both, they diverge and trigger the conflict dialog.
+            _savePlayerGameStateLocallyMethod = AccessTools.Method(typeof(PlayerProfile), "SavePlayerGameStateLocallyAsync");
+            if (_savePlayerGameStateLocallyMethod == null) {
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStateLocallyAsync — local save will not be clamped (save-conflict dialog may appear).");
+            } else {
+                harmony.Patch(_savePlayerGameStateLocallyMethod,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncPrefix))),
+                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncFinalizer))));
+            }
+
             // Vault load hook — host only, wraps callback to apply topup before inventory initialises.
             _loadPlayerGameStateMethod = AccessTools.Method(typeof(BackendManager), "LoadPlayerGameState");
             if (_loadPlayerGameStateMethod == null) {
@@ -155,6 +167,14 @@ namespace HandyPurse.Patch {
 
         private static void PlayerProfileSavePlayerGameStatesPrefix(IngressMessagePlayerSaveGameStates requestSave) =>
             BankOrchestrator.OnPlayerProfileSave(requestSave?.data?.player_game_states);
+
+        private static void SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState) =>
+            BankOrchestrator.OnLocalSave(playerGameState);
+
+        private static Exception SavePlayerGameStateLocallyAsyncFinalizer(Exception __exception) {
+            BankOrchestrator.OnLocalSaveComplete();
+            return __exception;
+        }
 
         private static Exception PlayerProfileSavePlayerGameStatesFinalizer(Exception __exception) {
             BankOrchestrator.OnPlayerProfileSaveComplete();

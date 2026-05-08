@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Changed
+- Improved robustness of save/restore logic for early initialization scenarios
+
 ## [0.7.1] - 2026-05-03
 
 ### Fixed
