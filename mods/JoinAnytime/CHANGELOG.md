@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.2] - 2026-05-08
 
 ### Fixed
 - Ability points now correctly assigned when averaging XP from existing players
