@@ -300,11 +300,11 @@ namespace JoinAnytime {
             if (lm == null) { return; }
 
             var snapshot = new List<PlayerRef>(_pendingPlacement);
-            _pendingPlacement.Clear();
 
             foreach (var playerRef in snapshot) {
                 var player = PlayerManager.Instance?.GetPlayerByRef(playerRef);
                 if (player?.PlayableChampion == null) { continue; }
+                _pendingPlacement.Remove(playerRef);
                 lm.InitPlayerCharacterAtSpawnPoint(player);
                 JoinAnytimeMod.PublicLogger.LogInfo(
                     $"JoinAnytime: forced spawn-point placement for promoted joiner ref={playerRef.PlayerId}.");
@@ -330,7 +330,9 @@ namespace JoinAnytime {
                     .ToList();
                 if (existing.Count == 0) { return; }
 
-                champion.XP.Amount = (int)existing.Average(p => (double)p.PlayableChampion.XP.Amount);
+                int avgXp = (int)existing.Average(p => (double)p.PlayableChampion.XP.Amount);
+                champion.XP.Amount = avgXp;
+                champion.XP.AbilityPoints = Mathf.Max(0, (RewardDatabase.Instance?.GetXPLevel(avgXp) ?? 1) - 1);
 
                 int avgPerkCount = (int)existing.Average(p => (double)p.PlayableChampion.PerkHandler.CollectedPerks.Count);
                 var perksBySlot = existing

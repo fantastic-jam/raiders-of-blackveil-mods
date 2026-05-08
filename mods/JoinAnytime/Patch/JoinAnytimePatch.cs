@@ -305,6 +305,7 @@ namespace JoinAnytime.Patch {
         private static void ChampionAfterSpawnedPostfix(NetworkChampionBase __instance) {
             if (Disabled) { return; }
             JoinAnytimeManager.TryApplyAveraging(__instance);
+            JoinAnytimeManager.TryPlaceAtSpawnPoint();
         }
     }
 }
