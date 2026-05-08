@@ -4,13 +4,18 @@
 - [CheatManager](mods/CheatManager/README.md)
 - [DisableSkillsBar](mods/DisableSkillsBar/README.md)
 - [HandyPurse](mods/HandyPurse/README.md)
-- [ModManager](mods/ModManager/README.md)
+- [JoinAnytime](mods/JoinAnytime/README.md)
+- [OfflineMode](mods/OfflineMode/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
 - [PlayerNameFix](mods/PlayerNameFix/README.md)
+- [RaiderRoughPatches](mods/RaiderRoughPatches/README.md)
+- [RogueRun](mods/RogueRun/README.md)
+- [ThePit](mods/ThePit/README.md)
+- [WildguardModFramework](mods/WildguardModFramework/README.md)
 
 ## Libraries
 
-- [ModRegistry](libs/ModRegistry/README.md) — optional `IModRegistrant` interface + `ModType` enum for ModManager integration
+- [ModRegistry](libs/ModRegistry/README.md) — optional `IModRegistrant` interface + `ModType` enum for mod integration
 
 ## Setup
 
@@ -46,14 +51,23 @@ Builds the solution and copies the DLL, `Assets/` folder, and config templates i
 
 ## Release
 
+Two-step flow — one mod or lib at a time:
+
 ```bash
-pnpm run release -- --mod PerfectDodge --bump patch       # auto-increment version
-pnpm run release -- --mod PerfectDodge --version 1.2.3    # explicit version
-pnpm run release -- --mod PerfectDodge --bump minor --dry-run   # preview only
-pnpm run release -- --all --bump patch                    # release all mods
+pnpm run pre-release -- --mod PerfectDodge          # bump version from CHANGELOG (no commit)
+pnpm run pre-release -- --mod PerfectDodge --dry-run # preview version bump only
+
+pnpm run release -- --mod PerfectDodge              # commit, tag, push, GitHub release
+pnpm run release -- --mod PerfectDodge --dry-run    # preview full plan without modifying anything
+pnpm run release -- --mod PerfectDodge --skip-push --skip-release  # local only
+
+pnpm run pre-release -- --lib ModRegistry           # same flow for libs
+pnpm run release -- --lib ModRegistry
 ```
 
-Full pipeline: bumps `Version` constant in source → builds → packages ZIP → `git commit` + tag → push → GitHub release + asset upload (via `@octokit/rest`). Requires `GITHUB_TOKEN` in `.env` (see Setup).
+`pre-release` calls `frelease --pkg <name>`, which promotes `## [Unreleased]` to a versioned heading in `CHANGELOG.md` (bump level = highest entry type: major > minor > patch) and writes the new version into the `Version` constant in source. Review `CHANGELOG.md` before running `release`.
+
+`release` validates dirty files (only version file + CHANGELOG.md may be dirty), stages and commits both, builds, packages ZIP, creates git tag, pushes, and creates a GitHub release via `@octokit/rest`. Requires `GITHUB_TOKEN` in `.env` (see Setup).
 
 Package only (no git/release):
 
