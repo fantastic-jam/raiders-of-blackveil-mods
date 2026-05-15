@@ -1,0 +1,31 @@
+[size=5]EmoteMod[/size]
+
+Send floating emoji reactions visible to all players in the session. Press a configurable keybind to trigger an emote that appears above your character and is broadcast to everyone in the run.
+
+[line]
+
+[heading]Requirements[/heading]
+[list]
+[*][url=https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/]Raiders of Blackveil[/url]
+[*][url=https://github.com/BepInEx/BepInEx/releases]BepInEx 5[/url]
+[/list]
+
+[line]
+
+[heading]Installation[/heading]
+
+[b]1. Install BepInEx[/b]
+
+Skip this step if BepInEx is already installed.
+[list]
+[*]Download [b]BepInEx 5[/b] from the [url=https://github.com/BepInEx/BepInEx/releases]BepInEx releases page[/url] — pick the [b]BepInEx_win_x64[/b] build.
+[*]Extract the contents into your game folder (the one containing [b]RoB.exe[/b]).
+[*]Launch the game once and close it — BepInEx will initialize its folder structure.
+[/list]
+
+[b]2. Install the mod[/b]
+[list]
+[*]Download [b]EmoteMod-x.x.x.zip[/b] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=EmoteMod]releases page[/url].
+[*]Extract the ZIP into your game's [b]BepInEx[/b] folder.
+[*]Launch the game.
+[/list]

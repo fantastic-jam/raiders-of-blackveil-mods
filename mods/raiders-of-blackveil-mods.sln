@@ -30,6 +30,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RaiderRoughPatches.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JoinAnytime", "JoinAnytime\JoinAnytime.csproj", "{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlayerEmotes", "PlayerEmotes\PlayerEmotes.csproj", "{2E9A4F6B-C3D5-4E7F-A1B8-0D2C4E6F8A0B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -96,6 +98,10 @@ Global
 		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F1E2D3C4-B5A6-4978-8E0D-9F1A2B3C4D5E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2E9A4F6B-C3D5-4E7F-A1B8-0D2C4E6F8A0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E9A4F6B-C3D5-4E7F-A1B8-0D2C4E6F8A0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E9A4F6B-C3D5-4E7F-A1B8-0D2C4E6F8A0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E9A4F6B-C3D5-4E7F-A1B8-0D2C4E6F8A0B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
