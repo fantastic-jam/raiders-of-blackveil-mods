@@ -1,1 +1,8 @@
-DirectoryIndex /markdown_index.php
+RewriteEngine On
+
+# Any directory request → render its README.md
+RewriteRule ^(.+/)?$ /render.php?file=%{REQUEST_URI}README.md [L,NE]
+
+# Any .md request → render.php
+RewriteCond %{REQUEST_FILENAME} \.md$
+RewriteRule ^(.+\.md)$ /render.php?file=%{REQUEST_URI} [L,NE]
