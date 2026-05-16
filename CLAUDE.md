@@ -35,6 +35,10 @@ Types for `fchange`/`fcommit`: `added`, `changed`, `deprecated`, `removed`, `fix
 | Fusion networking facts | [`docs/dev/base_game/fusion_networking.md`](docs/dev/base_game/fusion_networking.md) |
 | NetworkRunner — properties, methods, lifecycle callbacks | [`docs/dev/base_game/network_runner.md`](docs/dev/base_game/network_runner.md) |
 
+## Game log
+
+BepInEx log: `D:\SteamLibrary\steamapps\common\Raiders of Blackveil\BepInEx\LogOutput.log`
+
 ## Game source
 
 `game-src/` is ILSpy-decompiled game source — read it to understand APIs, types, namespaces. Do not edit it. Key namespaces:
