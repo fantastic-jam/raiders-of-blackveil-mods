@@ -27,6 +27,31 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Remove="pipeline\**" />
+        <None Remove="pipeline\**" />
+        <EmbeddedResource Remove="pipeline\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="pipeline\unity\ServerData\StandaloneWindows64\Assets\**\*">
+            <Link>Assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
         <Reference Include="Fusion.Runtime" />
+        <Reference Include="UnityEngine.AnimationModule">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Unity.Addressables">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Unity.Addressables.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Unity.ResourceManager">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Unity.ResourceManager.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 </Project>
