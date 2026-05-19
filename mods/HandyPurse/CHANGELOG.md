@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- When no topup file matches the loaded state's timestamp (e.g. cloud and local saves have different timestamps, as caused by OfflineMode's save-validation sync), the most recent topup file is applied as a fallback instead of being silently skipped.
+- Local save in offline mode now writes a topup file so excess currency persists across offline sessions.
+
 ## [0.8.0] - 2026-05-08
 
 ### Changed

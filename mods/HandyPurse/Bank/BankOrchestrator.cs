@@ -54,31 +54,22 @@ namespace HandyPurse.Bank {
                 }
             }
 
-            bool hasExcess = false;
-            foreach (var (_, entries) in allCompartmentEntries) {
-                if (entries.Count > 0) { hasExcess = true; break; }
+            var cloudSave = new TopupSave {
+                Timestamp = localState.TimeStamp,
+                Compartments = new List<TopupCompartment>(),
+            };
+            int cloudTotalExcess = 0;
+            foreach (var (key, entries) in allCompartmentEntries) {
+                if (entries.Count > 0) {
+                    cloudSave.Compartments.Add(new TopupCompartment { Key = key, Entries = entries });
+                    foreach (var e in entries) { cloudTotalExcess += e.Excess; }
+                }
             }
-
-            if (hasExcess) {
-                var save = new TopupSave {
-                    Timestamp = localState.TimeStamp,
-                    Compartments = new List<TopupCompartment>(),
-                };
-                int totalExcess = 0;
-                foreach (var (key, entries) in allCompartmentEntries) {
-                    if (entries.Count > 0) {
-                        save.Compartments.Add(new TopupCompartment { Key = key, Entries = entries });
-                        foreach (var e in entries) { totalExcess += e.Excess; }
-                    }
-                }
-                if (!PurseBank.WriteTopupSave(save)) {
-                    HandyPurseMod.PublicLogger.LogError(
-                        "HandyPurse: failed to write topup file — excess will not be restored on next load.");
-                } else {
-                    HandyPurseMod.PublicLogger.LogInfo($"[Topup] wrote topup ts={localState.TimeStamp} totalExcess={totalExcess}");
-                }
+            if (!PurseBank.WriteTopupSave(cloudSave)) {
+                HandyPurseMod.PublicLogger.LogError(
+                    "HandyPurse: failed to write topup file — excess will not be restored on next load.");
             } else {
-                HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook: no excess detected, no topup written");
+                HandyPurseMod.PublicLogger.LogInfo($"[Topup] wrote topup ts={localState.TimeStamp} totalExcess={cloudTotalExcess}");
             }
 
             _saveRestore = restoreList.Count > 0 ? restoreList : null;
@@ -190,7 +181,15 @@ namespace HandyPurse.Bank {
 
             var topupSave = PurseBank.FindTopupSave(state.TimeStamp);
             HandyPurseMod.PublicLogger.LogInfo($"[Topup] ApplyTopupToState: ts={state.TimeStamp}, found={topupSave != null}");
-            if (topupSave == null) { return; }
+
+            if (topupSave == null) {
+                // Timestamp mismatch — the topup file was written for a different state stamp (e.g. cloud
+                // and local saves have different timestamps; OfflineMode's save validation can drift them).
+                // Restore using the most recent topup file; older files represent superseded saves.
+                topupSave = PurseBank.GetLatestTopupSave();
+                HandyPurseMod.PublicLogger.LogInfo($"[Topup] ApplyTopupToState: fallback to latest, found={topupSave != null}");
+                if (topupSave == null) { return; }
+            }
 
             ApplyCompartmentTopup("Common", state.InventoryCommonData?.Items, topupSave);
             if (state.InventoryChampionData != null) {
@@ -249,12 +248,32 @@ namespace HandyPurse.Bank {
             if (db == null) { return; }
 
             var restoreList = new List<(GenericItemDescriptor, int)>();
-            ClampCompartmentForLocalSave(state.InventoryCommonData?.Items, db, restoreList);
+            var allCompartmentEntries = new List<(string key, List<TopupEntry> entries)>();
+
+            CollectAndClampCompartment("Common", state.InventoryCommonData?.Items, db, restoreList, allCompartmentEntries);
             if (state.InventoryChampionData != null) {
                 foreach (var champData in state.InventoryChampionData) {
-                    ClampCompartmentForLocalSave(champData?.Items, db, restoreList);
+                    CollectAndClampCompartment(champData.ChampionType.ToString(), champData?.Items, db, restoreList, allCompartmentEntries);
                 }
             }
+
+            var localSave = new TopupSave {
+                Timestamp = state.TimeStamp,
+                Compartments = new List<TopupCompartment>(),
+            };
+            int localTotalExcess = 0;
+            foreach (var (key, entries) in allCompartmentEntries) {
+                if (entries.Count > 0) {
+                    localSave.Compartments.Add(new TopupCompartment { Key = key, Entries = entries });
+                    foreach (var e in entries) { localTotalExcess += e.Excess; }
+                }
+            }
+            if (!PurseBank.WriteTopupSave(localSave)) {
+                HandyPurseMod.PublicLogger.LogError("HandyPurse: failed to write local-save topup — excess will not be restored.");
+            } else {
+                HandyPurseMod.PublicLogger.LogInfo($"[Topup] local save: wrote topup ts={state.TimeStamp} totalExcess={localTotalExcess}");
+            }
+
             _localSaveRestore = restoreList.Count > 0 ? restoreList : null;
         }
 
@@ -264,18 +283,6 @@ namespace HandyPurse.Bank {
                 item.Amount = original;
             }
             _localSaveRestore = null;
-        }
-
-        private static void ClampCompartmentForLocalSave(List<GenericItemDescriptor> items, ItemDatabase db, List<(GenericItemDescriptor, int)> restoreList) {
-            if (items == null) { return; }
-            var slots = ToSlots(items);
-            BankLogic.ComputeExcess(slots, assetId => db.GetAsset(assetId)?.StackMaximum);
-            for (int i = 0; i < items.Count; i++) {
-                if (items[i].Amount != slots[i].Amount) {
-                    restoreList.Add((items[i], items[i].Amount));
-                    items[i].Amount = slots[i].Amount;
-                }
-            }
         }
 
         private static void CollectAndClampCompartment(
