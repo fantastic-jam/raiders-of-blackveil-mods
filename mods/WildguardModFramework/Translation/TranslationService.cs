@@ -5,6 +5,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using BepInEx;
 using RR;
+using RR.Config;
 
 namespace WildguardModFramework.Translation {
     /// <summary>
@@ -111,7 +112,7 @@ namespace WildguardModFramework.Translation {
 
         private static string GetCurrentLang() {
             try {
-                return AppManager.Instance?.PlayerSettings?.Gen_Language ?? "en";
+                return AppManager.Instance?.SyncedSettings?.Gen_Language ?? "en";
             }
             catch {
                 return "en";

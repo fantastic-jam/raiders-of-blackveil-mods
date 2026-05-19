@@ -66,7 +66,7 @@ namespace WildguardModFramework.ModMenu {
             _keysFooter = RootElement.Q<JoinHostKeysFooter>("KeysFooter");
             if (_keysFooter != null) {
                 _keysFooter.OnCloseClicked = () => {
-                    if (ParentPageLayer.IsOpenAndReady) {
+                    if (RootLayer.IsOpenAndReady) {
                         OnCloseRequest?.Invoke();
                     }
                 };

@@ -35,7 +35,7 @@ namespace RaiderRoughPatches {
                 return true;
             }
 
-            InventoryPanel targetPanel = source.GridTab.IsChampion()
+            InventoryPanel targetPanel = source.GridTab.IsInInventory()
                 ? _otherPanelField?.GetValue(instance) as InventoryPanel
                 : _championPanelField?.GetValue(instance) as InventoryPanel;
 

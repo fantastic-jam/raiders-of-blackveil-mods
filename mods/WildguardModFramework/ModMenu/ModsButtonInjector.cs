@@ -32,7 +32,7 @@ namespace WildguardModFramework.ModMenu {
 
             var cursor = CursorField?.GetValue(instance) as UICursorLinear<object>;
 
-            var modsBtn = new ButtonGeneric3 {
+            var modsBtn = new ButtonGeneric2 {
                 OnClick = _ => {
                     _overlay ??= new ModsMenuOverlay(_menuPageRoot);
                     _overlay.Open();

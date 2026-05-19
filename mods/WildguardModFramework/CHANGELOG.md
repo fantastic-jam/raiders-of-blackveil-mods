@@ -3,6 +3,7 @@
 ## [Unreleased] - patch
 
 ### Fixed
+- ButtonGeneric3 renamed to ButtonGeneric2; ParentPageLayer renamed to RootLayer; RPC_Handle_SetUserData_All signature changed; PlayerSettings.Gen_Language moved to SyncedSettings
 - use .Forget() for UniTask fire-and-forget in ValidateJoinSession
 - guard AfterSceneLoadDone against per-room refiring; add Hovered interface stubs
 - BackendManager API compatibility for Ghoulag Update
