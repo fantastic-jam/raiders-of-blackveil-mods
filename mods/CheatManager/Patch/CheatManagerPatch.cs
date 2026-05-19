@@ -28,9 +28,9 @@ namespace CheatManager.Patch {
         }
 
         public static void Apply(Harmony harmony) {
-            var getter = AccessTools.PropertyGetter(typeof(PlayerSettings), nameof(PlayerSettings.Dev_EnableCheatHotkeys));
+            var getter = AccessTools.PropertyGetter(typeof(LocalSettings), nameof(LocalSettings.Dev_EnableCheatHotkeys));
             if (getter == null) {
-                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find PlayerSettings.Dev_EnableCheatHotkeys getter — patch inactive.");
+                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find LocalSettings.Dev_EnableCheatHotkeys getter — patch inactive.");
             } else {
                 harmony.Patch(getter, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(EnableCheatHotkeysPostfix))));
             }
