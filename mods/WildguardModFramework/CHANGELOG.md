@@ -3,6 +3,7 @@
 ## [Unreleased] - patch
 
 ### Fixed
+- use .Forget() for UniTask fire-and-forget in ValidateJoinSession
 - guard AfterSceneLoadDone against per-room refiring; add Hovered interface stubs
 - BackendManager API compatibility for Ghoulag Update
 
