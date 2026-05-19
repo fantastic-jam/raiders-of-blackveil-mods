@@ -3,6 +3,7 @@
 ## [Unreleased] - patch
 
 ### Fixed
+- Fix compile errors for Ghoulag Update API changes: XP struct now private (use XPAmount/SetXP/AddXP/SpendAbilityPoint), GameManager/PlayerManager require using RR, Health.Die requires attacker param, CombatTimePrecise is now double, ManEaterPlantBrain fields renamed/privatised, WitheredSeedBrain.aimSpeed now protected, LobbyManager.RPC_Handle_RaidSetupDone replaced by Handle_GameEventRaidSelected, BeatriceSpecialObject._charRef renamed to _creatorAbility
 - Ghoulag Update compatibility: rename FlowerEffect to FlowerEffectOnHost, replace EventBeginLevel with DungeonManager.OnSceneLoadDone, update ProjectileCasterExpander and ProjectileCasterSelfSkipPatch to use ProjectileCasterBase for relocated fields, fix OwnerCharacter to Owner
 
 ## [0.3.0] - 2026-05-03

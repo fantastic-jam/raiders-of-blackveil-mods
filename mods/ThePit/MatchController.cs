@@ -148,7 +148,7 @@ namespace ThePit {
                 var champ = player.PlayableChampion;
                 if (champ == null) { continue; }
                 if (champ.Stats.ActorID != winnerActorId && champ.Stats.Health.IsAlive) {
-                    champ.Stats.Health.Die();
+                    champ.Stats.Health.Die(attacker: null);
                 }
             }
 
@@ -226,7 +226,7 @@ namespace ThePit {
         internal static void OnDifficultyFixedUpdate(DifficultyManager dm) {
             if (!ThePitState.CombatStarted || ThePitState.MatchEnded || dm.Runner?.IsServer != true) { return; }
             if (ThePitPatch.CombatTimePreciseSetter == null || ThePitPatch.CombatTimeInSecSetter == null) { return; }
-            float precise = Mathf.Max(0f, dm.CombatTimePrecise - dm.Runner.DeltaTime);
+            float precise = Mathf.Max(0f, (float)(dm.CombatTimePrecise - dm.Runner.DeltaTime));
             ThePitPatch.CombatTimePreciseSetter.Invoke(dm, new object[] { precise });
             ThePitPatch.CombatTimeInSecSetter.Invoke(dm, new object[] { (int)Mathf.Ceil(precise) });
         }

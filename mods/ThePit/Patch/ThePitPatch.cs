@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using HarmonyLib;
+using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
@@ -350,8 +351,7 @@ namespace ThePit.Patch {
             var limits = rdb?.XPDescriptor?.XPLimits;
             if (limits == null || targetLevel - 1 >= limits.Count) { return; }
             int targetXP = limits[targetLevel - 1];
-            champ.XP.Amount = targetXP;
-            champ.XP.AbilityPoints = rdb.GetXPUpgradePoints(0, targetXP);
+            champ.SetXP(targetXP);
 
             if (targetLevel < limits.Count) { return; }
 
@@ -363,7 +363,7 @@ namespace ThePit.Patch {
             champ.Special.OnUpgraded(champ.Special.MaximumXPLevel, developerUpgrade: true);
             champ.Defensive.OnUpgraded(champ.Defensive.MaximumXPLevel, developerUpgrade: true);
             champ.Ultimate.OnUpgraded(champ.Ultimate.MaximumXPLevel, developerUpgrade: true);
-            champ.XP.AbilityPoints = 0;
+            while (champ.AbilityPoints > 0) { champ.SpendAbilityPoint(); }
         }
 
         // ── Entry point ─────────────────────────────────────────────────────────
@@ -689,7 +689,7 @@ namespace ThePit.Patch {
             if (rdb == null || __instance.Champion == null) { return true; }
 
             const int MaxXpLevel = 20;
-            int level = rdb.GetXPLevel(__instance.Champion.XP.Amount);
+            int level = rdb.GetXPLevel(__instance.Champion.XPAmount);
             if (level <= 1) { return true; }
 
             float t = (float)(level - 1) / (MaxXpLevel - 1);
@@ -713,7 +713,7 @@ namespace ThePit.Patch {
             if (rdb == null || victimStats.Champion == null) { return; }
 
             const int MaxXpLevel = 20;
-            int level = rdb.GetXPLevel(victimStats.Champion.XP.Amount);
+            int level = rdb.GetXPLevel(victimStats.Champion.XPAmount);
             if (level <= 1) { return; }
 
             float t = (float)(level - 1) / (MaxXpLevel - 1);
@@ -736,7 +736,7 @@ namespace ThePit.Patch {
             var rdb = RewardDatabase.Instance;
             if (rdb == null) { return; }
             const int MaxXpLevel = 20;
-            int level = rdb.GetXPLevel(stats.Champion.XP.Amount);
+            int level = rdb.GetXPLevel(stats.Champion.XPAmount);
             if (level <= 1) { return; }
             float t = (float)(level - 1) / (MaxXpLevel - 1);
             value /= Mathf.Lerp(1f, maxFactor, t);

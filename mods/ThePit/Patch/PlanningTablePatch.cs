@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RR;
 using RR.Game.Pickups;
@@ -11,12 +12,20 @@ using ThePit.UI;
 namespace ThePit.Patch {
     // When The Pit (Beta) is active, intercepts the planning table interaction in the lobby
     // and shows the match config overlay instead of the normal raid-planning flow.
-    // The overlay's OK button calls RPC_Handle_RaidSetupDone directly, skipping the raid
-    // selection UI and going straight to the table glow + player-gathering phase.
+    // The overlay's OK button triggers Handle_GameEventRaidSelected on the LobbyManager
+    // (via reflection), which sets IsRaidReadyToGo=true and starts the timer that fires
+    // the cutscene RPC — skipping the raid-selection UI.
     internal static class PlanningTablePatch {
         private static readonly ConditionalWeakTable<LobbyHUDPage, HostConfigOverlay> _overlays = new();
+        private static MethodInfo _handleRaidSelectedMethod;
 
         internal static void Apply(Harmony harmony) {
+            _handleRaidSelectedMethod = AccessTools.Method(typeof(LobbyManager), "Handle_GameEventRaidSelected");
+            if (_handleRaidSelectedMethod == null) {
+                ThePitMod.PublicLogger.LogWarning(
+                    "ThePit: LobbyManager.Handle_GameEventRaidSelected not found — lobby config overlay will not start raid.");
+            }
+
             var onCardCollected = AccessTools.Method(typeof(PlanningTablePickup), nameof(PlanningTablePickup.OnCardCollected));
             if (onCardCollected == null) {
                 ThePitMod.PublicLogger.LogWarning(
@@ -45,7 +54,10 @@ namespace ThePit.Patch {
             _overlays.GetValue(hudPage, p => new HostConfigOverlay(p.RootElement, () => {
                 DifficultyManager.Instance.Difficulty = Difficulty.Normal;
                 DifficultyManager.Instance.DangerRisky = 0;
-                GameManager.Instance.GetLobbyManager().RPC_Handle_RaidSetupDone(Difficulty.Normal, 0);
+                var lobbyManager = GameManager.Instance.GetLobbyManager();
+                if (lobbyManager != null) {
+                    _handleRaidSelectedMethod?.Invoke(lobbyManager, null);
+                }
             })).Show();
 
             return false;
