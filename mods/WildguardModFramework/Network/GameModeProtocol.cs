@@ -59,6 +59,7 @@ namespace WildguardModFramework.Network {
 
         private static NetworkRunner _serverRunner;
         private static bool _joiningWithAutoEnable;
+        private static bool _runStarted;
         private static bool _runNotificationShown;
         // ── Client-side ────────────────────────────────────────────────────────────
 
@@ -201,10 +202,14 @@ namespace WildguardModFramework.Network {
             ConfirmedPlayers.Clear();
             _knownModded.Clear();
             _serverRunner = null;
+            _runStarted = false;
             _runNotificationShown = false;
         }
 
         internal static void OnEventBeginLevel() {
+            if (_runStarted) { return; }
+            _runStarted = true;
+
             // Disconnect modded clients who never completed the handshake, before the run starts.
             if (_serverRunner != null && _serverRunner.IsServer) {
                 var activeMode = ModScanner.GameModes.FirstOrDefault(g => g.VariantId == ModScanner.SelectedGameModeVariantId);
@@ -232,6 +237,7 @@ namespace WildguardModFramework.Network {
         }
 
         internal static void OnLobbySceneLoadDone() {
+            _runStarted = false;
             _runNotificationShown = false;
         }
 
