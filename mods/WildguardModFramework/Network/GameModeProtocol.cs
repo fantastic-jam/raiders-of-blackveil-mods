@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
 using WildguardModFramework.Registry;
@@ -99,7 +100,7 @@ namespace WildguardModFramework.Network {
             WmfMod.PublicLogger.LogInfo($"WMF: auto-enabled \"{requiredMode.DisplayName}\" for required session.");
             _joiningWithAutoEnable = true;
             try {
-                _ = BackendManager.Instance.V2_JoinPlaySession(joinablePlaySession);
+                BackendManager.Instance.V2_JoinPlaySession(joinablePlaySession).Forget();
             }
             finally {
                 _joiningWithAutoEnable = false;
