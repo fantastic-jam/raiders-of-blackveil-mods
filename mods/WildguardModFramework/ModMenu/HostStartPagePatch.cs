@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using WildguardModFramework.Registry;
 using RR;
+using RR.Backend.Session;
 using RR.UI.Pages;
 
 namespace WildguardModFramework.ModMenu {
@@ -26,7 +27,7 @@ namespace WildguardModFramework.ModMenu {
             HostPageController.Activate(__instance);
         }
 
-        private static void BeginPlaySessionPrefix(ref string sessionTag, BackendManager.PlaySessionMode playSessionMode) =>
+        private static void BeginPlaySessionPrefix(ref string sessionTag, PlaySessionMode playSessionMode) =>
             SessionOrchestrator.Begin(ref sessionTag,
                 HostPageController.Current?.AllowMods ?? true,
                 HostPageController.Current?.AllowCheats ?? true,

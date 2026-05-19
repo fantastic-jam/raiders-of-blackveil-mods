@@ -7,6 +7,7 @@ using Fusion;
 using Fusion.Sockets;
 using WildguardModFramework.Registry;
 using RR;
+using RR.Backend.API.V2.Multiplayer.Types;
 using RR.UI.Extensions;
 using RR.UI.UISystem;
 using UnityEngine;
@@ -68,12 +69,12 @@ namespace WildguardModFramework.Network {
 
         /// <summary>
         /// Friendly popup when joining a session whose name advertises a required mod the client lacks.
-        /// Returns true to proceed with the original JoinPlaySession call, false to cancel.
+        /// Returns true to proceed with the original V2_JoinPlaySession call, false to cancel.
         /// </summary>
-        internal static bool ValidateJoinSession(Guid joinGameSessionId, string serverName, string sessionPassword) {
+        internal static bool ValidateJoinSession(JoinablePlaySession joinablePlaySession) {
             if (_joiningWithAutoEnable) { return true; }
 
-            var requiredMode = FindClientRequiredGameMode(serverName);
+            var requiredMode = FindClientRequiredGameMode(joinablePlaySession.SessionTag);
             if (requiredMode == null) { return true; }
 
             var localMod = ModScanner.AllDiscovered.FirstOrDefault(m => m.Guid == requiredMode.PluginGuid);
@@ -97,7 +98,7 @@ namespace WildguardModFramework.Network {
             WmfMod.PublicLogger.LogInfo($"WMF: auto-enabled \"{requiredMode.DisplayName}\" for required session.");
             _joiningWithAutoEnable = true;
             try {
-                BackendManager.Instance.JoinPlaySession(joinGameSessionId, serverName, sessionPassword);
+                _ = BackendManager.Instance.V2_JoinPlaySession(joinablePlaySession);
             }
             finally {
                 _joiningWithAutoEnable = false;
