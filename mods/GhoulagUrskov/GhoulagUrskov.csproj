@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>10</LangVersion>
+        <AssemblyName>GhoulagUrskov</AssemblyName>
+        <RootNamespace>GhoulagUrskov</RootNamespace>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <Optimize>false</Optimize>
+        <DefineConstants>DEV_HOTRELOAD</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <Import Project="../UserPaths.props" Condition="exists('../UserPaths.props')" />
+    <Import Project="../Common.props" />
+
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <Reference Include="UnityHotReload">
+            <HintPath>..\..\dev\UnityHotReload\UnityHotReload.dll</HintPath>
+            <Private>True</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="pipeline\**" />
+        <None Remove="pipeline\**" />
+        <EmbeddedResource Remove="pipeline\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="pipeline\unity\ServerData\StandaloneWindows64\Assets\**\*">
+            <Link>Assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="Fusion.Runtime" />
+        <Reference Include="UnityEngine.AnimationModule">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Unity.Addressables">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Unity.Addressables.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="Unity.ResourceManager">
+            <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Unity.ResourceManager.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+</Project>
