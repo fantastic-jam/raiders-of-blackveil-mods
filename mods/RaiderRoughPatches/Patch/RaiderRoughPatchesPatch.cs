@@ -4,7 +4,6 @@ using Fusion;
 using HarmonyLib;
 using RR;
 using RR.Game.Character;
-using RR.Game.Perk;
 using RR.Level;
 using RR.UI.Controls.Inventory;
 using RR.UI.Pages;
@@ -15,7 +14,6 @@ namespace RaiderRoughPatches.Patch {
         private static MethodInfo _lobbySceneLoadDone;
         private static MethodInfo _transferItemMethod;
         private static MethodInfo _canMergeItemMethod;
-        private static MethodInfo _doAreaSelection;
         private static MethodInfo _doorActivate;
         private static MethodInfo _rpcVoteState;
         private static MethodInfo _onPlayerLeft;
@@ -25,7 +23,6 @@ namespace RaiderRoughPatches.Patch {
         // Config entries — bound once in Init().
         private static ConfigEntry<bool> _fixSessionVisibility;
         private static ConfigEntry<bool> _fixStashAutoStack;
-        private static ConfigEntry<bool> _fixBarrierSelfGrant;
         private static ConfigEntry<bool> _fixDoorVoteOnDisconnect;
         private static ConfigEntry<bool> _fixFusionStaleRefs;
 
@@ -41,10 +38,6 @@ namespace RaiderRoughPatches.Patch {
             _fixStashAutoStack = config.Bind(
                 "Fixes", "StashAutoStack", true,
                 "Auto-stack stackable items when transferring between champion inventory and stash.");
-
-            _fixBarrierSelfGrant = config.Bind(
-                "Fixes", "BarrierSelfGrantFix", true,
-                "Re-apply 'self and nearest ally' perk effects to the caster — fixes effects only landing on allies in multiplayer due to _chooseOwnerLast removing the caster from the candidate pool.");
 
             _fixDoorVoteOnDisconnect = config.Bind(
                 "Fixes", "DoorVoteOnDisconnectFix", true,
@@ -73,18 +66,6 @@ namespace RaiderRoughPatches.Patch {
                 if (_canMergeItemMethod == null) {
                     RaiderRoughPatchesMod.PublicLogger.LogWarning(
                         "RaiderRoughPatches: InventorySlotNormal.CanMergeItem not found — cross-item merge fix inactive.");
-                }
-            }
-
-            if (_fixBarrierSelfGrant.Value) {
-                BarrierSelfGrantFix.Init();
-
-                if (BarrierSelfGrantFix.IsReady) {
-                    _doAreaSelection = AccessTools.Method(typeof(AreaCharacterSelector), "DoAreaSelection");
-                    if (_doAreaSelection == null) {
-                        RaiderRoughPatchesMod.PublicLogger.LogWarning(
-                            "RaiderRoughPatches: AreaCharacterSelector.DoAreaSelection not found — barrier self-grant fix inactive.");
-                    }
                 }
             }
 
@@ -146,10 +127,6 @@ namespace RaiderRoughPatches.Patch {
                 }
             }
 
-            if (_fixBarrierSelfGrant?.Value == true && _doAreaSelection != null) {
-                harmony.Patch(_doAreaSelection, postfix: Fix(nameof(DoAreaSelectionPostfix)));
-            }
-
             if (_fixDoorVoteOnDisconnect?.Value == true) {
                 if (_doorActivate != null) {
                     harmony.Patch(_doorActivate, postfix: Fix(nameof(DoorActivatePostfix)));
@@ -199,9 +176,6 @@ namespace RaiderRoughPatches.Patch {
 
         private static void PlayerLeftPostfix() =>
             DoorVoteFix.OnPlayerLeft();
-
-        private static void DoAreaSelectionPostfix(AreaCharacterSelector __instance) =>
-            BarrierSelfGrantFix.OnDoAreaSelectionDone(__instance);
 
         private static bool SunStrikeFixedUpdateNetworkPrefix(SunStrikeArea __instance) =>
             FusionStaleRefFix.OnSunStrikeFixedUpdate(__instance);

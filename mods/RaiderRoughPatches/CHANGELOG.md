@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - major
+
+### Removed
+- BarrierSelfGrantFix — game fixed ally-targeting bugs in Ghoulag Update
+
 ## [0.0.3] - 2026-05-08
 
 ### Fixed
