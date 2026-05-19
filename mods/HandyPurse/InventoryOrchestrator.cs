@@ -55,10 +55,11 @@ namespace HandyPurse {
         // ── MergeToInventory prefix ────────────────────────────────────────
 
         // Returns true to run the original, false to skip it.
+        // Ghoulag Update: MergeToInventory signature dropped ChampionType (shared inventory).
+        // New signature: MergeToInventory(int assetID, int amount, InventoryItemChanges changes, GenericItemDescriptor preferredItemToMerge = null)
         internal static bool OnMergeToInventory(
                 object instance,
                 int assetID,
-                ChampionType champion,
                 int amount,
                 InventoryItemChanges changes,
                 ref int result,
@@ -73,9 +74,17 @@ namespace HandyPurse {
             if (managedCap <= 0) {
                 return true; // not managed — let the original run
             }
-            // Only the local player gets the elevated HandyPurse cap; other players use vanilla.
-            var localChampion = PlayerManager.Instance?.LocalChampion;
-            bool isLocal = localChampion?.ChampionType == champion;
+            // Only the local player's inventory gets the elevated HandyPurse cap.
+            // With shared inventory, ownership is determined by checking if the InventorySyncedItems
+            // instance belongs to the local player's Inventory component.
+            var syncedItemsField = HandyPursePatch.SyncedItemsField;
+            bool isLocal = false;
+            if (syncedItemsField != null) {
+                var localInventory = PlayerManager.Instance?.LocalPlayer?.Inventory;
+                if (localInventory != null) {
+                    isLocal = ReferenceEquals(syncedItemsField.GetValue(localInventory), instance);
+                }
+            }
             var cap = isLocal ? managedCap : asset.StackMaximum;
             if (cap <= 1) {
                 result = 0;
@@ -86,7 +95,7 @@ namespace HandyPurse {
             }
             int merged = 0;
             foreach (var item in itemsArray) {
-                if (item.AssetID != assetID || !item.IsInInventoryOf(champion)) {
+                if (item.AssetID != assetID || !item.IsInInventory) {
                     continue;
                 }
                 int space = cap - item.Amount;
