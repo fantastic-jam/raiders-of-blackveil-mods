@@ -26,15 +26,6 @@ namespace RaiderRoughPatches {
 
         internal static bool IsReady => _otherPanelField != null && _championPanelField != null;
 
-        // Postfix for CanMergeItem: vanilla only checks ItemType, so any two Souvenirs appear mergeable.
-        // Adding AssetID equality prevents e.g. a hex doll merging into a pig stew slot.
-        internal static void FixCanMergeItem(InventorySlotNormal __instance, InventoryItem sourceItem, ref bool __result) {
-            if (!__result) { return; }
-            if (__instance.Item?.Descriptor?.AsGenericItem?.AssetID != sourceItem?.Descriptor?.AsGenericItem?.AssetID) {
-                __result = false;
-            }
-        }
-
         internal static bool TryAutoStack(GameInventoryPage instance, InventorySlot sourceSlot) {
             if (!(sourceSlot is InventorySlotNormal source) || source.IsEmpty) {
                 return true;
