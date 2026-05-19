@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using HarmonyLib;
-using RR;
 using RR.Game;
 using RR.Game.Character;
 using RR.Game.Enemies;
@@ -31,9 +30,12 @@ namespace ThePit.Patch {
 
         public static bool Apply(Harmony harmony) {
             // --- Critical: perk/XP drip entry point ---
-            var beginLevel = AccessTools.Method(typeof(BackendManager), "EventBeginLevel");
+            // EventBeginLevel was removed in the Ghoulag Update; DungeonManager.OnSceneLoadDone
+            // fires once per dungeon level entry (not lobby, not tutorial) and is the correct
+            // replacement hook for detecting match start and arena entry.
+            var beginLevel = AccessTools.Method(typeof(DungeonManager), "OnSceneLoadDone");
             if (beginLevel == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: BackendManager.EventBeginLevel not found — mod disabled.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: DungeonManager.OnSceneLoadDone not found — mod disabled.");
                 return false;
             }
             harmony.Patch(beginLevel,

@@ -2,6 +2,7 @@
 using WildguardModFramework.Chat;
 using WildguardModFramework.Registry;
 using RR;
+using RR.Backend.Session;
 
 namespace WildguardModFramework.ModMenu {
     /// <summary>
@@ -17,7 +18,7 @@ namespace WildguardModFramework.ModMenu {
         /// <summary>
         /// Apply all session-start logic and modify sessionTag in-place with the computed suffix.
         /// </summary>
-        internal static void Begin(ref string sessionTag, bool allowMods, bool allowCheats, BackendManager.PlaySessionMode playSessionMode) {
+        internal static void Begin(ref string sessionTag, bool allowMods, bool allowCheats, PlaySessionMode playSessionMode) {
             WmfMod.PublicLogger.LogInfo(
                 $"WMF: BeginPlaySession — mode={playSessionMode}, allowMods={allowMods}, allowCheats={allowCheats}"
             );
@@ -62,7 +63,7 @@ namespace WildguardModFramework.ModMenu {
         // Applies the selected game mode for all session types.
         // For solo sessions, MenuStartPage.OnActivate may fire between ConfirmAndStart() and BeginPlaySession
         // (e.g. when OfflineMode runs deferred login), so we must re-activate here rather than relying on ConfirmAndStart().
-        private static RegisteredGameMode ApplyGameModeChoice(BackendManager.PlaySessionMode playSessionMode) {
+        private static RegisteredGameMode ApplyGameModeChoice(PlaySessionMode playSessionMode) {
 
             var selectedId = ModScanner.SelectedGameModeVariantId;
             foreach (var gm in ModScanner.GameModes) { gm.Disable(); }

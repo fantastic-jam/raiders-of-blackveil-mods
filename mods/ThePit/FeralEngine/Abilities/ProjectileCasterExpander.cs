@@ -8,10 +8,10 @@ namespace ThePit.FeralEngine.Abilities {
     // layer so projectiles can hit champions. The four ProjectileCaster-based ability
     // patches all use the same fields; this class holds them once.
     internal static class ProjectileCasterExpander {
-        internal static readonly FieldInfo LayerMaskField = AccessTools.Field(typeof(ProjectileCaster), "_layerMask");
-        internal static readonly FieldInfo LayerMaskCharsField = AccessTools.Field(typeof(ProjectileCaster), "_layerMaskCharacters");
-        internal static readonly FieldInfo LayerMaskDmgField = AccessTools.Field(typeof(ProjectileCaster), "_layerMaskDamage");
-        internal static readonly FieldInfo ExcludeCasterField = AccessTools.Field(typeof(ProjectileCaster), "_excludeCasterLayer");
+        internal static readonly FieldInfo LayerMaskField = AccessTools.Field(typeof(ProjectileCasterBase), "_layerMask");
+        internal static readonly FieldInfo LayerMaskCharsField = AccessTools.Field(typeof(ProjectileCasterBase), "_layerMaskCharacters");
+        internal static readonly FieldInfo LayerMaskDmgField = AccessTools.Field(typeof(ProjectileCasterBase), "_layerMaskDamage");
+        internal static readonly FieldInfo ExcludeCasterField = AccessTools.Field(typeof(ProjectileCasterBase), "_excludeCasterLayer");
 
         internal static bool IsReady => LayerMaskField != null;
 

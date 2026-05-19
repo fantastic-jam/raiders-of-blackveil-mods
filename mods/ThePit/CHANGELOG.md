@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Ghoulag Update compatibility: rename FlowerEffect to FlowerEffectOnHost, replace EventBeginLevel with DungeonManager.OnSceneLoadDone, update ProjectileCasterExpander and ProjectileCasterSelfSkipPatch to use ProjectileCasterBase for relocated fields, fix OwnerCharacter to Owner
+
 ## [0.3.0] - 2026-05-03
 
 ### Changed
