@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- guard AfterSceneLoadDone against per-room refiring; add Hovered interface stubs
+- BackendManager API compatibility for Ghoulag Update
+
 ## [0.6.0] - 2026-05-03
 
 ### Added
