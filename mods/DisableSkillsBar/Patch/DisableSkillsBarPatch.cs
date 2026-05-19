@@ -73,12 +73,15 @@ namespace DisableSkillsBar.Patch {
             return upgradeModeProp?.GetValue(__instance) is true;
         }
 
-        // Suppress hover-based skill bar activation unless Alt is held.
-        // Setting allowOpening=false causes AbilityBar.CheckInput to run UpgradeMode=false,
-        // which prevents the DisableAttack input mode and cursor unlock triggered by hover.
-        public static void CheckInputPrefix(ref bool allowOpening) {
-            if (Disabled) { return; }
-            if (!IsInteractionUnlocked()) { allowOpening = false; }
+        // Suppress input-based skill bar activation unless Alt is held.
+        // In Ghoulag Update, CheckInput(bool allowOpening) takes a value parameter (not ref),
+        // so we skip the method entirely and force UpgradeMode=false when Alt is not held.
+        public static bool CheckInputPrefix(object __instance) {
+            if (Disabled) { return true; }
+            if (IsInteractionUnlocked()) { return true; }
+            var upgradeModeProp = __instance.GetType().GetProperty("UpgradeMode");
+            if (upgradeModeProp != null) { upgradeModeProp.SetValue(__instance, false); }
+            return false;
         }
 
         private static bool IsInteractionUnlocked() {
