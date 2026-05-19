@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Changed
+- verified compatibility with Ghoulag Update
+
 ## [0.0.2] - 2026-05-08
 
 ### Fixed
