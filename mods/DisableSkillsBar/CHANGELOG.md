@@ -5,6 +5,9 @@
 ### Changed
 - verified compatibility with Ghoulag Update
 
+### Fixed
+- extract patch logic to controller; resolve AccessTools handles once in Apply()
+
 ## [0.5.2] - 2026-04-06
 
 ### Added
