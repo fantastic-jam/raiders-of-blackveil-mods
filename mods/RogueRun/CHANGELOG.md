@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- BackendManager.EventBeginLevel compatibility for Ghoulag Update
+
 ## [0.1.1] - 2026-04-29
 
 ### Changed

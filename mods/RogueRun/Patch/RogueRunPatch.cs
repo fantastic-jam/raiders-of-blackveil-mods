@@ -60,13 +60,15 @@ namespace RogueRun.Patch {
             }
 
             // Critical — without these we cannot track dungeon entry/exit.
-            var beginLevelMethod = AccessTools.Method(typeof(BackendManager), "EventBeginLevel");
-            if (beginLevelMethod == null) {
-                RogueRunMod.PublicLogger.LogWarning("RogueRun: Could not find BackendManager.EventBeginLevel — run tracking unavailable.");
+            // EventBeginLevel was removed in the Ghoulag Update; DungeonManager.OnSceneLoadDone()
+            // is the equivalent hook — it fires on all peers when the dungeon scene finishes loading.
+            var dungeonSceneLoadDoneMethod = AccessTools.Method(typeof(DungeonManager), "OnSceneLoadDone");
+            if (dungeonSceneLoadDoneMethod == null) {
+                RogueRunMod.PublicLogger.LogWarning("RogueRun: Could not find DungeonManager.OnSceneLoadDone — run tracking unavailable.");
                 return false;
             }
-            harmony.Patch(beginLevelMethod,
-                postfix: new HarmonyMethod(AccessTools.Method(typeof(RogueRunPatch), nameof(EventBeginLevelPostfix))));
+            harmony.Patch(dungeonSceneLoadDoneMethod,
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(RogueRunPatch), nameof(DungeonOnSceneLoadDonePostfix))));
 
 
             var lobbySceneLoadDoneMethod = AccessTools.Method(typeof(LobbyManager), "OnSceneLoadDone");
@@ -263,7 +265,7 @@ namespace RogueRun.Patch {
 
         // ── Level entry/exit ───────────────────────────────────────────────
 
-        private static void EventBeginLevelPostfix() {
+        private static void DungeonOnSceneLoadDonePostfix() {
             if (!RogueRunState.IsActive || RogueRunState.InRun) {
                 return;
             }
