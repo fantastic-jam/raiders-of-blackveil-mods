@@ -13,11 +13,11 @@ namespace ThePit.FeralEngine.Abilities {
     // skips all own-hierarchy hits without touching the transpiled code.
     internal static class ProjectileCasterSelfSkipPatch {
         private static readonly FieldInfo _projectileHitsField =
-            AccessTools.Field(typeof(ProjectileCaster), "_projectileHits");
+            AccessTools.Field(typeof(ProjectileCasterBase), "_projectileHits");
 
         internal static void Apply(Harmony harmony) {
             if (_projectileHitsField == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: ProjectileCaster._projectileHits not found — self-skip fix inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: ProjectileCasterBase._projectileHits not found — self-skip fix inactive.");
                 return;
             }
             var fixedUpdate = AccessTools.Method(typeof(ProjectileCaster), "FixedUpdateNetwork");
@@ -40,7 +40,7 @@ namespace ThePit.FeralEngine.Abilities {
             // Only applies when _excludeCasterLayer = false (PvP-expanded casters).
             if ((bool)ProjectileCasterExpander.ExcludeCasterField.GetValue(caster)) { return; }
 
-            var owner = caster.OwnerCharacter;
+            var owner = caster.Owner;
             if (owner == null) { return; }
 
             var hits = _projectileHitsField.GetValue(caster) as Dictionary<GameObject, int>[];

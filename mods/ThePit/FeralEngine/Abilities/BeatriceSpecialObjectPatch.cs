@@ -14,9 +14,9 @@ namespace ThePit.FeralEngine.Abilities {
             }
             harmony.Patch(spawned, postfix: new HarmonyMethod(typeof(BeatriceSpecialObjectPatch), nameof(SpawnedPostfix)));
 
-            var flowerEffect = AccessTools.Method(typeof(BeatriceSpecialObject), "FlowerEffect");
+            var flowerEffect = AccessTools.Method(typeof(BeatriceSpecialObject), "FlowerEffectOnHost");
             if (flowerEffect == null) {
-                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceSpecialObject.FlowerEffect not found — Lotus Flower PvP fix inactive.");
+                ThePitMod.PublicLogger.LogWarning("ThePit: BeatriceSpecialObject.FlowerEffectOnHost not found — Lotus Flower PvP fix inactive.");
                 return;
             }
             harmony.Patch(flowerEffect, prefix: new HarmonyMethod(typeof(BeatriceSpecialObjectPatch), nameof(FlowerEffectPrefix)));
