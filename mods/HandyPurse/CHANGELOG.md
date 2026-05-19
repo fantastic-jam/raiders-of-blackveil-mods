@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased] - patch
+## [Unreleased] - minor
+
+### Changed
+- verified compatibility with Ghoulag Update (shared inventory)
 
 ### Fixed
 - When no topup file matches the loaded state's timestamp (e.g. cloud and local saves have different timestamps, as caused by OfflineMode's save-validation sync), the most recent topup file is applied as a fallback instead of being silently skipped.

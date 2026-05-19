@@ -15,8 +15,9 @@ namespace HandyPurse.Bank {
 
         // ── Save hook (PlayerProfile.SavePlayerGameStates prefix) ──────────
 
-        internal static void OnPlayerProfileSave(PlayerGameState[] states) {
-            HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook fired: states={(states == null ? "null" : states.Length.ToString())}, disabled={HandyPursePatch.Disabled}");
+        // Ghoulag Update: called from BackendManager.PostPlayerGameStatesAsync(List<PlayerGameState>).
+        internal static void OnPlayerProfileSave(List<PlayerGameState> states) {
+            HandyPurseMod.PublicLogger.LogInfo($"[Topup] save hook fired: states={(states == null ? "null" : states.Count.ToString())}, disabled={HandyPursePatch.Disabled}");
             _saveRestore = null;
             if (HandyPursePatch.Disabled || states == null) {
                 return;
@@ -29,7 +30,7 @@ namespace HandyPurse.Bank {
                 foreach (var s in states) {
                     if (s?.PlayerId == localUUID) { localState = s; break; }
                 }
-            } else if (states.Length == 1) {
+            } else if (states.Count == 1) {
                 // LocalPlayer not yet populated (early init save) — safe to assume sole state is ours.
                 localState = states[0];
             } else {
@@ -87,38 +88,26 @@ namespace HandyPurse.Bank {
             _saveRestore = null;
         }
 
-        // ── Load hook (BackendManager.LoadPlayerGameState prefix) ─────────
+        // ── Load hook (PlayerManager.OnPlayerGameStateReceivedFromBackend postfix) ──────────
+        // Ghoulag Update: BackendManager.LoadPlayerGameState was removed. The new dispatch point is
+        // PlayerManager.OnPlayerGameStateReceivedFromBackend which fires after inventory is populated.
+        // Topup is applied here — inventory objects are already live so writes take immediate effect.
 
-        internal static void WrapLoadCallback(Guid playerUUID, ref Action<Guid, PlayerGameState> callback, bool initiatedByClient) {
-            if (HandyPursePatch.Disabled) {
+        internal static void OnPlayerGameStateReceived(Guid playerUUID, PlayerGameState state) {
+            if (HandyPursePatch.Disabled || state == null) {
                 return;
             }
-            // Skip validation loads (ValidatePlayerGameState passes initiatedByClient=true).
-            if (initiatedByClient) {
+            var localUUID = PlayerManager.Instance?.LocalPlayer?.ProfileUUID ?? Guid.Empty;
+            bool isLocal = localUUID != Guid.Empty ? localUUID == playerUUID : PurseBank.FindTopupSave(state.TimeStamp) != null;
+            HandyPurseMod.PublicLogger.LogInfo(
+                $"[Topup] load postfix: uuid={playerUUID}, ts={state.TimeStamp}, localUUID={localUUID}, isLocal={isLocal}");
+            if (!isLocal) {
                 return;
             }
-            var original = callback;
-            callback = (uuid, state) => {
-                bool isLocal = false;
-                if (state != null) {
-                    var localUUID = PlayerManager.Instance?.LocalPlayer?.ProfileUUID ?? Guid.Empty;
-                    isLocal = localUUID != Guid.Empty ? localUUID == uuid : PurseBank.FindTopupSave(state.TimeStamp) != null;
-                    HandyPurseMod.PublicLogger.LogInfo(
-                        $"[Topup] load callback: uuid={uuid}, ts={state.TimeStamp}, localUUID={localUUID}, isLocal={isLocal}");
-                    if (isLocal) {
-                        var topup = PurseBank.FindTopupSave(state.TimeStamp);
-                        HandyPurseMod.PublicLogger.LogInfo(
-                            $"[Topup] topup file found={topup != null}, compartments={topup?.Compartments?.Count ?? 0}");
-                    }
-                }
-                original?.Invoke(uuid, state);
-                // Apply AFTER original so live GenericItemDescriptor objects are in the inventory
-                // and InitGenericItemsFromBackend's AmountMaximum clamp has already run.
-                // Writing to the same object references now updates the live inventory directly.
-                if (isLocal && state != null) {
-                    ApplyTopupToState(state);
-                }
-            };
+            var topup = PurseBank.FindTopupSave(state.TimeStamp);
+            HandyPurseMod.PublicLogger.LogInfo(
+                $"[Topup] topup file found={topup != null}, compartments={topup?.Compartments?.Count ?? 0}");
+            ApplyTopupToState(state);
         }
 
         // ── Join-as-client hook (LobbyHUDPage.OnActivate) ─────────────────

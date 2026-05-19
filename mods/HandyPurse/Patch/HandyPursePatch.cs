@@ -5,7 +5,6 @@ using HandyPurse.Bank;
 using HarmonyLib;
 using RR;
 using RR.Backend;
-using RR.Backend.API.V1.Ingress.Message;
 using RR.Game;
 using RR.Game.Items;
 using RR.Game.Perk;
@@ -94,33 +93,37 @@ namespace HandyPurse.Patch {
 
             // Vault save hook — prefix clamps managed currencies before serialization;
             // finalizer always restores original amounts (runs even if the original throws).
-            _savePlayerGameStatesMethod = AccessTools.Method(typeof(PlayerProfile), nameof(PlayerProfile.SavePlayerGameStates));
+            // Ghoulag Update: save flow moved to BackendManager.PostPlayerGameStatesAsync(List<PlayerGameState>).
+            _savePlayerGameStatesMethod = AccessTools.Method(typeof(BackendManager), nameof(BackendManager.PostPlayerGameStatesAsync));
             if (_savePlayerGameStatesMethod == null) {
-                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStates — vault save unavailable.");
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find BackendManager.PostPlayerGameStatesAsync — vault save unavailable.");
             } else {
                 harmony.Patch(_savePlayerGameStatesMethod,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(PlayerProfileSavePlayerGameStatesPrefix))),
-                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(PlayerProfileSavePlayerGameStatesFinalizer))));
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(PostPlayerGameStatesAsyncPrefix))),
+                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(PostPlayerGameStatesAsyncFinalizer))));
             }
 
-            // Local save hook — local and cloud save build separate PlayerGameState objects from the
-            // same live inventory; without clamping both, they diverge and trigger the conflict dialog.
-            _savePlayerGameStateLocallyMethod = AccessTools.Method(typeof(PlayerProfile), "SavePlayerGameStateLocallyAsync");
+            // Local save hook — Ghoulag Update: async local save replaced with synchronous
+            // PlayerProfile.SavePlayerGameStateLocallySync(PlayerGameState).
+            // Prefix clamps; finalizer restores (same pattern as cloud save).
+            _savePlayerGameStateLocallyMethod = AccessTools.Method(typeof(PlayerProfile), "SavePlayerGameStateLocallySync");
             if (_savePlayerGameStateLocallyMethod == null) {
-                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStateLocallyAsync — local save will not be clamped (save-conflict dialog may appear).");
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerProfile.SavePlayerGameStateLocallySync — local save will not be clamped (save-conflict dialog may appear).");
             } else {
                 harmony.Patch(_savePlayerGameStateLocallyMethod,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncPrefix))),
-                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallyAsyncFinalizer))));
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallySyncPrefix))),
+                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(SavePlayerGameStateLocallySyncFinalizer))));
             }
 
-            // Vault load hook — host only, wraps callback to apply topup before inventory initialises.
-            _loadPlayerGameStateMethod = AccessTools.Method(typeof(BackendManager), "LoadPlayerGameState");
+            // Vault load hook — Ghoulag Update: BackendManager.LoadPlayerGameState removed.
+            // PlayerManager.OnPlayerGameStateReceivedFromBackend is the new dispatch point.
+            // Postfix applies topup after the inventory is populated from backend data.
+            _loadPlayerGameStateMethod = AccessTools.Method(typeof(PlayerManager), "OnPlayerGameStateReceivedFromBackend");
             if (_loadPlayerGameStateMethod == null) {
-                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find BackendManager.LoadPlayerGameState — vault restore unavailable.");
+                HandyPurseMod.PublicLogger.LogWarning("HandyPurse: Could not find PlayerManager.OnPlayerGameStateReceivedFromBackend — vault restore unavailable.");
             } else {
                 harmony.Patch(_loadPlayerGameStateMethod,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(LoadPlayerGameStatePrefix))));
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(HandyPursePatch), nameof(OnPlayerGameStateReceivedFromBackendPostfix))));
             }
 
             var lobbyHudActivateMethod = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
@@ -165,24 +168,30 @@ namespace HandyPurse.Patch {
         private static bool DropOwnedItemToGroundLocalPrefix(Inventory __instance, ItemDescriptor item, PlayerFilter playerToPickup, bool useRandomRange, Vector3? forceDropStartPos) =>
             InventoryOrchestrator.OnDropOwnedItem(__instance, item, playerToPickup, useRandomRange, forceDropStartPos);
 
-        private static void PlayerProfileSavePlayerGameStatesPrefix(IngressMessagePlayerSaveGameStates requestSave) =>
-            BankOrchestrator.OnPlayerProfileSave(requestSave?.data?.player_game_states);
+        // Ghoulag Update: cloud save hook moved from PlayerProfile.SavePlayerGameStates to
+        // BackendManager.PostPlayerGameStatesAsync(List<PlayerGameState>).
+        private static void PostPlayerGameStatesAsyncPrefix(List<PlayerGameState> gameStates) =>
+            BankOrchestrator.OnPlayerProfileSave(gameStates);
 
-        private static void SavePlayerGameStateLocallyAsyncPrefix(PlayerGameState playerGameState) =>
-            BankOrchestrator.OnLocalSave(playerGameState);
-
-        private static Exception SavePlayerGameStateLocallyAsyncFinalizer(Exception __exception) {
-            BankOrchestrator.OnLocalSaveComplete();
-            return __exception;
-        }
-
-        private static Exception PlayerProfileSavePlayerGameStatesFinalizer(Exception __exception) {
+        private static Exception PostPlayerGameStatesAsyncFinalizer(Exception __exception) {
             BankOrchestrator.OnPlayerProfileSaveComplete();
             return __exception;
         }
 
-        private static void LoadPlayerGameStatePrefix(Guid playerUUID, ref Action<Guid, PlayerGameState> callback, bool initiatedByClient = false) =>
-            BankOrchestrator.WrapLoadCallback(playerUUID, ref callback, initiatedByClient);
+        // Ghoulag Update: local save hook moved from PlayerProfile.SavePlayerGameStateLocallyAsync
+        // to PlayerProfile.SavePlayerGameStateLocallySync(PlayerGameState).
+        private static void SavePlayerGameStateLocallySyncPrefix(PlayerGameState playerGameState) =>
+            BankOrchestrator.OnLocalSave(playerGameState);
+
+        private static Exception SavePlayerGameStateLocallySyncFinalizer(Exception __exception) {
+            BankOrchestrator.OnLocalSaveComplete();
+            return __exception;
+        }
+
+        // Ghoulag Update: load hook moved from BackendManager.LoadPlayerGameState to
+        // PlayerManager.OnPlayerGameStateReceivedFromBackend (postfix — inventory is populated by the time this fires).
+        private static void OnPlayerGameStateReceivedFromBackendPostfix(Guid playerUUID, PlayerGameState playerGameState) =>
+            BankOrchestrator.OnPlayerGameStateReceived(playerUUID, playerGameState);
 
         private static void AmountMaximumPostfix(GenericItemDescriptor __instance, ref int __result) =>
             InventoryOrchestrator.OnAmountMaximum(__instance, ref __result);
@@ -193,8 +202,9 @@ namespace HandyPurse.Patch {
         private static void CreateItemPostfix(ref NetworkItemDescriptor? __result) =>
             InventoryOrchestrator.OnCreateItemPostfix(ref __result);
 
-        private static bool MergeToInventoryPrefix(object __instance, int assetID, ChampionType champion, int amount, InventoryItemChanges changes, ref int __result) =>
-            InventoryOrchestrator.OnMergeToInventory(__instance, assetID, champion, amount, changes, ref __result, _itemsArrayField);
+        // Ghoulag Update: MergeToInventory signature dropped the ChampionType parameter (shared inventory).
+        private static bool MergeToInventoryPrefix(object __instance, int assetID, int amount, InventoryItemChanges changes, ref int __result) =>
+            InventoryOrchestrator.OnMergeToInventory(__instance, assetID, amount, changes, ref __result, _itemsArrayField);
 
         internal static int ResolveCap(ItemType itemType) {
             return itemType switch {
