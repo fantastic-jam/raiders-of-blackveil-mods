@@ -13,7 +13,6 @@ namespace RaiderRoughPatches.Patch {
         // Method handles — resolved once in Init(), reused on every Patch() call.
         private static MethodInfo _lobbySceneLoadDone;
         private static MethodInfo _transferItemMethod;
-        private static MethodInfo _canMergeItemMethod;
         private static MethodInfo _doorActivate;
         private static MethodInfo _rpcVoteState;
         private static MethodInfo _onPlayerLeft;
@@ -60,12 +59,6 @@ namespace RaiderRoughPatches.Patch {
                 if (_transferItemMethod == null) {
                     RaiderRoughPatchesMod.PublicLogger.LogWarning(
                         "RaiderRoughPatches: GameInventoryPage.TransferItem not found — stash auto-stack inactive.");
-                }
-
-                _canMergeItemMethod = AccessTools.Method(typeof(InventorySlotNormal), nameof(InventorySlotNormal.CanMergeItem));
-                if (_canMergeItemMethod == null) {
-                    RaiderRoughPatchesMod.PublicLogger.LogWarning(
-                        "RaiderRoughPatches: InventorySlotNormal.CanMergeItem not found — cross-item merge fix inactive.");
                 }
             }
 
@@ -122,9 +115,6 @@ namespace RaiderRoughPatches.Patch {
                 if (_transferItemMethod != null) {
                     harmony.Patch(_transferItemMethod, prefix: Fix(nameof(TransferItemPrefix)));
                 }
-                if (_canMergeItemMethod != null) {
-                    harmony.Patch(_canMergeItemMethod, postfix: Fix(nameof(CanMergeItemPostfix)));
-                }
             }
 
             if (_fixDoorVoteOnDisconnect?.Value == true) {
@@ -161,9 +151,6 @@ namespace RaiderRoughPatches.Patch {
 
         private static bool TransferItemPrefix(GameInventoryPage __instance, InventorySlot sourceSlot) =>
             ItemStackFix.TryAutoStack(__instance, sourceSlot);
-
-        private static void CanMergeItemPostfix(InventorySlotNormal __instance, InventoryItem sourceItem, ref bool __result) =>
-            ItemStackFix.FixCanMergeItem(__instance, sourceItem, ref __result);
 
         private static void DoorActivatePostfix() =>
             DoorVoteFix.Reset();
