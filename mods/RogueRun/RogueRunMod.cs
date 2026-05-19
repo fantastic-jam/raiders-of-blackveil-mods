@@ -14,7 +14,7 @@ namespace RogueRun {
         public const string Name = "RogueRun";
         public const string Version = "0.1.1";
         public const string Author = "christphe";
-        private const string TargetGameVersion = "0.1.0_WIN_2026-01-29_180103_202c53513d";
+        private const string TargetGameVersion = "0.1.0_WIN_2026-05-19_134018_e0da1ed24c";
 
         public static ManualLogSource PublicLogger;
 
