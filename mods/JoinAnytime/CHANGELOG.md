@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.3] - 2026-05-21
 
 ### Fixed
 - Fix compile errors for Ghoulag Update: NetworkChampionBase.XP struct is now private — use XPAmount (read), SetXP (write)

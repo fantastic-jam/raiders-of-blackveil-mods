@@ -11,7 +11,7 @@ namespace JoinAnytime {
     public class JoinAnytimeMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.joinanytime";
         public const string Name = "JoinAnytime";
-        public const string Version = "0.0.2";
+        public const string Version = "0.0.3";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
