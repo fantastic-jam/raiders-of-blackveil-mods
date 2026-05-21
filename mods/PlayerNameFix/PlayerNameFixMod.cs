@@ -9,7 +9,7 @@ namespace PlayerNameFix {
     public class PlayerNameFixMod : BaseUnityPlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.playernamefix";
         public const string Name = "PlayerNameFix";
-        public const string Version = "0.0.2";
+        public const string Version = "0.1.0";
         public const string Author = "Laymain";
 
         public static ManualLogSource PublicLogger;
