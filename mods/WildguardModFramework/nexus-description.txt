@@ -8,6 +8,7 @@ The mod framework for Raiders of Blackveil. WMF gives players in-game control ov
 [*]Server chat visible to all players in the session
 [*]Player management overlay (F2) with host kick and ban controls
 [*]Reliable networking channel for mods to exchange messages without touching the game's network layer
+[*]Corner notifications — mods can surface short messages to all WMF players in the session
 [*]Localisation support — mods can ship translation files and follow the player's in-game language setting
 [/list]
 
@@ -44,6 +45,11 @@ WMF exposes a reliable data channel for mods to exchange messages between the ho
 Mods subscribe to a named string channel and receive a byte payload whenever a message arrives on that channel. Messages can flow from the host to a specific client, from a client to the host, or broadcast from the host to every player running WMF. Delivery is guaranteed (Fusion reliable data) and routed through a single multiplexed stream, so mods stay isolated from each other and from the game's own traffic.
 
 Full API reference is in the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/blob/main/mods/WildguardModFramework/README.md]README[/url].
+
+[line]
+[heading]Notifications[/heading]
+
+Mods can send short corner notifications to all WMF players in the session. Notifications appear in the bottom-right corner of the screen and auto-close after a few seconds. See the README for API details.
 
 [line]
 [heading]Server Chat[/heading]
