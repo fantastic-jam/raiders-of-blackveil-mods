@@ -105,8 +105,12 @@ namespace WildguardModFramework.Network {
         private static void LobbyOnSceneLoadDonePostfix() =>
             GameModeProtocol.OnLobbySceneLoadDone();
 
-        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef playerRef, Guid playerProfileUUID) {
-            PlayerManagementController.OnSetUserData(__instance, playerRef, playerProfileUUID);
+        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef[] connectedPlayersPlayerRef) {
+            foreach (var playerRef in connectedPlayersPlayerRef) {
+                var player = __instance.GetPlayer(playerRef);
+                if (player == null) { continue; }
+                PlayerManagementController.OnSetUserData(__instance, playerRef, player.ProfileUUID);
+            }
             PlayerManagementController.MarkDirty();
         }
 

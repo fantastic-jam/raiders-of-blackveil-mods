@@ -18,9 +18,9 @@ namespace WildguardModFramework.ModMenu {
         internal static void Inject(MenuStartPage instance) {
             if (ModScanner.GameModes.Count == 0) { return; }
 
-            var soloBtn = instance.RootElement.Q<ButtonGeneric2>("NewSinglePlayerGameButton");
+            var soloBtn = instance.RootElement.Q<ButtonMenuStart>("NewSinglePlayerGameButton");
             if (soloBtn == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: NewSinglePlayerGameButton not found — solo game mode picker unavailable.");
+                WmfMod.PublicLogger.LogWarning("WMF: NewSinglePlayerGameButton (ButtonMenuStart) not found — solo game mode picker unavailable.");
                 return;
             }
 

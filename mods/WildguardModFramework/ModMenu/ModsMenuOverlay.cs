@@ -273,6 +273,8 @@ namespace WildguardModFramework.ModMenu {
             _modSettingsContainer = new VisualElement();
             _modSettingsContainer.style.flexGrow = 1;
             _modSettingsContainer.style.display = DisplayStyle.None;
+            _modSettingsContainer.style.paddingTop = 16;
+            _modSettingsContainer.style.paddingLeft = _modSettingsContainer.style.paddingRight = 28;
             rightSide.Add(_modSettingsContainer);
 
             body.Add(leftBar);
@@ -373,7 +375,7 @@ namespace WildguardModFramework.ModMenu {
                 set { _active = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
 
             public void NavigateLeft() { }
             public void NavigateRight() { }
@@ -439,7 +441,7 @@ namespace WildguardModFramework.ModMenu {
                 set { _hover = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
 
             public void NavigateLeft() { }
             public void NavigateRight() { }
@@ -536,7 +538,7 @@ namespace WildguardModFramework.ModMenu {
                 set { _hover = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
 
             public void NavigateLeft() { }
             public void NavigateRight() { }
