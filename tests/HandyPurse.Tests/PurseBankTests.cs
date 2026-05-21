@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using HandyPurse.Bank;
 using Xunit;
 
@@ -7,7 +9,6 @@ namespace HandyPurse.Tests {
     public class PurseBankTests : System.IDisposable {
         private readonly string _tempDir;
 
-        // Fake DataHash hex strings (32 bytes = 64 hex chars, but any length works for tests)
         private const long Ts1 = 639133464880300758L;
         private const long Ts2 = 639133464880417294L;
 
@@ -22,82 +23,63 @@ namespace HandyPurse.Tests {
             }
         }
 
-        // ── Topup save files ──────────────────────────────────────────────
+        // ── Migration ─────────────────────────────────────────────────────
 
         [Fact]
-        public void WriteAndFindTopupSave_RoundTrip() {
-            var save = new TopupSave {
-                Timestamp = Ts1,
-                Compartments = new List<TopupCompartment> {
-                    new TopupCompartment {
-                        Key = "Common",
-                        Entries = new List<TopupEntry> {
-                            new TopupEntry { CurrencyKey = "Scrap", AssetId = 71, VanillaAmount = 3000, Excess = 6999, SlotIndex = 0 },
-                        },
-                    },
-                },
-            };
+        public void MigrateAllTopupsToBank_LatestTopupDepositedToBank() {
+            WriteTopupFile(Ts1, new List<(string, int, int)> {
+                ("Scrap", 71, 6999),
+            });
+            WriteTopupFile(Ts2, new List<(string, int, int)> {
+                ("BlackCoin", 58, 400),
+            });
 
-            PurseBank.WriteTopupSave(save);
-            var loaded = PurseBank.FindTopupSave(Ts1);
+            PurseBank.MigrateAllTopupsToBank();
 
-            Assert.NotNull(loaded);
-            Assert.Equal(Ts1, loaded.Timestamp);
-            Assert.Single(loaded.Compartments);
-            Assert.Equal("Common", loaded.Compartments[0].Key);
-            Assert.Single(loaded.Compartments[0].Entries);
-            Assert.Equal(6999, loaded.Compartments[0].Entries[0].Excess);
+            var bank = PurseBank.LoadBank();
+            Assert.Single(bank.Entries);
+            Assert.Contains(bank.Entries, e => e.CurrencyKey == "BlackCoin" && e.Amount == 400);
+
+            Assert.Empty(Directory.GetFiles(_tempDir, "topup-*.json"));
         }
 
         [Fact]
-        public void FindTopupSave_NoMatchingFile_ReturnsNull() {
-            var result = PurseBank.FindTopupSave(0L);
-            Assert.Null(result);
+        public void MigrateAllTopupsToBank_MergesIntoExistingBank() {
+            PurseBank.TryDeposit(new List<BankEntry> {
+                new BankEntry { CurrencyKey = "Scrap", AssetId = 71, Amount = 1000 },
+            });
+            WriteTopupFile(Ts1, new List<(string, int, int)> {
+                ("Scrap", 71, 500),
+            });
+
+            PurseBank.MigrateAllTopupsToBank();
+
+            var bank = PurseBank.LoadBank();
+            Assert.Single(bank.Entries);
+            Assert.Equal(1500, bank.Entries[0].Amount);
         }
 
         [Fact]
-        public void DeleteTopupSave_RemovesFile() {
-            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts1 });
-            Assert.NotNull(PurseBank.FindTopupSave(Ts1));
+        public void MigrateAllTopupsToBank_NoTopups_BankUnchanged() {
+            PurseBank.TryDeposit(new List<BankEntry> {
+                new BankEntry { CurrencyKey = "Scrap", AssetId = 71, Amount = 100 },
+            });
 
-            PurseBank.DeleteTopupSave(Ts1);
-            Assert.Null(PurseBank.FindTopupSave(Ts1));
+            PurseBank.MigrateAllTopupsToBank();
+
+            var bank = PurseBank.LoadBank();
+            Assert.Single(bank.Entries);
+            Assert.Equal(100, bank.Entries[0].Amount);
         }
 
         [Fact]
-        public void GetAllTopupSaves_ReturnsAllFiles() {
-            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts1 });
-            PurseBank.WriteTopupSave(new TopupSave { Timestamp = Ts2 });
+        public void MigrateAllTopupsToBank_AllTopupFilesDeleted() {
+            WriteTopupFile(Ts1, new List<(string, int, int)> { ("Scrap", 71, 100) });
+            WriteTopupFile(Ts2, new List<(string, int, int)> { ("Scrap", 71, 200) });
 
-            var all = PurseBank.GetAllTopupSaves();
-            Assert.Equal(2, all.Count);
-        }
+            PurseBank.MigrateAllTopupsToBank();
 
-        [Fact]
-        public void GetAllTopupSaves_NoFiles_ReturnsEmpty() {
-            var all = PurseBank.GetAllTopupSaves();
-            Assert.Empty(all);
-        }
-
-        [Fact]
-        public void WriteTopupSave_MultipleCompartments_RoundTrip() {
-            var save = new TopupSave {
-                Timestamp = Ts1,
-                Compartments = new List<TopupCompartment> {
-                    new TopupCompartment { Key = "Common", Entries = new List<TopupEntry> {
-                        new TopupEntry { CurrencyKey = "Scrap", AssetId = 71, Excess = 6999, SlotIndex = 0 },
-                    }},
-                    new TopupCompartment { Key = "Warrior", Entries = new List<TopupEntry> {
-                        new TopupEntry { CurrencyKey = "BlackCoin", AssetId = 58, Excess = 400, SlotIndex = 0 },
-                    }},
-                },
-            };
-
-            PurseBank.WriteTopupSave(save);
-            var loaded = PurseBank.FindTopupSave(Ts1);
-
-            Assert.NotNull(loaded);
-            Assert.Equal(2, loaded.Compartments.Count);
+            Assert.Empty(Directory.GetFiles(_tempDir, "topup-*.json"));
         }
 
         // ── Bank file ─────────────────────────────────────────────────────
@@ -144,6 +126,32 @@ namespace HandyPurse.Tests {
         public void LoadBank_NoFile_ReturnsEmpty() {
             var bank = PurseBank.LoadBank();
             Assert.Empty(bank.Entries);
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────
+
+        private void WriteTopupFile(long timestamp, List<(string currencyKey, int assetId, int excess)> entries) {
+            Directory.CreateDirectory(_tempDir);
+            var save = new TopupSave {
+                Timestamp = timestamp,
+                Compartments = new List<TopupCompartment> {
+                    new TopupCompartment {
+                        Key = "Common",
+                        Entries = new List<TopupEntry>(),
+                    },
+                },
+            };
+            foreach (var (key, assetId, excess) in entries) {
+                save.Compartments[0].Entries.Add(new TopupEntry {
+                    CurrencyKey = key,
+                    AssetId = assetId,
+                    Excess = excess,
+                });
+            }
+            var path = Path.Combine(_tempDir, $"topup-{timestamp}.json");
+            var serializer = new DataContractJsonSerializer(typeof(TopupSave));
+            using var stream = File.Create(path);
+            serializer.WriteObject(stream, save);
         }
     }
 }
