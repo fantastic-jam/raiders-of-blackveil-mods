@@ -2,5 +2,5 @@
 
 ## [Unreleased] - minor
 
-### Changed
-- verified compatibility with Ghoulag Update
+### Fixed
+- Updated for compatibility with Ghoulag Update
