@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.3.1] - 2026-05-21
 
 ### Fixed
 - Fix compile errors for Ghoulag Update API changes: XP struct now private (use XPAmount/SetXP/AddXP/SpendAbilityPoint), GameManager/PlayerManager require using RR, Health.Die requires attacker param, CombatTimePrecise is now double, ManEaterPlantBrain fields renamed/privatised, WitheredSeedBrain.aimSpeed now protected, LobbyManager.RPC_Handle_RaidSetupDone replaced by Handle_GameEventRaidSelected, BeatriceSpecialObject._charRef renamed to _creatorAbility
