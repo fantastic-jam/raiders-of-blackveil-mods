@@ -54,7 +54,24 @@ jobs:
           echo "path=$(ls ./dist/*.zip | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: Upload to Nexus Mods
+        id: nexus_upload
         if: steps.meta.outputs.skip == 'false'
+        continue-on-error: true
+        uses: Nexus-Mods/upload-action@main
+        with:
+          api_key:       ${{ secrets.NEXUS_API_KEY }}
+          file_group_id: ${{ steps.meta.outputs.file_group_id }}
+          filename:      ${{ steps.asset.outputs.path }}
+          display_name:  ${{ steps.parse.outputs.mod_name }}
+          version:       ${{ steps.parse.outputs.version }}
+          file_category: main
+
+      - name: Wait before retry
+        if: steps.meta.outputs.skip == 'false' && steps.nexus_upload.outcome == 'failure'
+        run: sleep 30
+
+      - name: Upload to Nexus Mods (retry)
+        if: steps.meta.outputs.skip == 'false' && steps.nexus_upload.outcome == 'failure'
         uses: Nexus-Mods/upload-action@main
         with:
           api_key:       ${{ secrets.NEXUS_API_KEY }}
