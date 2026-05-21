@@ -151,9 +151,10 @@ The localization class scans the plugin's `Assets/Localization/` directory at st
 
 Releases are always one mod (or lib) at a time — `--all` is not supported.
 
-Two-step flow:
+Three-step flow:
 
-1. `pre-release` — calls `frelease --pkg [ModName]`, which promotes `## [Unreleased]` to a versioned heading in `CHANGELOG.md` (bump level = highest entry type: major > minor > patch), then writes the new version to the `Version` constant in `[ModName]Mod.cs`. **No commit.** Review `CHANGELOG.md` before proceeding.
+0. **Before releasing**: run `fchange` for each change and commit `CHANGELOG.md` together with the implementation files. `[Unreleased]` entries travel with the change — do not hold them dirty until release.
+1. `pre-release` — promotes `## [Unreleased]` to a versioned heading in `CHANGELOG.md` and writes the new version to the `Version` constant. **No commit.** Review `CHANGELOG.md` before proceeding.
 2. `release` — validates dirty files (only version file + CHANGELOG.md may be dirty), stages and commits both, packages ZIP, creates git tag, pushes, creates GitHub release via `@octokit/rest`.
 
 - Tag format: `[ModName]-v[Version]`

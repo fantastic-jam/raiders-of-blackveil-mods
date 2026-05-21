@@ -13,6 +13,7 @@ namespace ThePit.FeralEngine.Abilities {
     internal class PvpWitheredSeedBrain {
         private static FieldInfo _hasTargetField;
         private static FieldInfo _reviverField;
+        private static FieldInfo _aimSpeedField;
         internal static FieldInfo CasterField { get; private set; }
 
         internal static void Init() {
@@ -24,6 +25,11 @@ namespace ThePit.FeralEngine.Abilities {
             _reviverField = AccessTools.Field(typeof(WitheredSeedBrain), "_reviver");
             if (_reviverField == null) {
                 ThePitMod.PublicLogger.LogWarning("ThePit: WitheredSeedBrain._reviver not found — seed turret champion targeting inactive.");
+            }
+
+            _aimSpeedField = AccessTools.Field(typeof(WitheredSeedBrain), "aimSpeed");
+            if (_aimSpeedField == null) {
+                ThePitMod.PublicLogger.LogWarning("ThePit: WitheredSeedBrain.aimSpeed not found — seed turret rotation speed uses default.");
             }
 
             CasterField = AccessTools.Field(typeof(WitheredSeedBrain), "_projectileCaster");
@@ -85,7 +91,8 @@ namespace ThePit.FeralEngine.Abilities {
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.001f) { return false; }
 
-            float maxRad = _inst.aimSpeed * Time.deltaTime;
+            float aimSpeed = _aimSpeedField != null ? (float)_aimSpeedField.GetValue(_inst) : 0.5f;
+            float maxRad = aimSpeed * Time.deltaTime;
             Vector3 forward = Vector3.RotateTowards(_inst.transform.forward, dir, maxRad, 0f);
             _inst.transform.rotation = Quaternion.LookRotation(forward);
             _hasTargetField?.SetValue(_inst, true);

@@ -25,7 +25,7 @@ namespace WildguardModFramework.Fixes {
                 return;
             }
             WmfMod.PublicLogger.LogInfo($"WMF: HostNameSync — re-broadcasting '{local.UserName}' to {playerRef.PlayerId}.");
-            __instance.RPC_Handle_SetUserData_All(runner.LocalPlayer, local.UserName, local.ProfileUUID);
+            __instance.RPC_Handle_SetUserData_All(new[] { local.UserName }, new[] { runner.LocalPlayer });
         }
     }
 }

@@ -30,16 +30,16 @@ namespace WildguardModFramework.ModMenu {
             var container = settingsBtn.parent;
             if (container == null) { return; }
 
-            var cursor = CursorField?.GetValue(instance) as UICursorLinear<object>;
+            var cursor = CursorField?.GetValue(instance) as UICursorLinear<ButtonMenuStart>;
 
-            var modsBtn = new ButtonGeneric3 {
+            var modsBtn = new ButtonMenuStart {
                 OnClick = _ => {
                     _overlay ??= new ModsMenuOverlay(_menuPageRoot);
                     _overlay.Open();
                 },
                 Enabled = true
             };
-            cursor?.RegisterItem(modsBtn);
+            cursor?.RegisterItem(modsBtn, modsBtn);
 
             var lbl = modsBtn.Q<LocLabel>("Label");
             if (lbl != null) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Updated for compatibility with Ghoulag Update
+
 ## [0.6.0] - 2026-05-03
 
 ### Added

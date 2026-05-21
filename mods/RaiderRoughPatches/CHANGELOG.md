@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] - major
+
+### Removed
+- FixCanMergeItem — game fixed different-Souvenir stacking in Ghoulag Update
+- BarrierSelfGrantFix — game fixed ally-targeting bugs in Ghoulag Update
+
+### Fixed
+- ItemTab.IsChampion removed — use IsInInventory for cross-panel stack targeting
+
 ## [0.0.3] - 2026-05-08
 
 ### Fixed

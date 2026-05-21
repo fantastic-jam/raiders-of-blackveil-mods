@@ -231,7 +231,7 @@ Use `--dry-run` to preview the release plan (changelog, version bump, tag) befor
 The commit-msg hook enforces:
 
 ```
-fix|chore|new(scope): message
+feat|fix|chore|docs|refactor|ci(scope): message
 ```
 
 Valid scopes:

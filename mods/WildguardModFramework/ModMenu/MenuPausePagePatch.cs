@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
 using HarmonyLib;
 using RR.Input;
-using RR.UI.Controls;
 using RR.UI.Controls.Menu;
 using RR.UI.Pages;
 using RR.UI.Utils;
@@ -11,7 +10,7 @@ namespace WildguardModFramework.ModMenu {
     internal static class MenuPausePagePatch {
         private static FieldInfo _cursorField;
         private static ModsMenuOverlay _overlay;
-        private static ButtonGeneric _modsButton;
+        private static ButtonShared _modsButton;
         private static VisualElement _pageRoot;
 
         internal static void Apply(Harmony harmony) {
@@ -41,7 +40,7 @@ namespace WildguardModFramework.ModMenu {
         private static void OnInitPostfix(MenuPausePage __instance) {
             _pageRoot = __instance.RootElement;
 
-            var optionsBtn = _pageRoot.Q("OptionsButton");
+            var optionsBtn = _pageRoot.Q<ButtonShared>("OptionsButton");
             if (optionsBtn == null) {
                 WmfMod.PublicLogger.LogWarning("WMF: OptionsButton not found in pause menu — Mods button skipped.");
                 return;
@@ -50,14 +49,12 @@ namespace WildguardModFramework.ModMenu {
             var container = optionsBtn.parent;
             if (container == null) { return; }
 
-            _modsButton = new ButtonGeneric();
-            _modsButton.OnClick = _ => OpenOverlay();
-
-            var lbl = _modsButton.Q<LocLabel>("Label");
-            if (lbl != null) {
-                lbl.CustomTransform = _ => WmfMod.t("label.mods");
-                lbl.Refresh();
-            }
+            _modsButton = new ButtonShared();
+            _modsButton.IsLarge = optionsBtn.IsLarge;
+            _modsButton.style.alignSelf = Align.Stretch;
+            _modsButton.SoundType = ButtonSoundType.PauseMenu;
+            _modsButton.OnClicked = OpenOverlay;
+            _modsButton.LabelCustomTransform = _ => WmfMod.t("label.mods");
 
             container.Insert(container.IndexOf(optionsBtn) + 1, _modsButton);
         }

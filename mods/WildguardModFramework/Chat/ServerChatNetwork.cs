@@ -28,7 +28,7 @@ namespace WildguardModFramework.Chat {
         // Host calls this to add to its own log and broadcast to all remote confirmed players.
         internal static void HostBroadcast(string senderName, string text) {
             var payload = Encode(senderName, text);
-            var localRef = PlayerManager.Instance?.LocalPlayerRef ?? default;
+            var localRef = PlayerManager.Instance?.Runner?.LocalPlayer ?? default;
             foreach (var player in GameModeProtocol.ConfirmedPlayers) {
                 if (player == localRef) { continue; }
                 WmfNetwork.Send(player, ChatChannel, payload);
@@ -41,7 +41,7 @@ namespace WildguardModFramework.Chat {
             if (runner?.IsServer == true) {
                 // Host received from a client: add to own log, echo to all remote clients.
                 ServerChat.ReceiveMessage(name, text);
-                var localRef = PlayerManager.Instance?.LocalPlayerRef ?? default;
+                var localRef = runner?.LocalPlayer ?? default;
                 foreach (var player in GameModeProtocol.ConfirmedPlayers) {
                     if (player == localRef) { continue; }
                     WmfNetwork.Send(player, ChatChannel, payload);
@@ -61,7 +61,7 @@ namespace WildguardModFramework.Chat {
             var runner = PlayerManager.Instance?.Runner;
             if (runner?.IsServer != true || !isModded) { return; }
 
-            var localRef = PlayerManager.Instance?.LocalPlayerRef ?? default;
+            var localRef = runner?.LocalPlayer ?? default;
             if (player == localRef) {
                 // Host sets own flag directly from the host config stepper.
                 ServerChat.IsEnabled = HostPageController.Current?.AllowChat ?? true;

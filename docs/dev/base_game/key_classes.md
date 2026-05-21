@@ -11,8 +11,8 @@ Quick reference for modders — where to find things and how to access them.
 | `AppManager` | `AppManager.Instance` | `game-src/RR/AppManager.cs` |
 | `BackendManager` | `BackendManager.Instance` | `game-src/RR/BackendManager.cs` |
 | `DifficultyManager` | `DifficultyManager.Instance` | `game-src/RR.Level/DifficultyManager.cs` |
-| `GameManager` | `GameManager.Instance` | `game-src/RR/GameManager.cs` |
-| `PlayerManager` | `PlayerManager.Instance` | — |
+| `GameManager` | `GameManager.Instance` | `game-src/RR/GameManager.cs` — namespace `RR` |
+| `PlayerManager` | `PlayerManager.Instance` | `game-src/RR/PlayerManager.cs` — namespace `RR` |
 | `NetworkManager` | `NetworkManager.Instance` | — |
 | `UIManager` | `UIManager.Instance` | — |
 | `AreaManager` | `AreaManager.Instance` | — |
@@ -50,7 +50,8 @@ Quick reference for modders — where to find things and how to access them.
 | Alarm level (0–∞) | `DifficultyManager.Instance.AlarmLevel` |
 | Base difficulty | `DifficultyManager.Instance.Difficulty` |
 | Danger level (static modifier total) | `DifficultyManager.Instance.GetDangerLevel()` |
-| Combat time (seconds) | `DifficultyManager.Instance.CombatTimeInSec` |
+| Combat time (seconds) | `DifficultyManager.Instance.CombatTimeInSec` (`int`) |
+| Combat time precise | `DifficultyManager.Instance.CombatTimePrecise` (`double` — Ghoulag Update changed from `float`) |
 | Risky modifier level (0–3) | `DifficultyManager.Instance.DangerRisky` |
 | Armored modifier level (0–3) | `DifficultyManager.Instance.DangerArmored` |
 | NoHelp modifier | `DifficultyManager.Instance.DangerNoHelp` |
@@ -167,7 +168,7 @@ if (!__instance.Object.Runner.IsServer) return;
 | Player save object | `game-src/PlayerGameState.cs` |
 | Player progression data | `game-src/RR.PlayerProgression/PlayerProgressionData.cs` |
 | Inventory | `game-src/RR.Game/Inventory.cs` |
-| Health & death | `game-src/RR.Game.Stats/Health.cs` |
+| Health & death | `game-src/RR.Game.Stats/Health.cs` — `Die(StatsManager attacker, float lastDamage=0, UserAction=None, bool withFury=false)` |
 | Smuggler NPC | `game-src/PlayerProgression/NPCSmuggler.cs` |
 | Perk system | `game-src/RR.Game.Perk/PerkDatabase.cs`, `PerkHandler.cs` |
 | Game startup flow | `game-src/RR/AppManager.cs`, `BackendManager.cs` |

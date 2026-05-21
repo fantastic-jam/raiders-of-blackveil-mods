@@ -11,7 +11,7 @@ Releases follow a strict two-step sequence:
 1. **`pre-release`** — promotes `[Unreleased]` in CHANGELOG.md, bumps version in source. No commit.
 2. **`release`** — stages + commits those two files, packages ZIP, tags, pushes, creates GitHub release.
 
-Everything else (implementation changes, tooling changes, pnpm-lock.yaml) must be committed **before** step 1.
+Everything else (implementation changes, `CHANGELOG.md` `[Unreleased]` entries, tooling changes, pnpm-lock.yaml) must be committed **before** step 1. Only the version constant file is owned by pre-release — do not commit it manually.
 
 ---
 
@@ -64,7 +64,7 @@ frelease --pkg <ModName> changelog   # prints release notes for the current vers
 | `added` or `changed` | minor |
 | `fixed`, `deprecated`, `removed`, `security` only | patch |
 
-To override, pass `--version x.y.z` or `--bump patch|minor|major` to `pre-release`.
+To override, pass `--bump patch|minor|major` or `--version x.y.z` directly to the underlying `frelease` command (not via `pnpm run pre-release`, which does not forward these flags).
 
 ---
 
@@ -91,32 +91,26 @@ To override, pass `--version x.y.z` or `--bump patch|minor|major` to `pre-releas
 
 ## Step-by-step release procedure
 
-### 1. Commit all implementation changes
+### 1. Record changelog entries and commit everything
 
-All dirty files (C#, assets, tooling, pnpm-lock.yaml) must be committed before pre-release. Use `fcommit`, not `git commit`.
-
-```
-fcommit feat "add bank drain on join" --pkg HandyPurse
-```
-
-Do NOT commit `CHANGELOG.md` or the version file — those are owned by pre-release.
-
-### 2. Record changelog entries
-
-Each meaningful change should already have an `fchange` entry. If anything is missing, add it now:
+For each change, run `fchange` to add the entry, then commit both the implementation files and `CHANGELOG.md` together with `fcommit`:
 
 ```
 fchange added "Added bank that drains excess purse stacks on join" --pkg HandyPurse
 fchange fixed "Fixed crash when leaving mid-run with a full purse" --pkg HandyPurse
+git add mods/HandyPurse/Bank/BankLogic.cs mods/HandyPurse/CHANGELOG.md
+fcommit feat "add bank drain on join" --pkg HandyPurse
 ```
 
-### 3. Verify nothing unexpected is dirty
+`CHANGELOG.md` entries travel with the change that introduced them — do not hold them dirty until release. Only the version constant file is off-limits; do not commit it manually.
+
+### 2. Verify nothing unexpected is dirty
 
 ```
 git status
 ```
 
-The only acceptable dirty file at this point is `mods/[ModName]/CHANGELOG.md` (if you just ran `fchange`). The version file must be clean — if it is dirty, revert it before proceeding.
+No dirty files should remain. The version file must be clean — if it is dirty, revert it before proceeding.
 
 ### 4. Run pre-release
 
@@ -135,7 +129,7 @@ What this does internally:
 4. Reads the current version from the source file, writes the new version
 
 After this step, exactly two files are dirty:
-- `mods/[ModName]/CHANGELOG.md`
+- `mods/[ModName]/CHANGELOG.md` (version heading promoted from `[Unreleased]`)
 - `mods/[ModName]/[ModName]Mod.cs` (or the lib's AssemblyInfo.cs)
 
 ### 5. Preview what will be released (optional but recommended)
@@ -198,9 +192,6 @@ Check GitHub releases and confirm the tag, title, notes, and asset are correct.
 | `--dry-run` | `pre-release`, `release` | Preview only, no writes |
 | `--skip-push` | `release` | Skip `git push` (also forces `--skip-release`) |
 | `--skip-release` | `release` | Skip GitHub release creation |
-| `--bump patch\|minor\|major` | `pre-release` | Override auto-detected bump |
-| `--version x.y.z` | `pre-release` | Pin exact version instead of bumping |
-| `--all` | both | Run for every mod and lib in the repo |
 | `--lib <name>` | both | Target a lib instead of a mod |
 
 `--skip-push` and `--skip-release` together are the equivalent of a local-only release:
@@ -249,12 +240,3 @@ pnpm run release -- --lib <LibName>
 Version file for libs is `libs/[LibName]/Properties/AssemblyInfo.cs`. Both `AssemblyVersion` and `AssemblyFileVersion` are updated.
 
 ---
-
-## Releasing everything at once
-
-```
-pnpm run pre-release -- --all
-pnpm run release -- --all
-```
-
-This iterates all non-deprecated mods and all libs. Each must have an `[Unreleased]` section with at least one `fchange` entry, or `frelease` will have nothing to promote.

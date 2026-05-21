@@ -330,9 +330,8 @@ namespace JoinAnytime {
                     .ToList();
                 if (existing.Count == 0) { return; }
 
-                int avgXp = (int)existing.Average(p => (double)p.PlayableChampion.XP.Amount);
-                champion.XP.Amount = avgXp;
-                champion.XP.AbilityPoints = Mathf.Max(0, (RewardDatabase.Instance?.GetXPLevel(avgXp) ?? 1) - 1);
+                int avgXp = (int)existing.Average(p => (double)p.PlayableChampion.XPAmount);
+                champion.SetXP(avgXp);
 
                 int avgPerkCount = (int)existing.Average(p => (double)p.PlayableChampion.PerkHandler.CollectedPerks.Count);
                 var perksBySlot = existing
@@ -342,7 +341,7 @@ namespace JoinAnytime {
                 GiveRandomPerks(champion, player, avgPerkCount, perksBySlot);
 
                 JoinAnytimeMod.PublicLogger.LogInfo(
-                    $"JoinAnytime: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XP.Amount}, perks={avgPerkCount}.");
+                    $"JoinAnytime: averaging applied to ref={player.FusionPlayerRef.PlayerId} — xp={champion.XPAmount}, perks={avgPerkCount}.");
             }
             catch (Exception ex) {
                 JoinAnytimeMod.PublicLogger.LogWarning(

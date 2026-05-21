@@ -3,6 +3,7 @@ using Fusion;
 using Fusion.Sockets;
 using HarmonyLib;
 using RR;
+using RR.Backend.API.V2.Multiplayer.Types;
 using RR.Level;
 using WildguardModFramework.Chat;
 using WildguardModFramework.PlayerManagement;
@@ -17,9 +18,9 @@ namespace WildguardModFramework.Network {
                 harmony.Patch(startGame, prefix: new HarmonyMethod(typeof(NetworkPatch), nameof(StartGamePrefix)));
             }
 
-            var joinSession = AccessTools.Method(typeof(BackendManager), nameof(BackendManager.JoinPlaySession));
+            var joinSession = AccessTools.Method(typeof(BackendManager), "V2_JoinPlaySession");
             if (joinSession == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: BackendManager.JoinPlaySession not found — client mod validation inactive.");
+                WmfMod.PublicLogger.LogWarning("WMF: BackendManager.V2_JoinPlaySession not found — client mod validation inactive.");
             } else {
                 harmony.Patch(joinSession, prefix: new HarmonyMethod(typeof(NetworkPatch), nameof(JoinPlaySessionPrefix)));
             }
@@ -49,11 +50,11 @@ namespace WildguardModFramework.Network {
                 harmony.Patch(onShutdown, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(OnShutdownPostfix)));
             }
 
-            var beginLevel = AccessTools.Method(typeof(BackendManager), "EventBeginLevel");
-            if (beginLevel == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: BackendManager.EventBeginLevel not found — run-start notification inactive.");
+            var afterSceneLoadDone = AccessTools.Method(typeof(DungeonManager), "AfterSceneLoadDone");
+            if (afterSceneLoadDone == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: DungeonManager.AfterSceneLoadDone not found — run-start notification inactive.");
             } else {
-                harmony.Patch(beginLevel, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(EventBeginLevelPostfix)));
+                harmony.Patch(afterSceneLoadDone, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(AfterSceneLoadDonePostfix)));
             }
 
             var setUserData = AccessTools.Method(typeof(PlayerManager), "RPC_Handle_SetUserData_All");
@@ -77,8 +78,8 @@ namespace WildguardModFramework.Network {
             ServerChat.ClearAll();
         }
 
-        private static bool JoinPlaySessionPrefix(Guid JoinGameSessionId, string serverName, string sessionPassword) =>
-            GameModeProtocol.ValidateJoinSession(JoinGameSessionId, serverName, sessionPassword);
+        private static bool JoinPlaySessionPrefix(JoinablePlaySession joinablePlaySession) =>
+            GameModeProtocol.ValidateJoinSession(joinablePlaySession);
 
         private static void OnPlayerJoinedPostfix(PlayerManager __instance, NetworkRunner runner, PlayerRef playerRef) {
             GameModeProtocol.OnPlayerJoined(__instance, runner, playerRef);
@@ -98,14 +99,18 @@ namespace WildguardModFramework.Network {
             ServerChat.ClearAll();
         }
 
-        private static void EventBeginLevelPostfix() =>
+        private static void AfterSceneLoadDonePostfix() =>
             GameModeProtocol.OnEventBeginLevel();
 
         private static void LobbyOnSceneLoadDonePostfix() =>
             GameModeProtocol.OnLobbySceneLoadDone();
 
-        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef playerRef, Guid playerProfileUUID) {
-            PlayerManagementController.OnSetUserData(__instance, playerRef, playerProfileUUID);
+        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef[] connectedPlayersPlayerRef) {
+            foreach (var playerRef in connectedPlayersPlayerRef) {
+                var player = __instance.GetPlayer(playerRef);
+                if (player == null) { continue; }
+                PlayerManagementController.OnSetUserData(__instance, playerRef, player.ProfileUUID);
+            }
             PlayerManagementController.MarkDirty();
         }
 

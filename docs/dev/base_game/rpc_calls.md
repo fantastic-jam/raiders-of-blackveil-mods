@@ -2,6 +2,8 @@
 
 All RPCs use `RpcChannel.Reliable` (no Unreliable RPCs exist in the codebase).
 
+Methods marked **(private)** are declared `private` in the game source — they cannot be called directly from mod code but can be Harmony-patched via `AccessTools`.
+
 ## Source/Target Patterns
 
 | Pattern | Count | Use case |
@@ -66,7 +68,7 @@ All RPCs use `RpcChannel.Reliable` (no Unreliable RPCs exist in the codebase).
 | Method | Source → Target | Description |
 |---|---|---|
 | `RPC_Handle_SetUserData_All(PlayerRef playerRef, string userName, Guid playerProfileUUID, RpcInfo info)` | All → All | Broadcasts username + profile UUID to every peer |
-| `RPC_PlayerJoinedPlaySession(PlayerRef playerRef, Guid profileUUID, int charIdx, NetworkBool loadInventoryFromBackend)` | All → StateAuthority | Client notifies host it joined; host initialises and respawns the champion |
+| `RPC_NotifySA_PlayerJoinedPlaySession(PlayerRef playerRef, Guid profileUUID, string userName, int charIdx)` | All → StateAuthority | Client notifies host it joined; host initialises and respawns the champion |
 | `RPC_SavePlayerGameStateLocally()` | StateAuthority → All | Instructs each client to save their local game state |
 | `RPC_ResetInventoryItems(Guid playerUUID)` | All → StateAuthority | Host clears all items from the player's inventory and syncs to backend |
 | `RPC_ResetMysticUnlocks(Guid playerUUID)` | All → StateAuthority | Host resets mystic unlock data and syncs to backend |
@@ -97,13 +99,13 @@ All RPCs use `RpcChannel.Reliable` (no Unreliable RPCs exist in the codebase).
 | `RPC_MerchantShopRefresh_Host(int assetID, int price)` | All → StateAuthority | Requests a merchant stock reroll for a specific item |
 | `RPC_DebugResetMerchantTimeout()` | All → StateAuthority | Debug: resets merchant restock timeout on host |
 | `RPC_ForceMerchantStockCheck()` | All → StateAuthority | Forces immediate merchant stock check on host |
-| `RPC_DropEquipmentToGround_Host(NetworkEquipmentDescriptor item, Vector3 startPos, Vector3 groundPos, PlayerFilter playerToPickup)` | All → StateAuthority | Spawns equipment pickup, optionally restricted to a specific player |
-| `RPC_DropItemToGround_Host(NetworkItemDescriptor item, Vector3 startPos, Vector3 groundPos, PlayerFilter playerToPickup)` | All → StateAuthority | Spawns generic item pickup, optionally restricted to a specific player |
+| `RPC_DropEquipmentToGround_Host(NetworkEquipmentDescriptor item, Vector3 startPos, Vector3 groundPos, PlayerFilter playerToPickup)` | All → StateAuthority | (private) Spawns equipment pickup, optionally restricted to a specific player |
+| `RPC_DropItemToGround_Host(NetworkItemDescriptor item, Vector3 startPos, Vector3 groundPos, PlayerFilter playerToPickup)` | All → StateAuthority | (private) Spawns generic item pickup, optionally restricted to a specific player |
 | `RPC_ActivateOrDeactivateWornEquipment(EquipmentClass equipClass, NetworkBool searchForNewItem, int itemToUnequipID)` | All → StateAuthority | Host activates/deactivates a worn equipment slot, optionally searching for replacement |
 | `RPC_RunFinished_Client()` | StateAuthority → InputAuthority | Notifies owning client the run finished (triggers end-of-run inventory logic) |
-| `RPC_SendChangesToHost(short changeID, InventoryChanges6 changes)` | All → StateAuthority | Sends batch of up to 6 inventory changes to host |
-| `RPC_SendChangesToHost(short changeID, InventoryChanges12 changes)` | All → StateAuthority | Sends batch of up to 12 inventory changes to host |
-| `RPC_SyncedAddNewItem(NetworkItemDescriptor item, int invID, ItemTab tab)` | StateAuthority → All | Adds a new item to all clients' inventories |
+| `RPC_SendChangesToHost(short changeID, InventoryChanges6 changes)` | All → StateAuthority | (private) Sends batch of up to 6 inventory changes to host |
+| `RPC_SendChangesToHost(short changeID, InventoryChanges12 changes)` | All → StateAuthority | (private) Sends batch of up to 12 inventory changes to host |
+| `RPC_SyncedAddNewItem(NetworkItemDescriptor item, int invID, ItemTab tab)` | StateAuthority → All | (private) Adds a new item to all clients' inventories |
 | `RPC_ExecuteItemActionOnHost(NetworkItemDescriptor item, InventoryAction actionType, int actionNumber, NetworkBool checkPickupObject, NetworkObject pickupObject, ItemInventorySlot targetSlot)` | All → StateAuthority | Sends item action request (collect/use/sell) to host for authoritative resolution |
 | `RPC_ExecuteEquipmentActionOnHost(NetworkEquipmentDescriptor equipment, InventoryAction actionType, int actionNumber, NetworkBool checkPickupObject, NetworkObject pickupObject, ItemInventorySlot slot)` | All → StateAuthority | Same as above for equipment items |
 | `RPC_FinishEquipmentActionCollect_Client(int actionNumber, NetworkEquipmentDescriptor equipment)` | StateAuthority → InputAuthority | Host confirms equipment collect to owning client |
@@ -158,13 +160,10 @@ Each of these five abilities defines the same RPC:
 
 | Method | Source → Target | Description |
 |---|---|---|
-| `RPC_RemovePerkOnServer(int perkID, bool removeAll)` | All → StateAuthority | Host decrements or fully removes a perk from `NetworkedCollectedPerks` |
-| `RPC_CollectPerkOnServer(int perkID)` | InputAuthority → StateAuthority | Owning client requests host to call `CollectPerkOnHost` |
-| `RPC_RegisterCollectedPerk(int perkID)` | StateAuthority → All | Host tells all clients to add the perk and activate its functionalities |
-| `RPC_RegisterRemovedPerk(int perkID)` | StateAuthority → All | Host tells all clients to remove the perk |
-| `RPC_PlayImpactFX(int perkFuncID)` | StateAuthority → All | Plays impact VFX for a specific perk functionality |
-| `RPC_CreateAttachedVFX(int perkFuncID)` | StateAuthority → All | Creates/restarts a persistent attached VFX for a perk functionality |
-| `RPC_StopAttachedVFX(int perkFuncID)` | StateAuthority → All | Stops a persistent attached VFX for a perk functionality |
+| `RPC_RemovePerkOnHost(int perkID, bool removeAll = false)` | All → StateAuthority | Host decrements or fully removes a perk from `NetworkedCollectedPerks` |
+| `RPC_CollectPerkOnHost(int perkID)` | InputAuthority → StateAuthority | Owning client requests host to call `CollectPerkOnHost` |
+| `RPC_RegisterCollectedPerk(int perkID)` | StateAuthority → All | (private) Host tells all clients to add the perk and activate its functionalities |
+| `RPC_RegisterRemovedPerk(int perkID)` | StateAuthority → All | (private) Host tells all clients to remove the perk |
 | `RPC_ShowQuestCompleted(int perkID)` | StateAuthority → InputAuthority | Shows quest-completion UI notification to owning client |
 | `RPC_SyncPercFuncActivations(ActivationChanges changes)` | StateAuthority → InputAuthority | Syncs perk function activation counts to owning client (local-prediction correction) |
 
@@ -247,7 +246,7 @@ Each of these five abilities defines the same RPC:
 | `RPC_CutsceneFinished(RpcInfo info)` | StateAuthority → All | Signals end of current cutscene to all clients |
 | `RPC_TriggerAnimAllPlayers(string animName, RpcInfo info)` | StateAuthority → All | Fires named animation trigger on all player champions |
 | `RPC_SetGameSoundDangerLevel(DangerLevel dangerLevel, RpcInfo info)` | StateAuthority → All | Calls `AudioManager.SetGameSoundParameter(DangerLevel, ...)` on all clients |
-| `RPC_ObjectsCleared(int client, RpcInfo info)` | All → StateAuthority | Client reports it finished clearing level objects; host checks if all clients are done |
+| `RPC_ObjectsCleared(int client, RpcInfo info)` | All → StateAuthority | (private) Client reports it finished clearing level objects; host checks if all clients are done |
 | `RPC_OnAllEnemyKilled(int param, RpcInfo info)` | StateAuthority → All | Raises `LevelEvent_AllEnemiesKilled` on all clients; triggers `OnClearArena` stats on host |
 
 ---
@@ -257,7 +256,7 @@ Each of these five abilities defines the same RPC:
 
 | Method | Source → Target | Description |
 |---|---|---|
-| `RPC_IntroActivation()` | StateAuthority → All | Activates intro sequence: host spawns players at spawn points, raises `LevelEvent_IntroStarted`, starts cutscenes |
+| `RPC_IntroActivation()` | StateAuthority → All | (private) Activates intro sequence: host spawns players at spawn points, raises `LevelEvent_IntroStarted`, starts cutscenes |
 
 ---
 
@@ -275,13 +274,9 @@ Each of these five abilities defines the same RPC:
 
 | Method | Source → Target | Description |
 |---|---|---|
-| `RPC_TriggerAnimAllPlayers(string animName, RpcInfo info)` | StateAuthority → All | Fires named animation trigger on all player champions |
 | `RPC_TriggerCutsceneRaidStart(RpcInfo info)` | StateAuthority → All | Starts raid-start cutscene sequence on all clients |
-| `RPC_Handle_RaidSetupDone(Difficulty difficulty, int dangerLevel, RpcInfo info)` | StateAuthority → All | Broadcasts selected difficulty and danger level; auto-marks server player as ready |
-| `RPC_Handle_PlayerReadyEvent(PlayerRef playerId, RpcInfo info)` | All → All | Sets player slot to `Ready` on host; checks if all ready and starts the start timer |
-| `RPC_Handle_PlayerUnreadyEvent(PlayerRef playerId, RpcInfo info)` | All → StateAuthority | Sets player slot back to `NotReady` on host |
-| `RPC_ShowDemoTrophy(PlayerFilter playerFilter)` | StateAuthority → All | Shows demo trophy GameObject to targeted player only |
-| `RPC_ShowDemoRewardPopupAll(PlayerFilter playerFilter)` | StateAuthority → All | Shows demo participation reward popup to targeted player only |
+| `RPC_ShowDemoTrophy(PlayerFilter playerFilter)` | StateAuthority → All | (private) Shows demo trophy GameObject to targeted player only |
+| `RPC_ShowDemoRewardPopupAll(PlayerFilter playerFilter)` | StateAuthority → All | (private) Shows demo participation reward popup to targeted player only |
 | `RPC_TriggerLevelExit(OutroManager.OutroReason reason, int param)` | StateAuthority → All | Fades audio and triggers lobby exit/outro |
 
 ---
@@ -310,7 +305,7 @@ Each of these five abilities defines the same RPC:
 | `RPC_OnPerkPickup(int playerId, int perkID, NetworkObject networkObj)` | All → StateAuthority | Host collects perk for player via `PerkHandler.CollectPerkOnHost`, despawns object |
 | `RPC_OnPerkPickupSound(int playerId, int perkID)` | StateAuthority → All | Plays perk pickup audio on all clients |
 | `RPC_XPUpgradeCall(ChampionXPDescriptor.UpgradeAbilityType upgrade, int playerId)` | All → StateAuthority | Host applies XP ability upgrade, decrements ability points |
-| `RPC_PlayXPUpgradeEffect(NetworkObject networkObj)` | StateAuthority → All | Plays XP level-gain particle effect on all clients |
+| `RPC_PlayXPUpgradeEffect(NetworkObject networkObj)` | StateAuthority → All | (private) Plays XP level-gain particle effect on all clients |
 | `RPC_PlayPickupSound(RewardCategory rewardCategory, Rarity rarity, int type, Vector3 position)` | StateAuthority → All | Plays the correct pickup sound for a reward at a world position |
 
 ---
@@ -330,7 +325,6 @@ Each of these five abilities defines the same RPC:
 
 | Method | Source → Target | Description |
 |---|---|---|
-| `RPC_FillPlayerShrineOptions(int slotIndex, SelectableCaregoryAndPerks option1, SelectableCaregoryAndPerks option2)` | StateAuthority → All | Syncs two shrine options for a player slot to all clients and refreshes shrine UI |
 | `RPC_OnPickedUpCategory(PlayerRef player, Category category)` | All → All | Sets selected category for player's shrine slot and updates visuals |
 | `RPC_OnPickedUpPerk(PlayerRef player, int perkID, int perkIDSecond, NetworkObject obj)` | All → All | Records perk selection for player's shrine slot and despawns shrine object |
 | `RPC_RerollCategoryRequested(PlayerRef playerRef)` | All → StateAuthority | Host spends one RerollToken and regenerates both shrine category options |

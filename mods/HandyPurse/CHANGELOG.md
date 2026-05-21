@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased] - patch
+## [Unreleased] - major
+
+### Fixed
+- Updated for compatibility with Ghoulag Update
+
+### Removed
+- All gameplay patches (AmountMaximum override, CreateItem caps, MergeToInventory, DropSplit, save/load topup hooks) — mod now only migrates existing topup data to bank on startup and lets the user drop it in lobby
 
 ### Fixed
 - When no topup file matches the loaded state's timestamp (e.g. cloud and local saves have different timestamps, as caused by OfflineMode's save-validation sync), the most recent topup file is applied as a fallback instead of being silently skipped.

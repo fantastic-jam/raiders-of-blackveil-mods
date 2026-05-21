@@ -195,7 +195,7 @@ namespace ThePit {
                     var champ = PlayerManager.Instance?.GetPlayerByPlayerFilter(filter)?.PlayableChampion;
                     if (champ == null) { continue; }
 
-                    int currentXP = champ.XP.Amount;
+                    int currentXP = champ.XPAmount;
                     int currentLevel = rdb.GetXPLevel(currentXP);
                     if (currentLevel >= MaxXpLevel || currentLevel >= limits.Count) { continue; }
 
@@ -211,8 +211,8 @@ namespace ThePit {
                     if (newXP <= currentXP) { continue; }
 
                     // Grant ability points and health boosts the moment a level boundary is crossed.
+                    // AddXP handles both Amount and AbilityPoints atomically via the networked property.
                     if (rdb.GetXPLevel(newXP) > currentLevel) {
-                        champ.XP.AbilityPoints += rdb.GetXPUpgradePoints(currentXP, newXP);
                         int newLevel = rdb.GetXPLevel(newXP);
                         if (newLevel % 2 == 0) {
                             var healthPerk = rdb.StatMaxHealth?.Perk;
@@ -220,7 +220,7 @@ namespace ThePit {
                         }
                     }
 
-                    champ.XP.Amount = newXP;
+                    champ.AddXP(newXP - currentXP);
                 }
                 catch (System.InvalidOperationException) {
                     // PlayerManager not yet Spawned — skip this tick entirely.

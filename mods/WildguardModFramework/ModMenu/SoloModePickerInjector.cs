@@ -18,9 +18,9 @@ namespace WildguardModFramework.ModMenu {
         internal static void Inject(MenuStartPage instance) {
             if (ModScanner.GameModes.Count == 0) { return; }
 
-            var soloBtn = instance.RootElement.Q<ButtonGeneric3>("NewSinglePlayerGameButton");
+            var soloBtn = instance.RootElement.Q<ButtonMenuStart>("NewSinglePlayerGameButton");
             if (soloBtn == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: NewSinglePlayerGameButton not found — solo game mode picker unavailable.");
+                WmfMod.PublicLogger.LogWarning("WMF: NewSinglePlayerGameButton (ButtonMenuStart) not found — solo game mode picker unavailable.");
                 return;
             }
 
@@ -30,7 +30,7 @@ namespace WildguardModFramework.ModMenu {
             // Capture before replacing — may include OfflineMode's EnsureLoggedIn wrapper.
             var originalOnClick = soloBtn.OnClick;
 
-            _soloPage = new UIDynamicPageLayer<SoloStartPage>(soloContainer, instance.ParentPageLayer, 0f, 0f);
+            _soloPage = new UIDynamicPageLayer<SoloStartPage>(soloContainer, instance.RootLayer, 0f, 0f);
             _soloPage.Page.OnStartSolo = () => {
                 _soloPage.Close(TransitionAnimation.None);
                 // Delegate to original handler so login wrappers (e.g. OfflineMode) run first.

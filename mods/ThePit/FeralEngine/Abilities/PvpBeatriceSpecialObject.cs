@@ -21,7 +21,7 @@ namespace ThePit.FeralEngine.Abilities {
         internal bool FlowerEffect() {
             if (!ThePitState.IsDraftMode) { return true; }
             if (_inst.Runner?.IsServer != true) { return true; }
-            _inst._charRef?.Stats?.Protection?.AddArmorPlate();
+            _inst._creatorAbility?.Stats?.Champion?.Stats?.Protection?.AddArmorPlate();
             return false;
         }
 
