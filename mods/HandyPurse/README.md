@@ -1,53 +1,22 @@
 # HandyPurse
 
-Raises the stack limits for all currencies so you stop hitting the cap mid-run.
+Recovers excess currency banked by earlier versions of HandyPurse.
 
-| Currency | Default cap |
-|----------|-------------|
-| Scrap | 9 999 |
-| Black Coin | 999 |
-| Crystals (BlackBlood & Glitter) | 999 |
-
-All caps are configurable.
-
-When you drop a currency stack that exceeds the vanilla limit it is automatically split into multiple vanilla-sized pickups so the game handles them correctly.
+If you used HandyPurse before the Ghoulag Update, you may have currency sitting in a local bank file from when the mod managed stack limits. This version migrates that data on startup and lets you drop it back into the game.
 
 ---
 
-## Before uninstalling
+## How it works
 
-Use the **Prepare for Uninstall** button in the in-game pause menu (Mods › HandyPurse) before removing the mod.
+On startup HandyPurse reads any existing topup files left by prior versions and deposits them into the local bank. Open **Pause → Mods → HandyPurse** to see your current balance. In the lobby, use the **Drop bank to floor** button to spawn the stored currency as floor pickups at your feet — walk over them to pick them up normally.
 
-It drops every currency above the vanilla limit as vanilla-sized pickups at your feet, then disables HandyPurse automatically. Pick the stacks back up — they will merge normally within vanilla limits. You can then safely uninstall.
-
-Vanilla limits: Scrap 3,000 · Black Coin 200 · Crystals 200
-
-> Must be solo or session host. The button is in **Pause → Mods → HandyPurse**.
-
-If you skip this step and uninstall without preparing, the game will silently clamp any over-cap stacks to the vanilla limit on the next save — the excess is lost.
-
----
-
-## Bank
-
-The Bank is a safety net for stacks that exceed your configured caps at save time — for example when you join a session where you do not have save authority.
-
-**How it works:**
-
-When the game saves and a currency stack would be clamped, HandyPurse strips the excess and writes it to a local file instead of discarding it:
-
-- If your inventory slot layout is the same as when the excess was saved, it is written to `BepInEx/data/HandyPurse/topup.json` and restored to the exact same slot on your next load.
-- If the slot layout has changed (items moved or a slot is now occupied by something else), the excess is moved to `BepInEx/data/HandyPurse/bank.json` for safe keeping until you manually recover it.
-
-**Recovering banked funds:**
-
-Open **Pause → Mods → HandyPurse** to see your current bank balance and any pending topup. If you have a balance in `bank.json`, use the **Drop bank to floor** button — this spawns the stored currency as floor pickups at your feet so you can walk over them and pick them up normally. The button is only available in the lobby and only to the session host.
+The button is only available in the lobby and only to the session host (or in solo play).
 
 ---
 
 ## WMF
 
-This mod registers with [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) as a **Mod**. When WMF is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, HandyPurse is disabled for that session and the session name will show a **(modded)** suffix when it's active.
+This mod registers with [WMF](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) as a **Mod**. When WMF is installed, an **Allow Mods** toggle appears in the host setup screen. If the host sets it to **No**, HandyPurse is disabled for that session.
 
 ---
 
@@ -74,24 +43,3 @@ Skip this step if BepInEx is already installed.
 1. Download `HandyPurse-x.x.x.zip` from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=HandyPurse).
 2. Extract the ZIP into your game's `BepInEx` folder.
 3. Launch the game.
-
----
-
-## Configuration
-
-After the first launch, a config file is created at:
-
-```
-BepInEx/config/io.github.fantastic-jam.raidersofblackveil.mods.handypurse.cfg
-```
-
-Open it with any text editor:
-
-```ini
-[Limits]
-ScrapCap = 9999
-BlackCoinCap = 999
-CrystalCap = 999
-```
-
-Set any value to whatever cap you want. Restart the game after saving.
