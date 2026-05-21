@@ -41,7 +41,7 @@ This mod registers with [url=https://www.nexusmods.com/raidersofblackveil/mods/1
 [/list]
 2. Install the mod
 [list]
-[*]Download.[/*]
+[*]Download [b]CheatManager[/b] from the [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=CheatManager]releases page[/url][/*]
 [*]Extract the ZIP into your game's BepInEx folder.[/*]
 [*]Launch the game.[/*]
 [/list]
