@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - major
+## [1.0.0] - 2026-05-21
 
 ### Removed
 - FixCanMergeItem — game fixed different-Souvenir stacking in Ghoulag Update
