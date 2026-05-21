@@ -45,7 +45,7 @@ Subtracting the threshold rather than zeroing keeps overflow — picking up a la
 
 Stats are spawned as floor pickups via `RewardManager`. Because the pickup filter in tutorial 02 only intercepts `ItemPickup` and `EquipmentPickup`, stat orbs fall through and are collected normally.
 
-`RewardManager.GetRandomStatReward()` returns an index into `RewardDatabase.Rewards`; pass that entry to `RegisterDropStat`.
+`RewardDatabase.GetRandomFromAllStat()` returns a stat reward ID; pass it directly to `RegisterDropStatID`.
 
 ```csharp
 using RR.Level;
@@ -59,9 +59,8 @@ private static void GrantStat(PlayerRef playerRef) {
         player.Champion.transform.position,
         player.Champion.transform.position + Vector3.up * 0.5f);
 
-    int statId  = RewardManager.Instance.GetRandomStatReward();
-    var statDef = RewardDatabase.Instance.Rewards[statId];
-    RewardManager.Instance.RegisterDropStat(statDef, pos, ToFilter(playerRef));
+    int statId = RewardDatabase.Instance.GetRandomFromAllStat();
+    RewardManager.Instance.RegisterDropStatID(statId, pos, ToFilter(playerRef));
 }
 ```
 

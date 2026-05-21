@@ -42,43 +42,42 @@ RaidPage.Page.OnTravelClicked = _ => GameEvents.GetGameEvent("GameEvent_RaidSele
 ## GameEvent_RaidSelected
 
 **`LobbyManager.Handle_GameEventRaidSelected`** (server only):
-1. Reads `SelectedDifficulty` and `DiffRisky.Value` from the raid pages.
-2. Sets `DifficultyManager.Instance.Difficulty` and `DangerRisky`.
+1. Reads `SelectedDifficulty`, `DiffRisky.Value`, and all danger modifier values from the raid pages.
+2. Sets `DifficultyManager.Instance.Difficulty`, `DangerRisky`, and all danger modifiers.
 3. Sets `LevelProgressionHandler.CurrentBiome` from `RaidMapPage.Page.SelectedBiome`.
-4. Calls `RPC_Handle_RaidSetupDone(difficulty, dangerLevel)` — broadcasts to all clients.
+4. Sets `IsRaidReadyToGo = true` (networked property — replicated to all clients automatically).
+5. Starts a `_startRaidTimer` (0.4 s).
 
----
-
-## RPC_Handle_RaidSetupDone
-
-Runs on all clients:
-- Sets `_raidSelected = true` (if more than one player).
-- Server-side: calls `RPC_Handle_PlayerReadyEvent(localPlayer.FusionPlayerRef)` — marks the host as ready.
+No RPC is fired here — difficulty/biome are written as server-authoritative state.
 
 ---
 
 ## Ready Gathering
 
-**`RPC_Handle_PlayerReadyEvent`** (all → all, authority writes):
-- Sets `PlayerReady[slot] = ReadyState.Ready`.
-- Calls `UpdateReady()`.
-- When `_allPlayersReady` (everyone near the table):
-  - Sets `IsReadyForRaid = true`.
-  - Starts a `TickTimer` (0.4 s solo, 2 s multiplayer).
+After `IsRaidReadyToGo` is set, `FixedUpdateNetwork` (server) polls on each timer expiry:
 
-The table glows and players must be in range — this is handled by the vanilla ready-area logic, not patched.
+```
+_startRaidTimer expires
+  → AllPlayersReady() ?  (proximity check against _startLocation for all occupied slots)
+      yes  → Handle_InputEventStartGame()
+      no, local player still near table → restart timer (0.4 s loop)
+      no, local player left  → IsRaidReadyToGo = false, reset to NotYet
+```
+
+`AllPlayersReady()` sets `PlayerReady[slot]` directly (networked array) — not via RPC. A slot with no player is auto-marked `Ready`.
+
+The table glows (`LobbyStartPlaceEmbarkReady`) while `IsRaidReadyToGo == true` — standard vanilla logic, not patched.
 
 ---
 
 ## InputEvent_StartGamePressed
 
-Fired by the "Start" debug button or when all players confirm.  
+Fired by the "Start" debug button or when `AllPlayersReady()` returns true.
 **`Handle_InputEventStartGame`** (server only):
 1. `PlayerProgressionManager.Instance.OnLobbyEnded()`
 2. `PlayerManager.Instance.RPC_SavePlayerGameStateLocally()`
-3. `PlayerManager.Instance.SendAllPlayersGameStatesToBackend(OnBackendRequestCompleted)`
-
-**`OnBackendRequestCompleted`** → `RPC_TriggerCutsceneRaidStart()`.
+3. `StatsManager.TriggerGlobalEvent(CharacterEvent.OnLevelExit, TriggerParams.Null)`
+4. `RPC_TriggerCutsceneRaidStart()`
 
 ---
 
@@ -93,20 +92,25 @@ Fired by the "Start" debug button or when all players confirm.
 
 ## Skipping the UI (mod use)
 
-To replicate the post-biome-selection behaviour without opening `LobbyRaidPage`, call directly on the server:
+To replicate the post-biome-selection behaviour without opening `LobbyRaidPage`, call `Handle_GameEventRaidSelected` directly via reflection (it's `private`):
 
 ```csharp
-var lph = GameManager.Instance.LevelProgressionHandler;
-lph.CurrentBiome = BiomeType.MeatFactory; // already forced by ThePit
+// In Apply():
+_handleRaidSelectedMethod = AccessTools.Method(typeof(LobbyManager), "Handle_GameEventRaidSelected");
 
+// Server only — call after setting difficulty:
 DifficultyManager.Instance.Difficulty = Difficulty.Normal;
 DifficultyManager.Instance.DangerRisky = 0;
-
-GameManager.Instance.GetLobbyManager()
-    .RPC_Handle_RaidSetupDone(Difficulty.Normal, 0);
+var lobbyManager = GameManager.Instance.GetLobbyManager();
+if (lobbyManager != null) {
+    _handleRaidSelectedMethod?.Invoke(lobbyManager, null);
+}
 ```
 
-This skips biome/difficulty selection entirely and goes straight to the ready-gathering + glow phase.
+`Handle_GameEventRaidSelected` sets `_raidSetup = RaidSetupState.Closed`, `IsRaidReadyToGo = true`, and starts `_startRaidTimer` (0.4 s). The proximity-poll loop then fires the cutscene RPC when all players are ready.
+
+**Ghoulag Update breaking change:** `LobbyManager.RPC_Handle_RaidSetupDone` no longer exists.
+Use `Handle_GameEventRaidSelected` (via reflection) instead.
 
 ---
 

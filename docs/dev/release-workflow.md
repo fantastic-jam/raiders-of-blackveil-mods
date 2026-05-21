@@ -64,7 +64,7 @@ frelease --pkg <ModName> changelog   # prints release notes for the current vers
 | `added` or `changed` | minor |
 | `fixed`, `deprecated`, `removed`, `security` only | patch |
 
-To override, pass `--version x.y.z` or `--bump patch|minor|major` to `pre-release`.
+To override, pass `--bump patch|minor|major` or `--version x.y.z` directly to the underlying `frelease` command (not via `pnpm run pre-release`, which does not forward these flags).
 
 ---
 
@@ -198,9 +198,6 @@ Check GitHub releases and confirm the tag, title, notes, and asset are correct.
 | `--dry-run` | `pre-release`, `release` | Preview only, no writes |
 | `--skip-push` | `release` | Skip `git push` (also forces `--skip-release`) |
 | `--skip-release` | `release` | Skip GitHub release creation |
-| `--bump patch\|minor\|major` | `pre-release` | Override auto-detected bump |
-| `--version x.y.z` | `pre-release` | Pin exact version instead of bumping |
-| `--all` | both | Run for every mod and lib in the repo |
 | `--lib <name>` | both | Target a lib instead of a mod |
 
 `--skip-push` and `--skip-release` together are the equivalent of a local-only release:
@@ -249,12 +246,3 @@ pnpm run release -- --lib <LibName>
 Version file for libs is `libs/[LibName]/Properties/AssemblyInfo.cs`. Both `AssemblyVersion` and `AssemblyFileVersion` are updated.
 
 ---
-
-## Releasing everything at once
-
-```
-pnpm run pre-release -- --all
-pnpm run release -- --all
-```
-
-This iterates all non-deprecated mods and all libs. Each must have an `[Unreleased]` section with at least one `fchange` entry, or `frelease` will have nothing to promote.

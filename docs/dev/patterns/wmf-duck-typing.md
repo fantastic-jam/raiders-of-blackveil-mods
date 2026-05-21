@@ -135,7 +135,7 @@ WmfNotifications.Notify("Install JoinAnytime!", NotificationLevel.Info, autoClos
 
 `Notify()` shows the notification locally and broadcasts to all WMF clients if the caller is the host.
 
-See [API.md](../../mods/WildguardModFramework/API.md#notifications-api) for the full reference.
+See [API.md](../../../mods/WildguardModFramework/API.md#notifications-api) for the full reference.
 
 ---
 
