@@ -3,7 +3,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
-using RR.UI.Pages;
+using RR.UI.UISystem;
 using UnityEngine.InputSystem;
 using UnityHotReloadNS;
 
@@ -17,16 +17,16 @@ namespace PlayerEmotes.Dev {
             _harmony = harmony;
             _dllPath = dllPath;
 
-            _hudUpdate = AccessTools.Method(typeof(BaseHUDPage), "Update");
+            _hudUpdate = AccessTools.Method(typeof(PageBase), nameof(PageBase.OnUpdateBase));
             if (_hudUpdate == null) {
-                PlayerEmotesMod.PublicLogger.LogWarning("[HotReload] BaseHUDPage.Update not found — F9 unavailable.");
+                PlayerEmotesMod.PublicLogger.LogWarning("[HotReload] PageBase.OnUpdateBase not found — F9 unavailable.");
             }
         }
 
         internal static void Enable() {
             if (_hudUpdate == null) { return; }
             _harmony.Patch(_hudUpdate, postfix: new HarmonyMethod(typeof(HotReloadController), nameof(HudUpdatePostfix)));
-            PlayerEmotesMod.PublicLogger.LogInfo("[HotReload] Hooked BaseHUDPage.Update. Press F9 to reload.");
+            PlayerEmotesMod.PublicLogger.LogInfo("[HotReload] Hooked PageBase.OnUpdateBase. Press F9 to reload.");
         }
 
         internal static void Disable() {
