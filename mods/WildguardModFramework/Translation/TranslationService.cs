@@ -112,7 +112,7 @@ namespace WildguardModFramework.Translation {
 
         private static string GetCurrentLang() {
             try {
-                return AppManager.Instance?.SyncedSettings?.Gen_Language ?? "en";
+                return AppManager.Instance?.Settings?.Synced?.Gen_Language ?? "en";
             }
             catch {
                 return "en";

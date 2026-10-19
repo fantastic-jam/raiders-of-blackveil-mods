@@ -38,7 +38,7 @@ namespace WildguardModFramework.Network {
             }
 
             var reliableDataReceived = AccessTools.Method(typeof(NetworkManager), "OnReliableDataReceived",
-                new[] { typeof(NetworkRunner), typeof(PlayerRef), typeof(ReliableKey), typeof(ArraySegment<byte>) });
+                new[] { typeof(NetworkRunner), typeof(PlayerRef), typeof(ReliableKey), typeof(ReadOnlySpan<byte>) });
             if (reliableDataReceived == null) {
                 WmfMod.PublicLogger.LogWarning("WMF: NetworkManager.OnReliableDataReceived not found — mod data channel inactive.");
             } else {
@@ -91,7 +91,7 @@ namespace WildguardModFramework.Network {
             PlayerManagementController.RefreshOverlay();
         }
 
-        private static bool OnReliableDataReceivedPrefix(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) =>
+        private static bool OnReliableDataReceivedPrefix(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) =>
             GameModeProtocol.OnReliableDataReceived(runner, player, key, data);
 
         private static void OnShutdownPostfix() {

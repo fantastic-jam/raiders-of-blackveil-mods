@@ -4,6 +4,7 @@ using WildguardModFramework.Registry;
 using RR;
 using RR.Input;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 
 namespace WildguardModFramework.ModMenu {
     internal static class MenuStartPagePatch {
@@ -15,12 +16,21 @@ namespace WildguardModFramework.ModMenu {
                 WmfMod.PublicLogger.LogWarning("WMF: AppManager.Init not found — startup disable will not run.");
             }
 
-            var onInit = AccessTools.Method(typeof(MenuStartPage), "OnInit");
-            if (onInit == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage.OnInit not found — Mods button skipped.");
+            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
+            var ctor = AccessTools.Constructor(typeof(MenuStartPage), new[] { typeof(PageArgs) });
+            if (ctor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage(PageArgs) constructor not found — Mods button skipped.");
                 return;
             }
-            harmony.Patch(onInit, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(OnInitPostfix)));
+            harmony.Patch(ctor, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(CtorPostfix)));
+
+            // ResetCursor clears and rebuilds the button cursor on every OnActivate / OnReady.
+            var resetCursor = AccessTools.Method(typeof(MenuStartPage), "ResetCursor");
+            if (resetCursor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage.ResetCursor not found — Mods button keyboard/gamepad nav unavailable.");
+            } else {
+                harmony.Patch(resetCursor, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(ResetCursorPostfix)));
+            }
 
             var onActivate = AccessTools.Method(typeof(MenuStartPage), "OnActivate");
             if (onActivate != null) {
@@ -39,10 +49,12 @@ namespace WildguardModFramework.ModMenu {
             ModLifecycle.ApplyStartupDisables();
         }
 
-        private static void OnInitPostfix(MenuStartPage __instance) {
+        private static void CtorPostfix(MenuStartPage __instance) {
             ModsButtonInjector.Inject(__instance);
             SoloModePickerInjector.Inject(__instance);
         }
+
+        private static void ResetCursorPostfix(MenuStartPage __instance) => ModsButtonInjector.RegisterInCursor(__instance);
 
         private static void OnActivatePostfix() {
             // Re-scan so WmfOptions tab names resolve with the now-loaded language,

@@ -17,16 +17,16 @@ namespace WildguardModFramework.Dev {
             _harmony = harmony;
             _dllPath = dllPath;
 
-            _hudUpdate = AccessTools.Method(typeof(BaseHUDPage), "Update");
+            _hudUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
             if (_hudUpdate == null) {
-                WmfMod.PublicLogger.LogWarning("[HotReload] BaseHUDPage.Update not found — F9 unavailable.");
+                WmfMod.PublicLogger.LogWarning("[HotReload] BaseHUDPage.OnUpdate not found — F9 unavailable.");
             }
         }
 
         internal static void Enable() {
             if (_hudUpdate == null) { return; }
             _harmony.Patch(_hudUpdate, postfix: new HarmonyMethod(typeof(HotReloadController), nameof(HudUpdatePostfix)));
-            WmfMod.PublicLogger.LogInfo("[HotReload] Hooked BaseHUDPage.Update. Press F9 to reload.");
+            WmfMod.PublicLogger.LogInfo("[HotReload] Hooked BaseHUDPage.OnUpdate. Press F9 to reload.");
         }
 
         internal static void Disable() {

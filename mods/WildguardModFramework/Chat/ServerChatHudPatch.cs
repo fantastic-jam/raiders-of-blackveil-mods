@@ -16,11 +16,20 @@ namespace WildguardModFramework.Chat {
                 WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage.IsAnyPageOpen not found — chat may open over sub-pages.");
             }
 
-            var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
-            if (onInit == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: BaseHUDPage.OnInit not found — chat overlay inactive.");
+            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
+            // Patch the concrete HUD ctors so the overlay is added after the HUD's own elements (on top).
+            var ctorPostfix = new HarmonyMethod(typeof(ServerChatHudPatch), nameof(HudCtorPostfix));
+            var gameHudCtor = AccessTools.Constructor(typeof(GameHUDPage), new[] { typeof(PageArgs) });
+            if (gameHudCtor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage(PageArgs) constructor not found — in-raid chat overlay inactive.");
             } else {
-                harmony.Patch(onInit, postfix: new HarmonyMethod(typeof(ServerChatHudPatch), nameof(OnInitPostfix)));
+                harmony.Patch(gameHudCtor, postfix: ctorPostfix);
+            }
+            var lobbyHudCtor = AccessTools.Constructor(typeof(LobbyHUDPage), new[] { typeof(PageArgs) });
+            if (lobbyHudCtor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage(PageArgs) constructor not found — lobby chat overlay inactive.");
+            } else {
+                harmony.Patch(lobbyHudCtor, postfix: ctorPostfix);
             }
 
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
@@ -42,11 +51,7 @@ namespace WildguardModFramework.Chat {
             if (lobbyNavInput != null) { harmony.Patch(lobbyNavInput, prefix: navigatePrefix); }
         }
 
-        private static void OnInitPostfix(BaseHUDPage __instance) {
-            if (__instance is GameHUDPage || __instance is LobbyHUDPage) {
-                ServerChat.OnHudInit(__instance);
-            }
-        }
+        private static void HudCtorPostfix(BaseHUDPage __instance) => ServerChat.OnHudInit(__instance);
 
         private static string _lastPageType;
 

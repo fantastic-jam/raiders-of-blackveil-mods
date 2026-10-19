@@ -1,15 +1,25 @@
 ﻿using HarmonyLib;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 using UnityEngine.InputSystem;
 
 namespace WildguardModFramework.PlayerManagement {
     internal static class PlayerManagementPatch {
         internal static void Apply(Harmony harmony) {
-            var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
-            if (onInit == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: BaseHUDPage.OnInit not found — player management overlay inactive.");
+            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
+            // Patch the concrete HUD ctors so the overlay is added after the HUD's own elements (on top).
+            var ctorPostfix = new HarmonyMethod(typeof(PlayerManagementPatch), nameof(HudCtorPostfix));
+            var gameHudCtor = AccessTools.Constructor(typeof(GameHUDPage), new[] { typeof(PageArgs) });
+            if (gameHudCtor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage(PageArgs) constructor not found — in-raid player management overlay inactive.");
             } else {
-                harmony.Patch(onInit, postfix: new HarmonyMethod(typeof(PlayerManagementPatch), nameof(OnInitPostfix)));
+                harmony.Patch(gameHudCtor, postfix: ctorPostfix);
+            }
+            var lobbyHudCtor = AccessTools.Constructor(typeof(LobbyHUDPage), new[] { typeof(PageArgs) });
+            if (lobbyHudCtor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage(PageArgs) constructor not found — lobby player management overlay inactive.");
+            } else {
+                harmony.Patch(lobbyHudCtor, postfix: ctorPostfix);
             }
 
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
@@ -25,11 +35,7 @@ namespace WildguardModFramework.PlayerManagement {
             }
         }
 
-        private static void OnInitPostfix(BaseHUDPage __instance) {
-            if (__instance is GameHUDPage || __instance is LobbyHUDPage) {
-                PlayerManagementController.OnHudInit(__instance);
-            }
-        }
+        private static void HudCtorPostfix(BaseHUDPage __instance) => PlayerManagementController.OnHudInit(__instance);
 
         private static void OnUpdatePostfix(BaseHUDPage __instance) {
             if (!(__instance is GameHUDPage) && !(__instance is LobbyHUDPage)) { return; }

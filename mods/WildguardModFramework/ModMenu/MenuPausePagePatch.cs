@@ -1,8 +1,10 @@
 ﻿using System.Reflection;
 using HarmonyLib;
 using RR.Input;
+using RR.UI.Controls;
 using RR.UI.Controls.Menu;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 using RR.UI.Utils;
 using UnityEngine.UIElements;
 
@@ -19,12 +21,13 @@ namespace WildguardModFramework.ModMenu {
                 WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage._cursor not found — Mods button keyboard nav unavailable.");
             }
 
-            var onInit = AccessTools.Method(typeof(MenuPausePage), "OnInit");
-            if (onInit == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage.OnInit not found — in-game Mods button skipped.");
+            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
+            var ctor = AccessTools.Constructor(typeof(MenuPausePage), new[] { typeof(PageArgs) });
+            if (ctor == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage(PageArgs) constructor not found — in-game Mods button skipped.");
                 return;
             }
-            harmony.Patch(onInit, postfix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(OnInitPostfix)));
+            harmony.Patch(ctor, postfix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(CtorPostfix)));
 
             var onActivate = AccessTools.Method(typeof(MenuPausePage), "OnActivate");
             if (onActivate != null) {
@@ -37,8 +40,10 @@ namespace WildguardModFramework.ModMenu {
             }
         }
 
-        private static void OnInitPostfix(MenuPausePage __instance) {
+        private static void CtorPostfix(MenuPausePage __instance) {
             _pageRoot = __instance.RootElement;
+            _overlay = null;
+            _modsButton = null;
 
             var optionsBtn = _pageRoot.Q<ButtonShared>("OptionsButton");
             if (optionsBtn == null) {
@@ -49,12 +54,20 @@ namespace WildguardModFramework.ModMenu {
             var container = optionsBtn.parent;
             if (container == null) { return; }
 
-            _modsButton = new ButtonShared();
-            _modsButton.IsLarge = optionsBtn.IsLarge;
+            _modsButton = new ButtonShared {
+                // ParentPage gates clicks through PageBase.AllowClick (blocked during transitions / popups).
+                ParentPage = __instance,
+                IsLarge = optionsBtn.IsLarge,
+                SoundType = ButtonSoundType.PauseMenu,
+                OnClicked = OpenOverlay
+            };
             _modsButton.style.alignSelf = Align.Stretch;
-            _modsButton.SoundType = ButtonSoundType.PauseMenu;
-            _modsButton.OnClicked = OpenOverlay;
-            _modsButton.LabelCustomTransform = _ => WmfMod.t("label.mods");
+
+            // ButtonShared.LabelCustomTransform was removed — set the text on the inner LocLabel directly.
+            var lbl = _modsButton.Q<LocLabel>("Label");
+            if (lbl != null) {
+                lbl.SetLiteral("", customTransform: _ => WmfMod.t("label.mods"));
+            }
 
             container.Insert(container.IndexOf(optionsBtn) + 1, _modsButton);
         }

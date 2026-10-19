@@ -82,7 +82,7 @@ namespace WildguardModFramework.ModMenu {
             BuildTooltip(page.RootElement);
 
             if (hasMods) {
-                _allowModsStepper = CreateStepper(() => WmfMod.t("stepper.allow_mods"));
+                _allowModsStepper = CreateStepper(page, () => WmfMod.t("stepper.allow_mods"));
                 RegisterTooltip(_allowModsStepper, string.Join("\n", enabledMods.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowModsStepper);
                 cursor.RegisterItem(_allowModsStepper);
@@ -90,7 +90,7 @@ namespace WildguardModFramework.ModMenu {
             }
 
             if (hasCheats) {
-                _allowCheatsStepper = CreateStepper(() => WmfMod.t("stepper.allow_cheats"));
+                _allowCheatsStepper = CreateStepper(page, () => WmfMod.t("stepper.allow_cheats"));
                 RegisterTooltip(_allowCheatsStepper, string.Join("\n", enabledCheats.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowCheatsStepper);
                 cursor.RegisterItem(_allowCheatsStepper);
@@ -102,7 +102,7 @@ namespace WildguardModFramework.ModMenu {
                 items[0] = WmfMod.t("gamemode.normal");
                 for (int i = 0; i < gameModes.Count; i++) { items[i + 1] = gameModes[i].DisplayName; }
 
-                _gameModeStepper = CreateStepper(() => WmfMod.t("stepper.game_mode"));
+                _gameModeStepper = CreateStepper(page, () => WmfMod.t("stepper.game_mode"));
                 _gameModeStepper.SetItems(items, GetCurrentGameModeIndex());
                 container.Insert(insertIndex++, _gameModeStepper);
                 cursor.RegisterItem(_gameModeStepper);
@@ -112,7 +112,7 @@ namespace WildguardModFramework.ModMenu {
                 };
             }
 
-            _allowChatStepper = CreateStepper(() => WmfMod.t("stepper.server_chat"));
+            _allowChatStepper = CreateStepper(page, () => WmfMod.t("stepper.server_chat"));
             container.Insert(insertIndex++, _allowChatStepper);
             cursor.RegisterItem(_allowChatStepper);
 
@@ -250,12 +250,12 @@ namespace WildguardModFramework.ModMenu {
             _tooltipPanel.style.display = DisplayStyle.Flex;
         }
 
-        private static JoinHostStepper CreateStepper(Func<string> labelProvider) {
-            var stepper = new JoinHostStepper();
+        private static JoinHostStepper CreateStepper(MenuStartHostPage page, Func<string> labelProvider) {
+            // ParentPage gates the stepper arrows' clicks through PageBase.AllowClick (blocked during transitions / popups).
+            var stepper = new JoinHostStepper { ParentPage = page };
             stepper.SetItems(StepperItems, 0);
             if (JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
-                lbl.CustomTransform = _ => labelProvider();
-                lbl.Refresh();
+                lbl.SetLiteral("", customTransform: _ => labelProvider());
             }
             return stepper;
         }

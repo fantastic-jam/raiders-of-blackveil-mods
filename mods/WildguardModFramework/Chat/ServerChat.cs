@@ -112,8 +112,7 @@ namespace WildguardModFramework.Chat {
                 Value = WmfConfig.ChatEnabled,
             };
             if (OptionLabelField?.GetValue(toggle) is LocLabel lbl) {
-                lbl.CustomTransform = _ => WmfMod.t("chat.toggle_label");
-                lbl.Refresh();
+                lbl.SetLiteral("", customTransform: _ => WmfMod.t("chat.toggle_label"));
             }
             toggle.OnValueChangedCallback = v => WmfConfig.ChatEnabled = v;
             container.Add(toggle);

@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Option labels in the Mods menu (chat toggle, game mode steppers) show their text again instead of "--"
+- Only the player without the required mods sees the explanation popup; it can no longer close the game for the host
+- Mod handshake and mod data channel work with the updated network layer
+- Mods button in the main menu is reachable with keyboard/gamepad again
+- Compatibility with the October 2026 game update (main menu, pause menu, HUD and network changes)
+
 ## [0.6.1] - 2026-05-21
 
 ### Fixed

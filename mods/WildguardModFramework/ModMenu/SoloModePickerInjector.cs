@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 namespace WildguardModFramework.ModMenu {
     /// <summary>
     /// Injects a solo game-mode picker over the NewSinglePlayerGameButton and owns the overlay page.
-    /// Called once from MenuStartPagePatch.OnInitPostfix when game modes are registered.
+    /// Called from MenuStartPagePatch.CtorPostfix when game modes are registered.
     /// Delegates to the original button handler so third-party wrappers (e.g. OfflineMode login) are preserved.
     /// </summary>
     internal static class SoloModePickerInjector {
@@ -30,7 +30,7 @@ namespace WildguardModFramework.ModMenu {
             // Capture before replacing — may include OfflineMode's EnsureLoggedIn wrapper.
             var originalOnClick = soloBtn.OnClick;
 
-            _soloPage = new UIDynamicPageLayer<SoloStartPage>(soloContainer, instance.RootLayer, 0f, 0f);
+            _soloPage = new UIDynamicPageLayer<SoloStartPage>(instance, soloContainer, 0f, 0f);
             _soloPage.Page.OnStartSolo = () => {
                 _soloPage.Close(TransitionAnimation.None);
                 // Delegate to original handler so login wrappers (e.g. OfflineMode) run first.

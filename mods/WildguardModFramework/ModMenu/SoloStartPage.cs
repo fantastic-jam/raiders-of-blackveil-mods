@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System.Reflection;
+using HarmonyLib;
 using WildguardModFramework.Registry;
 using RR.Input;
 using RR.UI.Components;
@@ -17,24 +18,27 @@ namespace WildguardModFramework.ModMenu {
     /// </summary>
     internal sealed class SoloStartPage : PageBase {
         // Load the exact same UXML as MenuStartHostPage — same visual chrome, different content.
-        public override string Name => "MenuStartHostPage";
+        private const string PageName = "MenuStartHostPage";
+
+        private static readonly FieldInfo JoinHostLabelField = AccessTools.Field(typeof(JoinHostControl), "_label");
 
         public System.Action OnStartSolo { get; set; }
         public System.Action OnCloseRequest { get; set; }
 
         private readonly UICursorLinear<object> _cursor = new(CursorInputType.ArrowsAndStickOnly);
-        private JoinHostStepper _gameModeStepper;
-        private JoinHostKeysFooter _keysFooter;
+        private readonly JoinHostStepper _gameModeStepper;
+        private readonly JoinHostKeysFooter _keysFooter;
 
-        protected override void OnInit() {
+        // Public: UIDynamicPageLayer<T> instantiates pages via Activator.CreateInstance(type, PageArgs),
+        // which only resolves public constructors.
+        public SoloStartPage(PageArgs args) : base(PageName, args) {
             _cursor.SelectFirstOnFirstInput = true;
             _cursor.DisableSubmit = true; // Submit is handled at the page level, not by the cursor
 
             // ── Title ─────────────────────────────────────────────────────────
             var title = RootElement.Q<LocLabel>("Title");
             if (title != null) {
-                title.CustomTransform = _ => WmfMod.t("solo.title");
-                title.Refresh();
+                title.SetLiteral("", customTransform: _ => WmfMod.t("solo.title"));
             }
 
             // ── Clear form controls and inject game mode stepper ──────────────
@@ -42,6 +46,7 @@ namespace WildguardModFramework.ModMenu {
             if (controls != null) {
                 controls.Clear();
                 _gameModeStepper = CreateGameModeStepper();
+                _gameModeStepper.ParentPage = this; // gates arrow clicks through PageBase.AllowClick
                 controls.Add(_gameModeStepper);
                 _cursor.RegisterItem(_gameModeStepper);
             } else {
@@ -57,20 +62,14 @@ namespace WildguardModFramework.ModMenu {
             }
 
             // ── Wire up Start button ──────────────────────────────────────────
-            var startBtn = RootElement.Q<ButtonPopup>("StartButton");
-            if (startBtn != null) {
-                startBtn.OnClicked = _ => ConfirmAndStart();
-            }
+            // GetElement (not Q) sets ButtonBase.ParentPage so clicks respect AllowClick, and registers
+            // input-method changes. Both elements are mandatory in the game's own MenuStartHostPage.
+            var startBtn = GetElement<ButtonPopup>("StartButton", ElementUpdate.InputChange);
+            startBtn.OnClicked = _ => ConfirmAndStart();
 
             // ── Wire up Keys footer (handles ESC / Cancel) ────────────────────
-            _keysFooter = RootElement.Q<JoinHostKeysFooter>("KeysFooter");
-            if (_keysFooter != null) {
-                _keysFooter.OnCloseClicked = () => {
-                    if (RootLayer.IsOpenAndReady) {
-                        OnCloseRequest?.Invoke();
-                    }
-                };
-            }
+            _keysFooter = GetElement<JoinHostKeysFooter>("KeysFooter", ElementUpdate.InputChange);
+            _keysFooter.OnCloseClicked = () => OnCloseRequest?.Invoke();
         }
 
         public override void OnActivate() {
@@ -80,7 +79,7 @@ namespace WildguardModFramework.ModMenu {
 
         public override void OnNavigateInput(InputPressEvent evt) {
             _cursor.OnNavigateInput(evt);
-            _keysFooter?.OnNavigateInput(evt); // handles PageNavType.Cancel → OnCloseClicked
+            _keysFooter.OnNavigateInput(evt); // handles PageNavType.Cancel → OnCloseClicked
 
             if (!evt.IsPressed) { return; }
             switch (evt.Type) {
@@ -128,10 +127,8 @@ namespace WildguardModFramework.ModMenu {
 
         private static JoinHostStepper CreateGameModeStepper() {
             var stepper = new JoinHostStepper();
-            var labelField = AccessTools.Field(typeof(JoinHostControl), "_label");
-            if (labelField?.GetValue(stepper) is LocLabel lbl) {
-                lbl.CustomTransform = _ => WmfMod.t("stepper.game_mode");
-                lbl.Refresh();
+            if (JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
+                lbl.SetLiteral("", customTransform: _ => WmfMod.t("stepper.game_mode"));
             }
             return stepper;
         }

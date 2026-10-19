@@ -10,6 +10,7 @@ using WildguardModFramework.Registry;
 using RR;
 using RR.Backend.API.V2.Multiplayer.Types;
 using RR.UI.Extensions;
+using RR.UI.Pages;
 using RR.UI.UISystem;
 using UnityEngine;
 
@@ -185,13 +186,15 @@ namespace WildguardModFramework.Network {
         /// Dispatches mod stream types. Must return false for all mod stream types — the game's switch
         /// throws NotImplementedException for unknown values.
         /// </summary>
-        internal static bool OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) {
+        // Fusion 2.x delivers the payload as ReadOnlySpan<byte>; it is only copied out for WMF streams
+        // (the span cannot outlive the callback).
+        internal static bool OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) {
             key.GetInts(out var key2, out _, out _, out _);
             var streamType = (DataStreamType)key2;
 
-            if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(runner, data); }
-            if (streamType == StreamTypeAck) { return HandleAck(runner, player, data); }
-            if (streamType == WmfNetwork.StreamTypeMux) { return WmfNetwork.TryDispatch(player, data); }
+            if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(runner, new ArraySegment<byte>(data.ToArray())); }
+            if (streamType == StreamTypeAck) { return HandleAck(runner, player, new ArraySegment<byte>(data.ToArray())); }
+            if (streamType == WmfNetwork.StreamTypeMux) { return WmfNetwork.TryDispatch(player, new ArraySegment<byte>(data.ToArray())); }
 
             return true; // not our stream — let the game handle it
         }
@@ -233,7 +236,7 @@ namespace WildguardModFramework.Network {
             if (runMode == null || string.IsNullOrEmpty(runMode.RunStartMessage)) { return; }
 
             _runNotificationShown = true;
-            UIManager.Instance?.GetHUDPage()?.CornerNotifications?.AddLevelEvent(
+            UIManager.Instance?.GetHUDPage<GameHUDPage>(ifLoaded: true)?.CornerNotifications?.AddLevelEvent(
                 "@" + runMode.DisplayName, "@" + runMode.RunStartMessage);
         }
 
