@@ -92,6 +92,8 @@ NetworkManager.Instance?.SendReliableDataToHost(localRef, (DataStreamType)100, b
 
 Stream type values 0–8 are used by the game. Use 100+ for mods. The game's `OnReliableDataReceived` switch throws `NotImplementedException` for unknown values — patch it with a prefix that returns `false` for your stream types.
 
+Since the 2026-10-19 update the callback is `NetworkManager.OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data)` (was `ArraySegment<byte>`). Resolve it with `typeof(ReadOnlySpan<byte>)` and copy the span (`data.ToArray()`) before keeping the bytes past the call.
+
 **High-level (WMF's mux channel, stream type 102):**
 ```csharp
 // Any mod can subscribe to a named channel
@@ -152,7 +154,7 @@ NetworkManager.Instance?.SendReliableDataToHost(PlayerManager.Instance.LocalPlay
 | Popup on one specific client | `WmfNetwork.Send(playerRef, channel, bytes)` + handler showing `Popup.ShowOK` | Targeted, modded clients only |
 | Popup on all modded clients | `WmfNetwork.Broadcast(channel, bytes)` + handler | Modded clients only |
 | Floating damage/text number | `AddDamageData(value, type, id)` on state authority | State syncs automatically; clients display in `Render()` |
-| HUD corner notification | `UIManager.Instance.GetHUDPage()?.CornerNotifications?.AddLevelEvent(title, body)` | Call locally on each client; use `Broadcast` to trigger remotely |
+| HUD corner notification | `UIManager.Instance.GetHUDPage<GameHUDPage>(ifLoaded: true)?.CornerNotifications?.AddLevelEvent(title, body)` | Call locally on each client; use `Broadcast` to trigger remotely |
 
 ## Checklist for Networked Mod Code
 

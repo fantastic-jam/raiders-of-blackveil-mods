@@ -30,7 +30,7 @@ Documents how the in-lobby "Plan Raid" table works: from the player pressing E t
 
 On `OnDeactivate`, if `_submitChoice == true`, `OnTravelClicked.Invoke(this)` fires.
 
-**`LobbyHUDPage.OnInit`** wires `OnTravelClicked`:
+**`LobbyHUDPage(PageArgs)` constructor** (was `OnInit` before the 2026-10-19 update) wires `OnTravelClicked`:
 ```csharp
 RaidPage.Page.OnTravelClicked = _ => GameEvents.GetGameEvent("GameEvent_RaidSelected").Raise();
 ```

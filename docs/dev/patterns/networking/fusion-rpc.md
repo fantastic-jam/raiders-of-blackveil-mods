@@ -1,61 +1,82 @@
 # FusionRpcHelper — Targeted RPC Without Broadcast
 
+Applies to the Fusion version shipped with the 2026-10-19 game update (RPCs built through `RpcBuilder`).
+The older `SimulationMessage*` / `RpcHeader` / `runner.SendRpc(ptr)` path no longer exists.
+
 ## What it does
 
-`FusionRpcHelper` (in `WildguardModFramework/Network/`) sends a specific game RPC (`RPC_ErrorMessageAll`, method index 9 on `GameManager`) to **one player only**, without:
+`FusionRpcHelper` (in `WildguardModFramework/Network/`) sends `GameManager.RPC_ErrorMessageAll` to **one player only**, without:
 - Executing the RPC locally on the host.
 - Sending it to any other connected client.
 
-Normal `gm.RPC_ErrorMessageAll(msg)` broadcasts to all clients **and** executes on the host. `FusionRpcHelper.SendErrorMessageTo(runner, gm, target, msg)` skips both of those.
+Normal `gm.RPC_ErrorMessageAll(msg)` broadcasts to all clients **and** executes on the host
+(`GameManager.ErrorMessage` → popup → `Application.Quit()` on close). Never use the broadcast as a fallback.
 
-## How it works internally
+## How the weaver sends an RPC now
 
-Fusion RPCs are sent as `SimulationMessage` allocations on the `Simulation` object. The helper:
-
-1. Resolves two private Fusion members once via reflection:
-   - `NetworkRunner.Simulation` (property, `internal`) → the `Simulation` instance.
-   - `NetworkBehaviour.ObjectIndex` (field, `internal`) → integer index of the `NetworkBehaviour` within its `NetworkObject`, needed for `RpcHeader`.
-
-2. Allocates a `SimulationMessage` directly on the simulation with the correct size.
-
-3. Writes an `RpcHeader` (8 bytes) — `RpcHeader.Create(objectId, objectIndex, methodIndex)` where `methodIndex = 9` matches `RPC_ErrorMessageAll`.
-
-4. Writes the string payload using `ReadWriteUtilsForWeaver.WriteStringUtf8NoHash`.
-
-5. Calls `ptr->SetTarget(target)` — this sets the `Target` field and a `FLAG_TARGET_PLAYER` bit on the message, which makes Fusion route it to only that `PlayerRef`.
-
-6. Calls `runner.SendRpc(ptr)`.
-
-The host never enters the execute path because `SetTarget` skips local execution when a specific target is set.
-
-## What it is NOT
-
-This is not a general "write networked state to one player" mechanism. Fusion's snapshot replication is always broadcast — all clients receive the same state snapshot. `FusionRpcHelper` only works for **one-shot event RPCs** (fire-and-forget method calls), not for making a `[Networked]` property have a different value per client.
-
-If you need per-player state divergence, use the WMF reliable data channel (`WmfNetwork.Send`) or store separate server-side data and send it as a targeted message.
-
-## Reflection handles required
+`game-src/RR/GameManager.cs` — weaved body of `RPC_ErrorMessageAll`:
 
 ```csharp
-// Resolved once in Apply() / TryResolve():
-_simulationProp  = AccessTools.Property(typeof(NetworkRunner),    "Simulation");   // internal
-_objectIndexField = AccessTools.Field(typeof(NetworkBehaviour),   "ObjectIndex");  // internal
+int payloadSize = Fusion.RpcDataWriter.GetPayloadSize(message);
+using (Fusion.RpcBuilder b = Runner.CreateRpcBuilder(1480208655u /* [Rpc(Key=...)] */, payloadSize, this, PlayerRef.Invalid)) {
+    RpcInvokeInfo info = b.Prepare(out var writer);
+    if (info.SendMessageResult == RpcSendMessageResult.Sent) { writer.Write(message); b.Send(); }
+}
+if (info.LocalInvokeResult == RpcLocalInvokeResult.Invoked) ErrorMessage(message);
 ```
 
-Both are `internal` — `AccessTools` bypasses visibility. Warn and fall back to broadcast if either is null.
+The last `CreateRpcBuilder` argument is the **target player**. With a valid `PlayerRef`:
+- `RpcBuilder.CheckLocalInvoke` returns `TargetPlayerIsNotLocal` on the host, so the host does not run it.
+- `RpcBuilder.CheckSend` adds only that player's connection and sets `SimulationMessageHeaderFlags.HasTargetPlayer`.
+
+Results: `RpcSendMessageResult.Sent` (0), `TargetPlayerNotAvailable`, `TargetObjectNotInPlayerInterest`, `PayloadSizeExceeded` (> 512 bytes on non-large channels), and so on.
+
+## Why a DynamicMethod
+
+`NetworkRunner.CreateRpcBuilder(uint, int, NetworkBehaviour, PlayerRef)` is `internal` and returns
+`internal ref struct RpcBuilder`; `RpcDataWriter` is also an `internal ref struct`. Ref structs cannot be boxed, so
+`MethodInfo.Invoke` cannot call them. WMF emits the same call sequence as a `DynamicMethod` with `skipVisibility: true`
+(locals of ref-struct type are fine in IL):
+
+```csharp
+private delegate int SendStringRpc(NetworkRunner runner, NetworkBehaviour behaviour, PlayerRef target, uint key, string payload);
+
+var dm = new DynamicMethod("WMF_SendTargetedStringRpc", typeof(int),
+    new[] { typeof(NetworkRunner), typeof(NetworkBehaviour), typeof(PlayerRef), typeof(uint), typeof(string) },
+    typeof(FusionRpcHelper).Module, skipVisibility: true);
+// IL: builder = runner.CreateRpcBuilder(key, RpcDataWriter.GetPayloadSize(payload), behaviour, target);
+//     try { info = builder.Prepare(out writer); if (info.SendMessageResult == 0) { writer.Write(payload); builder.Send(); } }
+//     finally { builder.Dispose(); }
+//     return (int)info.SendMessageResult;
+```
+
+See `mods/WildguardModFramework/Network/FusionRpcHelper.cs` for the full emitter.
+
+## RPC key
+
+Read it from the attribute instead of hard-coding it. The key is stable only while the method signature is unchanged:
+
+```csharp
+uint key = AccessTools.Method(typeof(GameManager), nameof(GameManager.RPC_ErrorMessageAll))
+    .GetCustomAttribute<RpcAttribute>().Key;   // 1480208655 in the 2026-10-19 build
+```
 
 ## Generalising to other RPCs
 
-To send a different RPC this way, change only:
-- `methodIndex` in `RpcHeader.Create(...)` — look it up from the Fusion-weaved class. Method indices are assigned in declaration order by the weaver; use ILSpy on `Assembly-CSharp.dll` to find the index of your target RPC (look for `RpcHeader.Create(objectId, behaviourIndex, N)`).
-- `objectIndex` — which `NetworkBehaviour` component on the `NetworkObject` owns the RPC. Usually 0 for behaviours directly on the object root.
-- Payload format — match what `ReadWriteUtilsForWeaver` writes for the RPC's parameters.
+Change the key, the target behaviour and the payload writes. `RpcDataWriter` has `Write(...)` overloads and
+`GetPayloadSize(...)` helpers per payload type. Copy the exact write sequence from the weaved method body in `game-src/`.
+The receiving client runs the weaved invoker (`<Name>_0040Invoker<Key>`), which reads the payload in the same order.
+
+## What it is NOT
+
+This is not a general "write networked state to one player" mechanism. Snapshot replication is always broadcast.
+It only works for **one-shot event RPCs**. For per-player data use the WMF reliable data channel (`WmfNetwork.Send`).
 
 ## Usage
 
 ```csharp
-// Host only — send an error popup to one specific player
-FusionRpcHelper.SendErrorMessageTo(runner, GameManager.Instance, targetPlayerRef, "You have been kicked.");
+// Host only — send an error popup to one specific (typically unmodded) player
+FusionRpcHelper.SendErrorMessageTo(runner, GameManager.Instance, targetPlayerRef, "@You need mod X.");
 ```
 
-Falls back to `RPC_ErrorMessageAll` (broadcast) if reflection fails.
+If the Fusion internals cannot be resolved, nothing is sent (logged warning). The caller still disconnects the player.
