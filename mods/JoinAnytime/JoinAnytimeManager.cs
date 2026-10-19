@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Fusion;
+using JoinAnytime.Patch;
 using RR;
 using RR.Backend.API.V1.Ingress.Message;
 using RR.Game;
@@ -34,8 +35,8 @@ namespace JoinAnytime {
         // Pre-joiners confirmed to have WMF/JoinAnytime installed.
         private static readonly HashSet<PlayerRef> _moddedPreJoiners = new();
 
-        // Tracks PlayerRefs promoted mid-run without the mod — their ShrineHandler._perPlayerData
-        // was never initialized so they get perk choice pickups instead of a shrine.
+        // Tracks PlayerRefs promoted mid-run without the mod — they get perk choice pickups
+        // instead of a shrine, and class-bonus RPCs targeting them are suppressed.
         private static readonly HashSet<PlayerRef> _unmoddedPromotedJoiners = new();
 
         // Tracks the 3 perk choice pickups spawned per unmodded joiner so siblings can be
@@ -43,11 +44,6 @@ namespace JoinAnytime {
         private static readonly Dictionary<PlayerRef, List<NetworkObject>> _unmoddedPerkChoices = new();
 
         internal static int PreJoinerCount => _preJoiners.Count;
-
-        // RpcTriggerLevelExitPostfix checks this to decide whether to call ShrineHandler.RunStart().
-        // It runs before NextLevel (which calls PromoteAll, which clears _moddedPreJoiners), so
-        // the flag is still set when the postfix fires.
-        internal static bool HasModdedPreJoiner => _moddedPreJoiners.Count > 0;
 
         internal static bool IsPreJoiner(PlayerRef playerRef) => _preJoiners.Contains(playerRef);
 
@@ -101,6 +97,15 @@ namespace JoinAnytime {
         internal static bool TryBeginPreJoin(NetworkRunner runner, PlayerRef playerRef) {
             if (runner == null || !runner.IsServer) { return false; }
             if (GameManager.Instance == null || !GameManager.Instance.IsInActiveRun) { return false; }
+
+            // The game natively re-admits raid members (and Phoenix-recoverable party members)
+            // mid-run and restores their XP/perks/health. Leave them to vanilla — pre-joining
+            // them would replace their real state with averaged values.
+            if (JoinAnytimePatch.IsAllowedRaidJoiner(runner, playerRef)) {
+                JoinAnytimeMod.PublicLogger.LogInfo(
+                    $"JoinAnytime: ref={playerRef.PlayerId} is a returning raid member — leaving the join to vanilla.");
+                return false;
+            }
 
             if (_preJoiners.Add(playerRef)) {
                 JoinAnytimeMod.PublicLogger.LogInfo(
@@ -208,8 +213,10 @@ namespace JoinAnytime {
 
         /// <summary>
         /// Called server-side instead of spawning a shrine for a promoted unmodded joiner.
-        /// Their client never ran <c>ShrineHandler.SceneInit()</c> so <c>_perPlayerData</c>
-        /// is uninitialised — a shrine would be broken for them. Instead we spawn three
+        /// Historically their client crashed on the shrine item (client-side
+        /// <c>ShrineHandler</c> data was never initialised). Since the 2026-10 game update the
+        /// shrine offer is carried by the networked <c>ShrineItem.Offer</c>, so this fallback may
+        /// no longer be needed — kept until verified in-game. Instead we spawn three
         /// <see cref="PerkPickup"/> NetworkObjects assigned to that player: they walk over one
         /// to collect it, and the other two are despawned via
         /// <see cref="OnPerkPickupCollected"/>.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Door and biome vote screens no longer break while a modded player is spectating mid-run
+- Raid members reconnecting mid-run keep their own XP, perks and health (restored by the game) instead of being treated as new joiners
+- Compatibility with the October 2026 game update
+
 ## [0.0.3] - 2026-05-21
 
 ### Fixed

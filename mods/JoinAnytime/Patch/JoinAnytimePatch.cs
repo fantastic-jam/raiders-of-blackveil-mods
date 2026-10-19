@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using Fusion;
 using Fusion.Sockets;
 using HarmonyLib;
@@ -15,9 +16,15 @@ namespace JoinAnytime.Patch {
         internal static bool Disabled;
 
         private static PropertyInfo _perPlayerDataSlotIndexProp;
-        private static FieldInfo _doorPageField;
+
+        // PlayerManager.IsAllowedRaidJoiner(NetworkRunner, PlayerRef) — private static.
+        // True for raid members / Phoenix-recoverable party members the game re-admits natively.
+        private static Func<NetworkRunner, PlayerRef, bool> _isAllowedRaidJoiner;
 
         internal static bool Init() => true;
+
+        internal static bool IsAllowedRaidJoiner(NetworkRunner runner, PlayerRef playerRef) =>
+            _isAllowedRaidJoiner != null && _isAllowedRaidJoiner(runner, playerRef);
 
         internal static void Patch(Harmony harmony) {
             if (_patched) { return; }
@@ -46,7 +53,8 @@ namespace JoinAnytime.Patch {
             }
 
             // ── Accept connections during a run ───────────────────────────────
-            // Vanilla refuses connections when IsInActiveRun. Replace with: accept
+            // Vanilla refuses mid-run connections unless the connection token identifies
+            // a raid member / Phoenix-recoverable party member. Replace with: accept
             // iff GetPlayers().Count + PreJoinerCount < 3.
 
             var onConnectRequest = AccessTools.Method(typeof(NetworkManager), nameof(NetworkManager.OnConnectRequest));
@@ -72,6 +80,18 @@ namespace JoinAnytime.Patch {
                     "JoinAnytime: PlayerManager.OnPlayerJoined not found — mid-run pre-join inactive.");
             }
 
+            // Returning raid members are re-admitted and state-restored by vanilla
+            // (PlayerManager.OnPlayerJoined → IsAllowedRaidJoiner → Phoenix restore).
+            // The pre-join intercept must leave them alone.
+            var isAllowedRaidJoiner = AccessTools.Method(typeof(PlayerManager), "IsAllowedRaidJoiner",
+                new[] { typeof(NetworkRunner), typeof(PlayerRef) });
+            if (isAllowedRaidJoiner != null) {
+                _isAllowedRaidJoiner = AccessTools.MethodDelegate<Func<NetworkRunner, PlayerRef, bool>>(isAllowedRaidJoiner);
+            } else {
+                JoinAnytimeMod.PublicLogger.LogWarning(
+                    "JoinAnytime: PlayerManager.IsAllowedRaidJoiner not found — reconnecting raid members will be treated as new joiners (state averaged instead of restored).");
+            }
+
             var onPlayerLeft = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerLeft));
             if (onPlayerLeft != null) {
                 harmony.Patch(onPlayerLeft,
@@ -87,9 +107,10 @@ namespace JoinAnytime.Patch {
             // DungeonManager.RPC_ObjectsCleared (so the level-exit gate has already
             // cleared). Spawning Player objects earlier — at OutroManager.Activate or
             // RPC_TriggerLevelExit — adds the pre-joiner to _activePlayers before the
-            // gate runs, which then waits forever for an RPC_ObjectsCleared the new
-            // half-initialized client never sends, freezing the level transition.
-            // NextLevel itself fires only for LevelWin / CheatFinish (per
+            // gate runs, which then waits for an RPC_ObjectsCleared the new
+            // half-initialized client never sends (since the 2026-10 update the gate has
+            // a 5 s failsafe in DungeonManager.LevelExit, but promoting here still avoids
+            // the stall). NextLevel itself fires only for LevelWin / CheatFinish (per
             // DungeonManager.ProceedWithLevelExit), so no reason check is needed.
 
             var nextLevel = AccessTools.Method(typeof(GameManager), nameof(GameManager.NextLevel));
@@ -115,11 +136,12 @@ namespace JoinAnytime.Patch {
             }
 
             // ── Skip shrine spawn for unmodded promoted joiners ───────────────
-            // Unmodded joiners never run ShrineHandler.SceneInit() so _perPlayerData
-            // is null on their client — spawning a ShrineItem crashes them with
-            // ArgumentOutOfRangeException every render frame. Skip Activate() for
-            // them server-side and grant a random perk directly instead.
-            // Modded joiners get the full shrine lifecycle via RunStart() below.
+            // Pre-2026-10 builds: unmodded joiners crashed every render frame on their
+            // ShrineItem (client-side ShrineHandler data never initialised). Skip
+            // Activate() for them server-side and offer 3 perk pickups instead.
+            // Since the 2026-10 update the shrine offer is networked on the ShrineItem
+            // itself and _perPlayerData is always allocated, so this fallback is likely
+            // obsolete — kept until confirmed in-game. Modded joiners get the vanilla shrine.
 
             var perPlayerDataType = typeof(ShrineHandler).GetNestedType(
                 "PerPlayerShrineData", System.Reflection.BindingFlags.NonPublic);
@@ -138,36 +160,15 @@ namespace JoinAnytime.Patch {
                     "JoinAnytime: ShrineHandler+PerPlayerShrineData not found — unmodded promoted joiners will crash on shrine rooms.");
             }
 
-            // ── Reset ShrineHandler for modded joiners at level exit ──────────
-            // RPC_TriggerLevelExit fires on ALL clients. Postfixing it with
-            // RunStart() resets _state = NotInitialized so the next SceneInit()
-            // populates _perPlayerData on the modded joiner's client.
-            // Only fires when a modded pre-joiner is present.
-
-            var triggerLevelExit = AccessTools.Method(typeof(DungeonManager), nameof(DungeonManager.RPC_TriggerLevelExit));
-            if (triggerLevelExit != null) {
-                harmony.Patch(triggerLevelExit,
-                    postfix: new HarmonyMethod(typeof(JoinAnytimePatch), nameof(RpcTriggerLevelExitPostfix)));
-            } else {
-                JoinAnytimeMod.PublicLogger.LogWarning(
-                    "JoinAnytime: DungeonManager.RPC_TriggerLevelExit not found — modded joiners will have broken shrine.");
-            }
-
             // ── Guard client-side crashes for modded joiners ──────────────────
             // While spectating (no LocalPlayer), several vanilla methods crash on
             // LocalPlayer being null. Guard them so modded joiners have a clean
             // experience. Unmodded clients are not affected (mod not installed).
 
-            // Skip Render() entirely when _doorPage is null — covers both the
-            // DoorState.Activated (_doorPage.IsOpen) and DoorState.FinalizeVotes
-            // (UpdateFriendState → _doorPage.Page.SetVotes) crash paths that fire
-            // every frame while a modded joiner has no LocalPlayer yet.
-            _doorPageField = AccessTools.Field(typeof(DoorManager), "_doorPage");
-            if (_doorPageField == null) {
-                JoinAnytimeMod.PublicLogger.LogWarning(
-                    "JoinAnytime: DoorManager._doorPage not found — Render guard inactive.");
-            }
-
+            // Skip DoorManager.Render() while there is no LocalPlayer — covers the
+            // DoorState.FinalizeVotes (UpdateFriendState → LocalPlayer.SlotIndex) and
+            // DoorState.RaidMapActivated (RPC_BiomeVoteState(LocalPlayer.SlotIndex, …))
+            // crash paths that fire every frame while a modded joiner is spectating.
             var doorManagerRender = AccessTools.Method(typeof(DoorManager), nameof(DoorManager.Render));
             if (doorManagerRender != null) {
                 harmony.Patch(doorManagerRender,
@@ -274,14 +275,8 @@ namespace JoinAnytime.Patch {
             JoinAnytimeManager.TryPlaceAtSpawnPoint();
         }
 
-        private static void RpcTriggerLevelExitPostfix() {
-            if (Disabled) { return; }
-            if (!JoinAnytimeManager.HasModdedPreJoiner) { return; }
-            ShrineHandler.Instance?.RunStart();
-        }
-
-        private static bool DoorManagerRenderPrefix(DoorManager __instance) =>
-            _doorPageField?.GetValue(__instance) != null;
+        private static bool DoorManagerRenderPrefix() =>
+            PlayerManager.Instance?.LocalPlayer != null;
 
         private static bool RpcClassBonusActivatedPrefix(int playerSlotId) {
             if (Disabled) { return true; }
