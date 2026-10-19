@@ -13,6 +13,7 @@
   "solo.title": "JEU EN SOLO",
   "options.chat.tab": "Chat",
   "options.players.tab": "Joueurs",
+  "players.overlay_key": "Afficher la liste des joueurs (maintenir)",
   "chat.toggle_label": "Chat en partie",
   "players.overlay.title": "JOUEURS",
   "players.overlay.kick": "Expulser",

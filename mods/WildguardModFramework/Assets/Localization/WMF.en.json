@@ -13,6 +13,7 @@
   "solo.title": "SOLO GAME",
   "options.chat.tab": "Chat",
   "options.players.tab": "Players",
+  "players.overlay_key": "Show player list (hold)",
   "chat.toggle_label": "Server Chat",
   "players.overlay.title": "PLAYERS",
   "players.overlay.kick": "Kick",

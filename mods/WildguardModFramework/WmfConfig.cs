@@ -1,12 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
+using UnityEngine.InputSystem;
 using WildguardModFramework.Registry;
 
 namespace WildguardModFramework {
     internal static class WmfConfig {
         private static ConfigFile _cfg;
         private static ConfigEntry<string> _activeGameMode;
+        private static ConfigEntry<Key> _playerListKey;
 
         internal static void Init(ConfigFile cfg) => _cfg = cfg;
 
@@ -48,6 +50,12 @@ namespace WildguardModFramework {
                 _cfg.Save();
             }
         }
+
+        // ── Player list ───────────────────────────────────────────────────
+
+        /// <summary>Key held to show the player list overlay.</summary>
+        internal static ConfigEntry<Key> PlayerListKey =>
+            _playerListKey ??= _cfg.Bind("Players", "OverlayKey", Key.F2, "Key held to show the player list overlay.");
 
         // ── Active game mode ───────────────────────────────────────────────
 

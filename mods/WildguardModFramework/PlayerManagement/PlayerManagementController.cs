@@ -114,6 +114,8 @@ namespace WildguardModFramework.PlayerManagement {
         // ── Ban list menu panel ────────────────────────────────────────────
 
         internal static void BuildBanListPanel(VisualElement container, bool isInGameMenu) {
+            PlayerListKeyBind.Build(container, isInGameMenu);
+
             var header = new Label { text = WmfMod.t("players.banned.header") };
             header.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
             header.style.fontSize = 11;

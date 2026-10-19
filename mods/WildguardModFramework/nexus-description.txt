@@ -6,7 +6,7 @@ The mod framework for Raiders of Blackveil. WMF gives players in-game control ov
 [*]In-game Mods menu with enable/disable toggles and per-mod settings panels
 [*]Game mode selection on the host setup screen, with optional client-requirement enforcement
 [*]Server chat visible to all players in the session
-[*]Player management overlay (F2) with host kick and ban controls
+[*]Player management overlay (F2 by default, rebindable) with host kick and ban controls
 [*]Reliable networking channel for mods to exchange messages without touching the game's network layer
 [*]Corner notifications — mods can surface short messages to all WMF players in the session
 [*]Localisation support — mods can ship translation files and follow the player's in-game language setting
@@ -59,7 +59,7 @@ An in-game text chat is available in every hosted session. Press the chat key to
 [line]
 [heading]Player Management[/heading]
 
-Hold [b]F2[/b] during a run or while in the lobby to reveal a live list of all connected players. Release F2 to dismiss it.
+Hold [b]F2[/b] during a run or while in the lobby to reveal a live list of all connected players. Release it to dismiss. The key can be changed in [b]Mods → WMF → Players[/b].
 
 Hosts get additional controls: [b]kick[/b] removes a player from the current session; [b]ban[/b] removes them and adds their profile ID to a persistent ban list so they cannot rejoin. The ban list is editable in the [b]WMF → Players[/b] sub-menu.
 

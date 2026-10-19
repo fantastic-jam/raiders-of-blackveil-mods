@@ -41,10 +41,10 @@ namespace WildguardModFramework.PlayerManagement {
             if (!(__instance is GameHUDPage) && !(__instance is LobbyHUDPage)) { return; }
             PlayerManagementController.SetActivePage(__instance);
             var kb = Keyboard.current;
-            var f2 = kb?[Key.F2];
-            if (f2?.wasPressedThisFrame == true) {
+            var listKey = kb?[WmfConfig.PlayerListKey.Value];
+            if (listKey?.wasPressedThisFrame == true) {
                 PlayerManagementController.ShowOverlay();
-            } else if (f2?.wasReleasedThisFrame == true) {
+            } else if (listKey?.wasReleasedThisFrame == true) {
                 PlayerManagementController.HideOverlay();
             }
 #if WMF_DEBUG

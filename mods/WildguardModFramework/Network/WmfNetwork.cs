@@ -80,10 +80,16 @@ namespace WildguardModFramework.Network {
             NetworkManager.Instance?.SendReliableDataToHost(localRef, StreamTypeMux, framed);
         }
 
-        /// <summary>Host → all clients that have WMF (modded players).</summary>
+        /// <summary>
+        /// Host → all remote clients that have WMF (modded players). The host itself is skipped:
+        /// Fusion delivers host-to-self sends, so a handler that re-broadcasts on receive would loop.
+        /// Callers apply the message locally on the host.
+        /// </summary>
         public static void Broadcast(string channel, byte[] payload) {
             var framed = Frame(channel, payload);
+            var localRef = NetworkManager.Instance?.NetworkRunner?.LocalPlayer ?? default;
             foreach (var player in GameModeProtocol.ConfirmedPlayers) {
+                if (player == localRef) { continue; }
                 NetworkManager.Instance?.SendReliableData(player, StreamTypeMux, framed);
             }
         }

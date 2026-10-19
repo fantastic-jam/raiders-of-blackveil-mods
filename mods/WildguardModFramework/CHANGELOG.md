@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Added
+- The player list key (F2 by default) can be changed in Mods → WMF → Players
+
+### Fixed
+- Game no longer freezes when the host sends an emote or other mod message that is relayed to all players
+
 ## [0.6.2] - 2026-10-19
 
 ### Fixed
