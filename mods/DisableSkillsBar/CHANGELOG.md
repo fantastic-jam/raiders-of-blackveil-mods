@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.6.1] - 2026-10-19
 
 ### Fixed
 - Compatibility with the October 2026 game update
