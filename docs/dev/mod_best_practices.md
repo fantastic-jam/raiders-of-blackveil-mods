@@ -14,12 +14,6 @@ The five most-violated rules are in `CLAUDE.md § Rules` and enforced on every t
 | Networking — `IsServer` guards, Fusion host mode, `PlayerManager` null-safety | [`docs/dev/patterns/networking.md`](patterns/networking.md) |
 | State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](patterns/state.md) |
 
-## ThePit
-
-| Topic | File |
-|---|---|
-| Ability PvP coverage — pattern decision table, champion matrix | [`docs/dev/ThePit/abilities.md`](ThePit/abilities.md) |
-
 ## Other reference docs
 
 | Topic | File |

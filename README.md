@@ -3,14 +3,8 @@
 - [BeginnersWelcome](mods/BeginnersWelcome/README.md)
 - [CheatManager](mods/CheatManager/README.md)
 - [DisableSkillsBar](mods/DisableSkillsBar/README.md)
-- [HandyPurse](mods/HandyPurse/README.md)
 - [JoinAnytime](mods/JoinAnytime/README.md)
-- [OfflineMode](mods/OfflineMode/README.md)
 - [PerfectDodge](mods/PerfectDodge/README.md)
-- [PlayerNameFix](mods/PlayerNameFix/README.md)
-- [RaiderRoughPatches](mods/RaiderRoughPatches/README.md)
-- [RogueRun](mods/RogueRun/README.md)
-- [ThePit](mods/ThePit/README.md)
 - [WildguardModFramework](mods/WildguardModFramework/README.md)
 
 ## Libraries

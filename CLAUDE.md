@@ -84,7 +84,7 @@ mods/[ModName]/
 ├── Assets/                  # Copied verbatim to the plugin folder on deploy/release
 │   └── Localization/        # Translation files: [ModName].[lang].json
 ├── Config/                  # Optional .cfg templates (not overwritten on deploy)
-├── metadata.json            # nexus_mod_id + nexus_file_group_id
+├── metadata.json            # nexus_mod_id + nexus_file_id + nexus_mod_uid
 └── [ModName].csproj         # SDK-style, imports Common.props + UserPaths.props
 ```
 
@@ -105,7 +105,7 @@ These are enforced on every task — no exceptions:
 5. **After any C# edit: `pnpm run lint:cs:fix` then `pnpm run build`.**
 6. **Never commit or deploy unless the user explicitly asks.** Use `fcommit` (not `git commit`) to commit. Never use `pnpm run deploy` or `pnpm run release` as a side-effect of completing a task.
 8. **Never edit `CHANGELOG.md` files manually.** Use `fchange <type> "message" --pkg [ModName]` instead.
-7. **Before any implementation task, read the relevant pattern docs first.** For any C# mod work: read `docs/dev/patterns/` (harmony-patching.md, patch-extraction.md, proxify.md, networking.md, state.md). For ThePit work: also read the ThePit-specific docs in `docs/dev/ThePit/`. Only go to `game-src/` after understanding the patterns.
+7. **Before any implementation task, read the relevant pattern docs first.** For any C# mod work: read `docs/dev/patterns/` (harmony-patching.md, patch-extraction.md, proxify.md, networking.md, state.md). Only go to `game-src/` after understanding the patterns.
 
 ## Harmony patches
 
@@ -130,14 +130,6 @@ Focused pattern docs (with code examples):
 | Networking — `IsServer`, Fusion host mode, `PlayerManager` | [`docs/dev/patterns/networking.md`](docs/dev/patterns/networking.md) |
 | State management, `IModRegistrant`, `libs/` boundary | [`docs/dev/patterns/state.md`](docs/dev/patterns/state.md) |
 | WMF duck typing — Enable/Disable lifecycle, Init/Patch/Unpatch split | [`docs/dev/patterns/wmf-duck-typing.md`](docs/dev/patterns/wmf-duck-typing.md) |
-
-ThePit-specific:
-
-| Topic | File |
-|---|---|
-| Ability PvP coverage — which pattern to use per ability type | [`docs/dev/ThePit/abilities.md`](docs/dev/ThePit/abilities.md) |
-| Arena systems — respawn, timer, grace period | [`docs/dev/ThePit/arena-systems.md`](docs/dev/ThePit/arena-systems.md) |
-| Terminology — Beta/Draft/Moba variant naming | [`docs/dev/ThePit/terminology.md`](docs/dev/ThePit/terminology.md) |
 
 ## Localization
 
