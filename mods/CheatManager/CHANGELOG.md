@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Compatibility with the October 2026 game update (cheat hotkey overlay and lobby debug buttons)
+
 ## [0.5.0] - 2026-05-21
 
 ### Changed

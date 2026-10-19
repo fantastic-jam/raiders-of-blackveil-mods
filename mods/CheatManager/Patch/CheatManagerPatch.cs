@@ -5,6 +5,7 @@ using RR;
 using RR.Config;
 using RR.Scripts.UI.Extensions;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 using UnityEngine.UIElements;
 
 namespace CheatManager.Patch {
@@ -35,20 +36,26 @@ namespace CheatManager.Patch {
                 harmony.Patch(getter, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(EnableCheatHotkeysPostfix))));
             }
 
-            var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
-            var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
-            if (onInit == null || onUpdate == null) {
-                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find BaseHUDPage.OnInit/OnUpdate — hotkeys display patch inactive.");
+            // PageBase.OnInit was removed; pages now build their UI in the constructor.
+            var hudCtor = AccessTools.Constructor(typeof(BaseHUDPage), new[] { typeof(string), typeof(PageArgs) });
+            if (hudCtor == null) {
+                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find BaseHUDPage(string, PageArgs) ctor — hotkeys display inactive.");
             } else {
-                harmony.Patch(onInit, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDInitPostfix))));
+                harmony.Patch(hudCtor, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDCtorPostfix))));
+            }
+
+            var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
+            if (onUpdate == null) {
+                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find BaseHUDPage.OnUpdate — hotkeys display inactive.");
+            } else {
                 harmony.Patch(onUpdate, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnHUDUpdatePostfix))));
             }
 
-            var lobbyInit = AccessTools.Method(typeof(LobbyHUDPage), "OnInit");
-            if (lobbyInit == null) {
-                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find LobbyHUDPage.OnInit — DebugButtons hide on disable inactive.");
+            var lobbyCtor = AccessTools.Constructor(typeof(LobbyHUDPage), new[] { typeof(PageArgs) });
+            if (lobbyCtor == null) {
+                CheatManagerMod.PublicLogger.LogWarning("CheatManager: Could not find LobbyHUDPage(PageArgs) ctor — DebugButtons hide on disable inactive.");
             } else {
-                harmony.Patch(lobbyInit, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnLobbyInitPostfix))));
+                harmony.Patch(lobbyCtor, postfix: new HarmonyMethod(AccessTools.Method(typeof(CheatManagerPatch), nameof(OnLobbyCtorPostfix))));
             }
 
             CheatManagerMod.PublicLogger.LogInfo("CheatManager patch applied.");
@@ -59,11 +66,11 @@ namespace CheatManager.Patch {
             if (IsAuthorized()) { __result = true; }
         }
 
-        private static void OnLobbyInitPostfix(LobbyHUDPage __instance) {
+        private static void OnLobbyCtorPostfix(LobbyHUDPage __instance) {
             _debugButtons = __instance.RootElement?.Q("DebugButtons");
         }
 
-        private static void OnHUDInitPostfix(BaseHUDPage __instance) {
+        private static void OnHUDCtorPostfix(BaseHUDPage __instance) {
             if (Disabled) { return; }
             HotkeyDisplay.OnPageInit(__instance);
         }
