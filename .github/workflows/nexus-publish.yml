@@ -68,7 +68,7 @@ jobs:
           awk -v v="$VERSION" '
             index($0, "## [" v "]") == 1 { f = 1; next }
             index($0, "## [") == 1 { f = 0 }
-            f && NF
+            f && /^- / { sub(/^- /, ""); print }
           ' "${{ steps.meta.outputs.mod_dir }}/CHANGELOG.md" > changelog.txt
           cat changelog.txt
           {
