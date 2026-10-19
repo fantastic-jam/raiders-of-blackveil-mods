@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.0.4] - 2026-10-19
 
 ### Fixed
 - Door and biome vote screens no longer break while a modded player is spectating mid-run
