@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.6.2] - 2026-10-19
 
 ### Fixed
 - Option labels in the Mods menu (chat toggle, game mode steppers) show their text again instead of "--"
