@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.7.0] - 2026-10-19
 
 ### Added
 - The player list key (F2 by default) can be changed in Mods → WMF → Players
