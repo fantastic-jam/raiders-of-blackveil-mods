@@ -48,7 +48,8 @@ if (libName && !allLibs.includes(libName)) {
 
 const dryRun = values['dry-run'] ?? false
 
-const name = (modName ?? libName)!
+const name = modName ?? libName
+if (name === undefined) throw new Error('unreachable: --mod or --lib is required')
 const kind: ProjectKind = modName ? 'mod' : 'lib'
 
 function runPreRelease(name: string, kind: ProjectKind): void {
@@ -100,7 +101,7 @@ runPreRelease(name, kind)
 if (!dryRun) {
   const releaseCmd = modName
     ? `pnpm run release -- --mod ${modName}`
-    : `pnpm run release -- --lib ${libName}`
+    : `pnpm run release -- --lib ${name}`
 
   console.log(`\nReview the changes above, then run:\n  ${releaseCmd}`)
 }

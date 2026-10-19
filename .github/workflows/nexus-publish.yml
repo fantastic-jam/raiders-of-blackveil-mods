@@ -23,7 +23,7 @@ jobs:
           echo "mod_name=$MOD_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"   >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Read metadata
         id: meta
