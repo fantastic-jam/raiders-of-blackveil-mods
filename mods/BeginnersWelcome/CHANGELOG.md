@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Compatibility with the October 2026 game update (handicap panel)
+
 ## [0.5.1] - 2026-05-21
 
 ### Fixed

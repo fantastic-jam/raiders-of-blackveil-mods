@@ -3,6 +3,7 @@ using HarmonyLib;
 using RR.Game.Damage;
 using RR.Game.Stats;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 
 namespace BeginnersWelcome.Patch {
     public static class BeginnersWelcomePatch {
@@ -11,14 +12,25 @@ namespace BeginnersWelcome.Patch {
         internal static void SetEnabled() => Disabled = false;
 
         public static void Apply(Harmony harmony) {
-            var onInit = AccessTools.Method(typeof(BaseHUDPage), "OnInit");
-            var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
-            var onDeactivate = AccessTools.Method(typeof(BaseHUDPage), "OnDeactivate");
-            if (onInit == null || onUpdate == null || onDeactivate == null) {
-                BeginnersWelcomeMod.PublicLogger.LogWarning("BeginnersWelcome: Could not find BaseHUDPage methods — panel patch inactive.");
+            // PageBase.OnInit was removed; pages now build their UI in the constructor.
+            var hudCtor = AccessTools.Constructor(typeof(BaseHUDPage), new[] { typeof(string), typeof(PageArgs) });
+            if (hudCtor == null) {
+                BeginnersWelcomeMod.PublicLogger.LogWarning("BeginnersWelcome: Could not find BaseHUDPage(string, PageArgs) ctor — panel inactive.");
             } else {
-                harmony.Patch(onInit, postfix: new HarmonyMethod(AccessTools.Method(typeof(BeginnersWelcomePatch), nameof(OnHUDInitPostfix))));
+                harmony.Patch(hudCtor, postfix: new HarmonyMethod(AccessTools.Method(typeof(BeginnersWelcomePatch), nameof(OnHUDCtorPostfix))));
+            }
+
+            var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
+            if (onUpdate == null) {
+                BeginnersWelcomeMod.PublicLogger.LogWarning("BeginnersWelcome: Could not find BaseHUDPage.OnUpdate — panel toggle key inactive.");
+            } else {
                 harmony.Patch(onUpdate, postfix: new HarmonyMethod(AccessTools.Method(typeof(BeginnersWelcomePatch), nameof(OnHUDUpdatePostfix))));
+            }
+
+            var onDeactivate = AccessTools.Method(typeof(BaseHUDPage), "OnDeactivate");
+            if (onDeactivate == null) {
+                BeginnersWelcomeMod.PublicLogger.LogWarning("BeginnersWelcome: Could not find BaseHUDPage.OnDeactivate — panel auto-hide inactive.");
+            } else {
                 harmony.Patch(onDeactivate, postfix: new HarmonyMethod(AccessTools.Method(typeof(BeginnersWelcomePatch), nameof(OnHUDDeactivatePostfix))));
             }
 
@@ -41,7 +53,7 @@ namespace BeginnersWelcome.Patch {
             BeginnersWelcomeMod.PublicLogger.LogInfo("BeginnersWelcome patch applied.");
         }
 
-        private static void OnHUDInitPostfix(BaseHUDPage __instance) {
+        private static void OnHUDCtorPostfix(BaseHUDPage __instance) {
             if (Disabled) { return; }
             HandicapDisplay.OnPageInit(__instance);
         }
