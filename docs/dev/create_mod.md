@@ -150,9 +150,16 @@ using [ModName];
 ```json
 {
   "nexus_mod_id": null,
-  "nexus_file_group_id": null
+  "nexus_file_id": null,
+  "nexus_mod_uid": null
 }
 ```
+
+- `nexus_mod_id` — the number in the mod page URL (`nexusmods.com/raidersofblackveil/mods/<id>`).
+- `nexus_mod_uid` — the mod's API id: `curl -H "apikey: $NEXUS_TOKEN" https://api.nexusmods.com/v3/games/raidersofblackveil/mods/<nexus_mod_id>` → `data.id`.
+- `nexus_file_id` — the main file's id: `curl -H "apikey: $NEXUS_TOKEN" https://api.nexusmods.com/v3/mods/<nexus_mod_uid>/files` → `data.mod_files[].id`.
+
+The Nexus publish workflow skips mods where `nexus_file_id` or `nexus_mod_uid` is null. On each release it uploads a new version of `nexus_file_id`, posts the CHANGELOG section as the Nexus changelog, and overwrites the mod page description with `nexus-description.txt` (and the summary with `nexus_short_description`, if set).
 
 ## 8. Update the root README
 

@@ -118,7 +118,8 @@ export function writeProjectVersion(name: string, kind: ProjectKind, version: st
 
 export interface ModMetadata {
   nexus_mod_id: string | null
-  nexus_file_group_id: string | null
+  nexus_file_id: string | null
+  nexus_mod_uid: string | null
   patchers?: string[]
   plugin_dlls?: string[]
   deprecated?: boolean
@@ -126,7 +127,8 @@ export interface ModMetadata {
 
 export function readModMetadata(modName: string): ModMetadata {
   const metaPath = path.join(modDir(modName), 'metadata.json')
-  if (!fs.existsSync(metaPath)) return { nexus_mod_id: null, nexus_file_group_id: null }
+  if (!fs.existsSync(metaPath))
+    return { nexus_mod_id: null, nexus_file_id: null, nexus_mod_uid: null }
   return JSON.parse(fs.readFileSync(metaPath, 'utf8')) as ModMetadata
 }
 

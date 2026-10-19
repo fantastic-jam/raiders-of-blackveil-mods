@@ -1,5 +1,6 @@
 {
   "nexus_mod_id": null,
-  "nexus_file_group_id": null,
+  "nexus_file_id": null,
+  "nexus_mod_uid": null,
   "nexus_short_description": "Send floating emoji reactions visible to all players in the session."
 }

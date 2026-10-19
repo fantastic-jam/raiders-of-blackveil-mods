@@ -4,6 +4,9 @@ on:
   release:
     types: [published]
 
+env:
+  NEXUS_API: https://api.nexusmods.com/v3
+
 jobs:
   nexus-publish:
     runs-on: ubuntu-latest
@@ -20,22 +23,59 @@ jobs:
           echo "mod_name=$MOD_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"   >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Read metadata
         id: meta
         run: |
-          MOD_META="mods/${{ steps.parse.outputs.mod_name }}/metadata.json"
+          MOD_DIR="mods/${{ steps.parse.outputs.mod_name }}"
+          MOD_META="$MOD_DIR/metadata.json"
           if [ ! -f "$MOD_META" ]; then
             echo "::notice::Nexus publish skipped — no metadata.json found for ${{ steps.parse.outputs.mod_name }}"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          GAME_DOMAIN=$(jq -r '.nexus_game_domain' mods/metadata.json)
-          FILE_GROUP_ID=$(jq -r '.nexus_file_group_id' "$MOD_META")
-          echo "game_domain=$GAME_DOMAIN"     >> "$GITHUB_OUTPUT"
-          echo "file_group_id=$FILE_GROUP_ID" >> "$GITHUB_OUTPUT"
-          echo "skip=false"                   >> "$GITHUB_OUTPUT"
+          FILE_ID=$(jq -r '.nexus_file_id // empty' "$MOD_META")
+          MOD_UID=$(jq -r '.nexus_mod_uid // empty' "$MOD_META")
+          if [ -z "$FILE_ID" ] || [ -z "$MOD_UID" ]; then
+            echo "::notice::Nexus publish skipped — nexus_file_id / nexus_mod_uid not set for ${{ steps.parse.outputs.mod_name }}"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "file_id=$FILE_ID" >> "$GITHUB_OUTPUT"
+          echo "mod_uid=$MOD_UID" >> "$GITHUB_OUTPUT"
+          echo "mod_dir=$MOD_DIR" >> "$GITHUB_OUTPUT"
+          echo "skip=false"       >> "$GITHUB_OUTPUT"
+
+      # Fail fast with a clear message when the key is expired or revoked.
+      - name: Check Nexus API key
+        if: steps.meta.outputs.skip == 'false'
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "apikey: $NEXUS_API_KEY" \
+            "$NEXUS_API/mods/${{ steps.meta.outputs.mod_uid }}/files")
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Nexus API key check failed (HTTP $STATUS). Regenerate the key and run: gh secret set NEXUS_API_KEY"
+            exit 1
+          fi
+
+      - name: Extract changelog section
+        if: steps.meta.outputs.skip == 'false'
+        id: changelog
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { f = 1; next }
+            index($0, "## [") == 1 { f = 0 }
+            f && NF
+          ' "${{ steps.meta.outputs.mod_dir }}/CHANGELOG.md" > changelog.txt
+          cat changelog.txt
+          {
+            echo "text<<CHANGELOG_EOF"
+            cat changelog.txt
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download release asset
         if: steps.meta.outputs.skip == 'false'
@@ -57,26 +97,56 @@ jobs:
         id: nexus_upload
         if: steps.meta.outputs.skip == 'false'
         continue-on-error: true
-        uses: Nexus-Mods/upload-action@main
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.11
         with:
-          api_key:       ${{ secrets.NEXUS_API_KEY }}
-          file_group_id: ${{ steps.meta.outputs.file_group_id }}
-          filename:      ${{ steps.asset.outputs.path }}
-          display_name:  ${{ steps.parse.outputs.mod_name }}
-          version:       ${{ steps.parse.outputs.version }}
-          file_category: main
+          api_key: ${{ secrets.NEXUS_API_KEY }}
+          file_id: ${{ steps.meta.outputs.file_id }}
+          filename: ${{ steps.asset.outputs.path }}
+          display_name: ${{ steps.parse.outputs.mod_name }}
+          version: ${{ steps.parse.outputs.version }}
+          category: main
+          archive_existing_version: true
+          update_mod_version: true
+          mod_id: ${{ steps.meta.outputs.mod_uid }}
+          changelog: ${{ steps.changelog.outputs.text }}
 
+      # Nexus beta API returns intermittent 500s — retry once.
       - name: Wait before retry
         if: steps.meta.outputs.skip == 'false' && steps.nexus_upload.outcome == 'failure'
         run: sleep 30
 
       - name: Upload to Nexus Mods (retry)
         if: steps.meta.outputs.skip == 'false' && steps.nexus_upload.outcome == 'failure'
-        uses: Nexus-Mods/upload-action@main
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.11
         with:
-          api_key:       ${{ secrets.NEXUS_API_KEY }}
-          file_group_id: ${{ steps.meta.outputs.file_group_id }}
-          filename:      ${{ steps.asset.outputs.path }}
-          display_name:  ${{ steps.parse.outputs.mod_name }}
-          version:       ${{ steps.parse.outputs.version }}
-          file_category: main
+          api_key: ${{ secrets.NEXUS_API_KEY }}
+          file_id: ${{ steps.meta.outputs.file_id }}
+          filename: ${{ steps.asset.outputs.path }}
+          display_name: ${{ steps.parse.outputs.mod_name }}
+          version: ${{ steps.parse.outputs.version }}
+          category: main
+          archive_existing_version: true
+          update_mod_version: true
+          mod_id: ${{ steps.meta.outputs.mod_uid }}
+          changelog: ${{ steps.changelog.outputs.text }}
+
+      - name: Update mod page description
+        if: steps.meta.outputs.skip == 'false'
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: |
+          DESC_FILE="${{ steps.meta.outputs.mod_dir }}/nexus-description.txt"
+          if [ ! -f "$DESC_FILE" ]; then
+            echo "::notice::No nexus-description.txt — mod page description left unchanged"
+            exit 0
+          fi
+          BODY=$(jq -n \
+            --rawfile description "$DESC_FILE" \
+            --arg summary "$(jq -r '.nexus_short_description // empty' "${{ steps.meta.outputs.mod_dir }}/metadata.json")" \
+            '{description: $description} + (if $summary == "" then {} else {summary: $summary} end)')
+          STATUS=$(curl -s -o response.txt -w "%{http_code}" -X PATCH \
+            -H "apikey: $NEXUS_API_KEY" -H "Content-Type: application/json" \
+            -d "$BODY" "$NEXUS_API/mods/${{ steps.meta.outputs.mod_uid }}")
+          if [ "${STATUS:0:1}" != "2" ]; then
+            echo "::warning::Mod page description update failed (HTTP $STATUS): $(cat response.txt)"
+          fi
