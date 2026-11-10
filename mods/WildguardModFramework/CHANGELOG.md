@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - minor
+## [0.8.0] - 2026-11-10
 
 ### Changed
 - Mod authors: WmfNetwork.OnPlayerJoined now fires once the player's WMF presence is known (hello or 8 s timeout) instead of instantly; see API.md
