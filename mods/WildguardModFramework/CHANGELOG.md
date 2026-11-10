@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Mods button is no longer reachable with keyboard/gamepad from the new Play sub-menu of the main menu
+- Compatibility with the Arms Race update (0.6.5): player list and auto-ban work again, host name sync no longer breaks the raid roster of mid-run joiners
+
 ## [0.7.0] - 2026-10-19
 
 ### Added

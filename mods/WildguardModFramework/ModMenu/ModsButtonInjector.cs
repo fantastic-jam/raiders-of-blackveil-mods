@@ -16,6 +16,8 @@ namespace WildguardModFramework.ModMenu {
     internal static class ModsButtonInjector {
         private static readonly FieldInfo CursorField = AccessTools.Field(typeof(MenuStartPage), "_cursor");
         private static readonly FieldInfo CursorItemsField = AccessTools.Field(typeof(UICursorLinear<ButtonMenuStart>), "_items");
+        // 0 = main buttons (where the Mods button lives), 1 = Play sub-menu (since game 0.6.5).
+        private static readonly FieldInfo ButtonsPageIndexField = AccessTools.Field(typeof(MenuStartPage), "_buttonsPageIndex");
 
         private static ModsMenuOverlay _overlay;
         private static VisualElement _menuPageRoot;
@@ -41,6 +43,9 @@ namespace WildguardModFramework.ModMenu {
             }
             if (CursorItemsField == null) {
                 WmfMod.PublicLogger.LogWarning("WMF: UICursorLinear._items not found — Mods button will be last in keyboard/gamepad nav order.");
+            }
+            if (ButtonsPageIndexField == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage._buttonsPageIndex not found — Mods button may be reachable from the Play sub-menu.");
             }
 
             _exitBtn = instance.RootElement.Q<ButtonMenuStart>("ExitButton");
@@ -68,6 +73,8 @@ namespace WildguardModFramework.ModMenu {
         /// </summary>
         internal static void RegisterInCursor(MenuStartPage instance) {
             if (_modsBtn == null || CursorField?.GetValue(instance) is not UICursorLinear<ButtonMenuStart> cursor) { return; }
+            // The Mods button sits in the main container, hidden while the Play sub-menu is shown.
+            if (ButtonsPageIndexField?.GetValue(instance) is int pageIndex && pageIndex != 0) { return; }
             cursor.RegisterItem(_modsBtn, _modsBtn);
 
             if (_exitBtn == null || CursorItemsField?.GetValue(cursor) is not List<UICursorLinear<ButtonMenuStart>.CursorStopItem> items) { return; }

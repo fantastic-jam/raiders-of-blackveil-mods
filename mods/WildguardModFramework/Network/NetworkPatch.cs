@@ -105,8 +105,10 @@ namespace WildguardModFramework.Network {
         private static void LobbyOnSceneLoadDonePostfix() =>
             GameModeProtocol.OnLobbySceneLoadDone();
 
-        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef[] connectedPlayersPlayerRef) {
-            foreach (var playerRef in connectedPlayersPlayerRef) {
+        // Harmony binds by parameter name — must match the game's RPC signature (renamed in 0.6.5).
+        // Disconnected roster entries carry PlayerRef.None and resolve to a null player below.
+        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef[] raidPlayerRefs) {
+            foreach (var playerRef in raidPlayerRefs) {
                 var player = __instance.GetPlayer(playerRef);
                 if (player == null) { continue; }
                 PlayerManagementController.OnSetUserData(__instance, playerRef, player.ProfileUUID);
