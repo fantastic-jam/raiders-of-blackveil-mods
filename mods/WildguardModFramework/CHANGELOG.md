@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Changed
+- Mod authors: WmfNetwork.OnPlayerJoined now fires once the player's WMF presence is known (hello or 8 s timeout) instead of instantly; see API.md
+- Players with WMF now keep their game identity when connecting, so the game's own mid-run reconnect works for them again (it refused them before). Host and players must all update to 0.8.0 to see each other as modded
+
 ## [0.7.1] - 2026-11-10
 
 ### Fixed

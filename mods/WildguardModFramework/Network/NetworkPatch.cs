@@ -13,9 +13,17 @@ namespace WildguardModFramework.Network {
         internal static void Apply(Harmony harmony) {
             var startGame = AccessTools.Method(typeof(NetworkRunner), nameof(NetworkRunner.StartGame));
             if (startGame == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: NetworkRunner.StartGame not found — connection token injection inactive.");
+                WmfMod.PublicLogger.LogWarning("WMF: NetworkRunner.StartGame not found — chat reset on session start inactive.");
             } else {
                 harmony.Patch(startGame, prefix: new HarmonyMethod(typeof(NetworkPatch), nameof(StartGamePrefix)));
+            }
+
+            // Client: announce WMF to the host once connected (only if the host advertises WMF).
+            var onConnectedToServer = AccessTools.Method(typeof(NetworkManager), nameof(NetworkManager.OnConnectedToServer));
+            if (onConnectedToServer == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: NetworkManager.OnConnectedToServer not found — hosts will see this client as unmodded.");
+            } else {
+                harmony.Patch(onConnectedToServer, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(OnConnectedToServerPostfix)));
             }
 
             var joinSession = AccessTools.Method(typeof(BackendManager), "V2_JoinPlaySession");
@@ -73,10 +81,12 @@ namespace WildguardModFramework.Network {
 
         }
 
-        private static void StartGamePrefix(ref StartGameArgs args) {
-            GameModeProtocol.InjectConnectionToken(ref args);
-            ServerChat.ClearAll();
-        }
+        // The connection token is left untouched: the game puts the profile GUID there and needs it
+        // to re-admit raid members mid-run. Modded detection goes through PresenceProtocol instead.
+        private static void StartGamePrefix() => ServerChat.ClearAll();
+
+        private static void OnConnectedToServerPostfix(NetworkRunner runner) =>
+            PresenceProtocol.OnConnectedToServer(runner);
 
         private static bool JoinPlaySessionPrefix(JoinablePlaySession joinablePlaySession) =>
             GameModeProtocol.ValidateJoinSession(joinablePlaySession);

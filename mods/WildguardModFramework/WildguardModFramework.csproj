@@ -34,6 +34,11 @@
       <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UniTask.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- SessionProperty (Fusion session custom properties) — used by PresenceProtocol. -->
+    <Reference Include="Fusion.Realtime">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Realtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">

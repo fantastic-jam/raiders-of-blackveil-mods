@@ -312,10 +312,14 @@ if (PlayerManager.Instance?.Runner?.IsServer == true) {
 ### Session events
 
 ```csharp
-WmfNetwork.OnPlayerJoined    += (player, isModded) => { };  // host only, before handshake
+WmfNetwork.OnPlayerJoined    += (player, isModded) => { };  // host only, once WMF presence is known
 WmfNetwork.OnPlayerConfirmed += (player, isModded) => { };  // host only, after handshake
 WmfNetwork.OnPlayerLeft      += (player)           => { };  // all machines
 ```
+
+`OnPlayerJoined` / `OnPlayerConfirmed` are not raised at the instant of the Fusion join. Since WMF 0.8.0 the host learns that a player runs WMF from a hello message (the connection token is left to the game, which uses it for mid-run reconnects). A modded player is resolved as soon as their hello arrives, usually within a second; a player without WMF after an 8 s timeout. A player who leaves before that is never reported.
+
+WMF 0.8.0 and earlier versions can't detect each other: host and players must all update.
 
 ---
 

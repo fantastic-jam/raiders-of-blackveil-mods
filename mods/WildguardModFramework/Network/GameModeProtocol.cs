@@ -16,22 +16,20 @@ using UnityEngine;
 
 namespace WildguardModFramework.Network {
     /// <summary>
-    /// Full game-mode handshake protocol: connection token injection, server-side gating,
-    /// client/server join-message and ACK exchange, run-start notifications, and shutdown cleanup.
-    /// NetworkPatch wires Harmony hooks and delegates every method body here.
+    /// Full game-mode handshake protocol: server-side gating, client/server join-message and ACK
+    /// exchange, run-start notifications, and shutdown cleanup. Modded detection is delegated to
+    /// <see cref="PresenceProtocol"/>. NetworkPatch wires Harmony hooks and delegates every method body here.
     /// </summary>
     internal static class GameModeProtocol {
-        // Token injected by modded clients into StartGameArgs.ConnectionToken.
-        private static readonly byte[] WmfToken = Encoding.UTF8.GetBytes("wmf");
-
         // Reliable data stream types (values 0-8 used by game; 100+ are ours).
+        // 102 = WmfNetwork mux, 103 = PresenceProtocol hello.
         private const DataStreamType StreamTypeJoinMsg = (DataStreamType)101; // server → client: variant ID + join message
         private const DataStreamType StreamTypeAck = (DataStreamType)100;    // client → server: variant ID ACK
 
         internal static event Action OnRosterChanged;
 
         // Server-side player sets. Cleared on shutdown.
-        private static readonly HashSet<PlayerRef> _moddedPlayers = new();   // joined with WMF token
+        private static readonly HashSet<PlayerRef> _moddedPlayers = new();   // sent a WMF hello, handshake pending
         internal static readonly HashSet<PlayerRef> ConfirmedPlayers = new(); // completed handshake (mod enabled + ACK)
 
         // All-machine set: populated from server broadcasts so clients can show WMF badges.
@@ -64,11 +62,6 @@ namespace WildguardModFramework.Network {
         private static bool _runStarted;
         private static bool _runNotificationShown;
         // ── Client-side ────────────────────────────────────────────────────────────
-
-        /// <summary>Inject token into every StartGame call so the server can identify modded clients.</summary>
-        internal static void InjectConnectionToken(ref StartGameArgs args) {
-            args.ConnectionToken = WmfToken;
-        }
 
         /// <summary>
         /// Friendly popup when joining a session whose name advertises a required mod the client lacks.
@@ -120,6 +113,7 @@ namespace WildguardModFramework.Network {
             if (!runner.IsServer) { return; }
 
             if (playerRef == runner.LocalPlayer) {
+                PresenceProtocol.Advertise(runner);
                 ConfirmedPlayers.Add(playerRef); // _knownModded already set above
                 WmfNetwork.RaisePlayerJoined(playerRef, isModded: true);
                 WmfNetwork.RaisePlayerConfirmed(playerRef, isModded: true);
@@ -127,9 +121,12 @@ namespace WildguardModFramework.Network {
             }
 
             _serverRunner = runner;
+            PresenceProtocol.AwaitHello(playerRef, (p, isModded) => OnPresenceResolved(runner, p, isModded));
+        }
 
-            var token = runner.GetPlayerConnectionToken(playerRef);
-            bool isModded = HasWmfToken(token);
+        // Server: continues the join once we know whether the remote player runs WMF.
+        private static void OnPresenceResolved(NetworkRunner runner, PlayerRef playerRef, bool isModded) {
+            if (!runner.IsRunning || !runner.ActivePlayers.Contains(playerRef)) { return; }
 
             WmfNetwork.RaisePlayerJoined(playerRef, isModded);
 
@@ -141,13 +138,13 @@ namespace WildguardModFramework.Network {
             if (activeMode?.IsClientRequired == true) {
                 if (!isModded) {
                     // Unmodded client: inform them and disconnect after a short delay so they can read the popup.
-                    WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} has no token — sending error and disconnecting.");
+                    WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is not running WMF — sending error and disconnecting.");
                     var gm = GameManager.Instance;
                     if (gm != null) {
                         FusionRpcHelper.SendErrorMessageTo(runner, gm, playerRef,
                             $"@This session is running a community mod: \"{activeMode.DisplayName}\".\n\nTo play modded sessions, install WMF from the Raiders of Blackveil Nexus page.");
                     }
-                    playerManager.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef));
+                    WmfMod.Runner.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef));
                     return;
                 }
 
@@ -173,6 +170,7 @@ namespace WildguardModFramework.Network {
         }
 
         internal static void OnPlayerLeft(PlayerRef playerRef) {
+            PresenceProtocol.OnPlayerLeft(playerRef);
             _moddedPlayers.Remove(playerRef);
             ConfirmedPlayers.Remove(playerRef);
             _knownModded.Remove(playerRef.PlayerId);
@@ -192,6 +190,7 @@ namespace WildguardModFramework.Network {
             key.GetInts(out var key2, out _, out _, out _);
             var streamType = (DataStreamType)key2;
 
+            if (streamType == PresenceProtocol.StreamTypeHello) { return PresenceProtocol.HandleHello(runner, player); }
             if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(runner, new ArraySegment<byte>(data.ToArray())); }
             if (streamType == StreamTypeAck) { return HandleAck(runner, player, new ArraySegment<byte>(data.ToArray())); }
             if (streamType == WmfNetwork.StreamTypeMux) { return WmfNetwork.TryDispatch(player, new ArraySegment<byte>(data.ToArray())); }
@@ -202,6 +201,7 @@ namespace WildguardModFramework.Network {
         // ── Lifecycle ──────────────────────────────────────────────────────────────
 
         internal static void OnShutdown() {
+            PresenceProtocol.Reset();
             _moddedPlayers.Clear();
             ConfirmedPlayers.Clear();
             _knownModded.Clear();
@@ -284,14 +284,6 @@ namespace WildguardModFramework.Network {
             WmfMod.PublicLogger.LogInfo($"WMF: ACK from {player.PlayerId} for \"{variantId}\".");
             WmfNetwork.RaisePlayerConfirmed(player, isModded: true);
             return false;
-        }
-
-        private static bool HasWmfToken(byte[] token) {
-            if (token == null || token.Length < WmfToken.Length) { return false; }
-            for (int i = 0; i < WmfToken.Length; i++) {
-                if (token[i] != WmfToken[i]) { return false; }
-            }
-            return true;
         }
 
         private static RegisteredGameMode FindClientRequiredGameMode(string serverName) {

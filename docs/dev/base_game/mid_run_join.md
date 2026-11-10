@@ -6,6 +6,8 @@ Since the 2026-10-19 game update the game natively lets **raid members** (and Ph
 
 Clients now send their profile GUID as the Fusion connection token (`BackendManager` → `NetworkManager.Launch(..., connectionToken: WomboPlayerId.ToByteArray())`).
 
+Mods must not touch `StartGameArgs.ConnectionToken`: `TryGetConnectionTokenPlayerId` requires exactly 16 bytes. WMF ≤ 0.7.1 replaced it with `"wmf"`, so the game refused every WMF client's mid-run reconnect. Since 0.8.0, WMF detects modded players via `PresenceProtocol` instead: the host sets a Fusion session property, and a client that sees it sends a hello on stream type 103. Unsolicited reliable data is not an option, because the vanilla `OnReliableDataReceived` throws on unknown stream types.
+
 `NetworkManager.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)` (server):
 
 - `GetPlayers().Count > 2` → refuse

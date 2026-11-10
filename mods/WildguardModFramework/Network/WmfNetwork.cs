@@ -20,16 +20,17 @@ namespace WildguardModFramework.Network {
         // ── Session events ────────────────────────────────────────────────────
 
         /// <summary>
-        /// Raised on the host when a player joins. <paramref name="isModded"/> is true if they
-        /// connected with a WMF token. Fires before any handshake completes.
+        /// Raised on the host once a joining player's WMF presence is known: as soon as their WMF
+        /// hello arrives (isModded = true, usually within a second), or after a few seconds without
+        /// one (isModded = false). Fires before any game-mode handshake completes.
         /// </summary>
         public static event Action<PlayerRef, bool> OnPlayerJoined;
 
         /// <summary>
         /// Raised on the host when a player is confirmed ready to receive WmfNetwork messages.
         /// For client-required game modes this fires after the handshake ACK; for all other
-        /// scenarios it fires immediately on join. <paramref name="isModded"/> is true if they
-        /// connected with a WMF token.
+        /// scenarios it fires right after <see cref="OnPlayerJoined"/>. <paramref name="isModded"/>
+        /// is true if the player runs WMF.
         /// </summary>
         public static event Action<PlayerRef, bool> OnPlayerConfirmed;
 
