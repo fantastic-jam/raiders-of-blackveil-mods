@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.7.1] - 2026-11-10
 
 ### Fixed
 - Mods button is no longer reachable with keyboard/gamepad from the new Play sub-menu of the main menu
