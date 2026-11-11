@@ -1,16 +1,23 @@
 # JoinAnytime
 
-JoinAnytime lets a player join a session that is already mid-run. Instead of being turned away at the door, they connect, wait out the current room, and spawn in at the start of the next room with XP and perks averaged to match the existing players — as if they had been there from the beginning.
+JoinAnytime lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 
-Only the host needs the mod. Joining players with the mod installed get the full experience (including shrine rooms). Joining players without the mod get perk choice pickups instead of shrines, which works without any client-side installation.
+Only the host needs the mod. Joining players don't need anything installed.
 
 ## How it works
 
-1. The joining player connects and waits — no champion, no presence in the world.
-2. When the current room ends and the next room loads, they spawn in normally.
-3. Their champion receives floor-averaged XP and rarity-matched random perks from the existing players.
+1. While a run is in progress, the session stays listed in the server browser as long as there is a free slot.
+2. A new player joins. The host prepares a character for them, using the average XP, ability levels and number of perks of the current party. Perks are random, but with the same rarity as the party's, and fit the champion the newcomer picked.
+3. The newcomer spawns next to the host with full health, just like a player reconnecting to their own run. The shrine and other room rewards catch up for them automatically.
 
-The existing players see no disruption. Enemy count, vote thresholds, and difficulty scaling are all based on the players currently in the world — the waiting joiner does not count.
+From then on, they are a regular member of the run. If they disconnect, they can reconnect like anyone else.
+
+## Good to know
+
+- A party still has at most 3 players.
+- Joining opens once the first room of the run has loaded. Before that, joining players are turned away.
+- The current room keeps the difficulty it was started with. From the next room on, the run is scaled for the bigger party.
+- Talents start empty: the newcomer picks them as they level up.
 
 ## Requirements
 
@@ -25,10 +32,3 @@ The existing players see no disruption. Enemy count, vote thresholds, and diffic
 3. Download the latest JoinAnytime ZIP from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=JoinAnytime).
 4. Extract the ZIP contents directly into your Raiders of Blackveil game folder (so the `BepInEx/plugins/` folder is merged).
 5. Launch the game — JoinAnytime will be active automatically.
-
-## Notes
-
-- The session browser shows the correct player count including waiting joiners, so the session fills correctly.
-- If a waiting player disconnects before the room ends, they are simply removed — no impact on the ongoing run.
-- The mod is not required on joining clients. Clients with the mod get shrine rooms; clients without get perk choice pickups instead.
-- Clients without the mod may see console errors during the waiting phase (door UI and shrine initialization expect a local player that doesn't exist yet). These are non-breaking — gameplay is unaffected and the errors stop once the joiner is promoted. Clients with the mod installed will not see these errors.

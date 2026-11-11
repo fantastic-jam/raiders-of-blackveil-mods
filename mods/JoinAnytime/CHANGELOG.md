@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Changed
+- Rebuilt on the game's own reconnect system: newcomers now spawn right away next to the host in the current room (no more waiting for the next room), with XP, ability levels and perks matched to the party. Joining players need no mod, and shrine rooms work normally for everyone
+
 ## [0.0.4] - 2026-10-19
 
 ### Fixed

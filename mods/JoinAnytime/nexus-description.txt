@@ -1,18 +1,28 @@
 [size=5]JoinAnytime[/size]
 
-Lets a player join a session that is already mid-run. Instead of being turned away, they connect, wait out the current room, and spawn in at the start of the next room — with XP and perks averaged to match the existing players.
+Lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 
-The existing players see no disruption. Enemy count, vote thresholds, and difficulty scaling are all based on the players currently in the world. The waiting joiner does not count until they actually spawn in.
-
-[b]Only the host needs the mod.[/b] Clients without the mod installed still join and play normally — they receive perk choice pickups instead of shrine rooms. Unmodded clients may see console errors during the waiting phase, but these are non-breaking and stop once the joiner spawns in. Installing the mod on joining clients eliminates these errors entirely.
+[b]Only the host needs the mod.[/b] Joining players don't need anything installed.
 
 [line]
 [heading]How it works[/heading]
 
 [list]
-[*]The joining player connects and waits — no champion, no presence in the world.[/*]
-[*]When the current room ends and the next room loads, they spawn in normally.[/*]
-[*]Their champion receives floor-averaged XP and rarity-matched random perks from the existing players.[/*]
+[*]While a run is in progress, the session stays listed in the server browser as long as there is a free slot.[/*]
+[*]A new player joins. The host prepares a character for them, using the average XP, ability levels and number of perks of the current party. Perks are random, but with the same rarity as the party's, and fit the champion the newcomer picked.[/*]
+[*]The newcomer spawns next to the host with full health, just like a player reconnecting to their own run. The shrine and other room rewards catch up for them automatically.[/*]
+[/list]
+
+From then on, they are a regular member of the run. If they disconnect, they can reconnect like anyone else.
+
+[line]
+[heading]Good to know[/heading]
+
+[list]
+[*]A party still has at most 3 players.[/*]
+[*]Joining opens once the first room of the run has loaded. Before that, joining players are turned away.[/*]
+[*]The current room keeps the difficulty it was started with. From the next room on, the run is scaled for the bigger party.[/*]
+[*]Talents start empty: the newcomer picks them as they level up.[/*]
 [/list]
 
 [line]

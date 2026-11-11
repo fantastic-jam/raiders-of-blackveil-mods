@@ -32,6 +32,11 @@
       <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- JoinableSessions.AnnounceToLobbyListAsync returns a UniTask (LobbyListing). -->
+    <Reference Include="UniTask">
+      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UniTask.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

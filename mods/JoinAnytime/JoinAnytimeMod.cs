@@ -25,7 +25,7 @@ namespace JoinAnytime {
         // WMF duck-typing — WMF discovers these via reflection; no ModRegistry reference needed.
         public string GetModType() => "Mod";
         public string GetModName() => Name;
-        public string GetModDescription() => "Lets players join mid-run: they arrive dead with matched XP and perks, and are revived at the end of each arena.";
+        public string GetModDescription() => "Lets anyone join a run in progress: they spawn next to the host with XP and perks matched to the party. Host-only.";
         public bool IsClientRequired => false;
         public bool Disabled => JoinAnytimePatch.Disabled;
 
@@ -40,7 +40,6 @@ namespace JoinAnytime {
         public void Disable() {
             JoinAnytimePatch.Disabled = true;
             JoinAnytimePatch.Unpatch();
-            JoinAnytimeManager.Reset();
 #if DEV_HOTRELOAD
             Dev.HotReloadController.Disable();
 #endif

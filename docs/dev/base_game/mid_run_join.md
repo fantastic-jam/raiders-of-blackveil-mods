@@ -1,6 +1,6 @@
 # Mid-run join / reconnect (vanilla, since 2026-10 update)
 
-Since the 2026-10-19 game update the game natively lets **raid members** (and Phoenix-recoverable party members) reconnect into a run in progress, restoring their XP, perks, health and shrine offer. Anyone else is still refused. JoinAnytime builds on top of this: it leaves returning raid members to vanilla and only pre-joins strangers.
+Since the 2026-10-19 game update the game natively lets **raid members** (and Phoenix-recoverable party members) reconnect into a run in progress, restoring their XP, perks, health and shrine offer. Anyone else is still refused. JoinAnytime builds on top of this. In a prefix of `OnConnectRequest`, it inserts a fabricated `PhoenixPartyMember` for the stranger's token GUID into `CurrentRunReconnect.SavedParty`, then lets vanilla admit, spawn and restore them as a returning member. It also keeps the session listed during the run. See `mods/JoinAnytime/JoinAdmission.cs`.
 
 ## Admission
 
