@@ -3,7 +3,7 @@ import { REPO_ROOT } from './mod.mts'
 
 function git(args: string[], opts: { allowFailure?: boolean } = {}): string {
   const result = spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' })
-  if (!opts.allowFailure && result.status !== 0) {
+  if (opts.allowFailure !== true && result.status !== 0) {
     throw new Error(`git ${args[0]} failed:\n${result.stderr}`)
   }
   return result.stdout.trimEnd()
@@ -23,7 +23,7 @@ export function dirtyFiles(): string[] {
   return out
     .split('\n')
     .filter(Boolean)
-    .map((line) => line.slice(3).trim().replace(/\\/g, '/'))
+    .map((line) => line.slice(3).trim().replaceAll('\\', '/'))
 }
 
 export function tagExists(tag: string): boolean {

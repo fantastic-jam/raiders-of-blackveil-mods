@@ -1,6 +1,5 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
-import fsExtra from 'fs-extra'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
@@ -23,7 +22,9 @@ const { values } = parseArgs({
   },
 })
 
-const { mod: modName, all, debug: isDebug } = values
+const modName = values.mod ?? ''
+const all = values.all ?? false
+const isDebug = values.debug ?? false
 
 if (!modName && !all) {
   console.error(`Usage: deploy --mod <name> | --all\nValid mods: ${listMods().join(', ')}`)
@@ -89,7 +90,7 @@ for (const mod of mods) {
   }
   console.log(`Deployed ${mod} (${config}) to: ${pluginDir}`)
 
-  if (meta.patchers?.length) {
+  if (meta.patchers !== undefined && meta.patchers.length > 0) {
     const patcherDir = path.join(gameRoot, 'BepInEx', 'patchers', `fantastic-jam-${mod}`)
     fs.mkdirSync(patcherDir, { recursive: true })
     for (const dll of meta.patchers) {
@@ -100,11 +101,12 @@ for (const mod of mods) {
     }
   }
 
-  const pdbPath = dllPath.replace(/\.dll$/, '.pdb')
+  const pdbPath = dllPath.replace(/\.dll$/u, '.pdb')
   if (fs.existsSync(pdbPath)) fs.copyFileSync(pdbPath, path.join(pluginDir, `${mod}.pdb`))
 
   const assetsDir = path.join(modOutputDir(mod), 'Assets')
-  if (fs.existsSync(assetsDir)) fsExtra.copySync(assetsDir, path.join(pluginDir, 'Assets'))
+  if (fs.existsSync(assetsDir))
+    fs.cpSync(assetsDir, path.join(pluginDir, 'Assets'), { recursive: true })
 
   const cfgSrcDir = path.join(modDir(mod), 'Config')
   if (fs.existsSync(cfgSrcDir)) {
@@ -125,14 +127,14 @@ for (const mod of mods) {
 
   if (isDebug) {
     const pluginId = readModPluginId(mod)
-    if (pluginId) {
+    if (pluginId !== null) {
       const hotReloadCfgPath = path.join(configDir, `${pluginId}.cfg`)
       const line = `DllPath = ${dllPath}`
       let content = fs.existsSync(hotReloadCfgPath) ? fs.readFileSync(hotReloadCfgPath, 'utf8') : ''
-      if (/^\[DevHotReload\]/m.test(content)) {
-        content = /^DllPath\s*=/m.test(content)
-          ? content.replace(/^DllPath\s*=.*$/m, line)
-          : content.replace(/^(\[DevHotReload\])/m, `$1\n\n${line}`)
+      if (/^\[DevHotReload\]/mu.test(content)) {
+        content = /^DllPath\s*=/mu.test(content)
+          ? content.replace(/^DllPath\s*=.*$/mu, line)
+          : content.replace(/^(\[DevHotReload\])/mu, `$1\n\n${line}`)
       } else {
         content += `${content ? '\n' : ''}[DevHotReload]\n\n${line}\n`
       }

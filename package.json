@@ -15,8 +15,8 @@
     "start": "node --experimental-strip-types tools/start.mts",
     "unreleased": "node --experimental-strip-types tools/unreleased.mts",
     "typecheck": "tsgo --project tools/tsconfig.json --noEmit",
-    "lint": "eslint --config tools/eslint.config.mts tools/",
-    "lint:fix": "eslint --config tools/eslint.config.mts tools/ --fix",
+    "lint": "oxlint -c tools/.oxlintrc.json --type-aware --deny-warnings tools/",
+    "lint:fix": "oxlint -c tools/.oxlintrc.json --type-aware --fix tools/",
     "lint:cs": "dotnet format mods/ --verify-no-changes",
     "lint:cs:fix": "dotnet format mods/",
     "lint:all": "pnpm run lint && pnpm run lint:cs && pnpm run typecheck",
@@ -36,26 +36,14 @@
     "commitFormat": "{type}({pkg}): {message}"
   },
   "devDependencies": {
-    "@eslint/js": "latest",
     "@fantastic-jam/fchange": "latest",
     "@octokit/rest": "latest",
-    "@types/archiver": "latest",
-    "@types/fs-extra": "latest",
     "@types/node": "latest",
-    "@types/semver": "latest",
-    "@types/unzipper": "latest",
     "@typescript/native-preview": "latest",
-    "archiver": "latest",
-    "dotenv": "latest",
-    "eslint": "latest",
-    "eslint-config-prettier": "latest",
-    "fs-extra": "latest",
-    "glob": "latest",
+    "fflate": "^0.8.3",
     "husky": "latest",
-    "jiti": "latest",
-    "prettier": "latest",
-    "semver": "latest",
-    "typescript-eslint": "latest",
-    "unzipper": "latest"
+    "oxlint": "^1.93.0",
+    "oxlint-tsgolint": "^7.0.2006",
+    "prettier": "latest"
   }
 }

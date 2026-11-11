@@ -17,7 +17,7 @@ function run(cmd: string, args: string[]): void {
 
 const staged = getStagedFiles()
 
-const tsFiles = staged.filter((f) => /\.(mts|ts|json)$/.test(f))
+const tsFiles = staged.filter((f) => /\.(mts|ts|json)$/u.test(f))
 if (tsFiles.length > 0) {
   run('pnpm', ['exec', 'prettier', '--check', ...tsFiles])
 }

@@ -1,6 +1,5 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
-import fsExtra from 'fs-extra'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 import {
@@ -27,7 +26,8 @@ const { values } = parseArgs({
   },
 })
 
-const { mod: modName, lib: libName } = values
+const modName = values.mod ?? ''
+const libName = values.lib ?? ''
 
 if (!modName && !libName) {
   console.error(
@@ -54,12 +54,12 @@ const sln = path.join(REPO_ROOT, 'mods', 'raiders-of-blackveil-mods.sln')
 const distRoot = path.join(REPO_ROOT, 'dist')
 
 if (modName) {
-  await packageMod(modName)
+  packageMod(modName)
 } else if (libName) {
-  await packageLib(libName)
+  packageLib(libName)
 }
 
-async function packageMod(name: string): Promise<void> {
+function packageMod(name: string): void {
   const version = readModVersion(name)
   const dllPath = modDllPath(name)
   const stagingRoot = path.join(distRoot, `${name}-staging`)
@@ -86,7 +86,8 @@ async function packageMod(name: string): Promise<void> {
   }
 
   const assetsDir = path.join(modOutputDir(name), 'Assets')
-  if (fs.existsSync(assetsDir)) fsExtra.copySync(assetsDir, path.join(pluginDir, 'Assets'))
+  if (fs.existsSync(assetsDir))
+    fs.cpSync(assetsDir, path.join(pluginDir, 'Assets'), { recursive: true })
 
   const readmePath = path.join(modDir(name), 'README.md')
   if (fs.existsSync(readmePath)) fs.copyFileSync(readmePath, path.join(pluginDir, 'README.md'))
@@ -95,7 +96,7 @@ async function packageMod(name: string): Promise<void> {
   if (fs.existsSync(changelogPath))
     fs.copyFileSync(changelogPath, path.join(pluginDir, 'CHANGELOG.md'))
 
-  if (meta.patchers?.length) {
+  if (meta.patchers !== undefined && meta.patchers.length > 0) {
     const patcherDir = path.join(stagingRoot, 'patchers', `fantastic-jam-${name}`)
     fs.mkdirSync(patcherDir, { recursive: true })
     for (const dll of meta.patchers) {
@@ -105,10 +106,10 @@ async function packageMod(name: string): Promise<void> {
     }
   }
 
-  await writeZip(name, version, stagingRoot)
+  writeZip(name, version, stagingRoot)
 }
 
-async function packageLib(name: string): Promise<void> {
+function packageLib(name: string): void {
   const version = readLibVersion(name)
   const dllPath = libDllPath(name)
   const stagingRoot = path.join(distRoot, `${name}-staging`)
@@ -134,20 +135,20 @@ async function packageLib(name: string): Promise<void> {
   if (fs.existsSync(changelogPath))
     fs.copyFileSync(changelogPath, path.join(pluginDir, 'CHANGELOG.md'))
 
-  await writeZip(name, version, stagingRoot)
+  writeZip(name, version, stagingRoot)
 }
 
-async function writeZip(name: string, version: string, stagingRoot: string): Promise<void> {
+function writeZip(name: string, version: string, stagingRoot: string): void {
   fs.mkdirSync(distRoot, { recursive: true })
 
   const assetName = `${name}-${version}.zip`
   const assetPath = path.join(distRoot, assetName)
   if (fs.existsSync(assetPath)) fs.rmSync(assetPath)
 
-  await createZip(stagingRoot, assetPath)
+  createZip(stagingRoot, assetPath)
 
   const githubOutput = process.env['GITHUB_OUTPUT']
-  if (githubOutput) {
+  if (githubOutput !== undefined && githubOutput !== '') {
     fs.appendFileSync(githubOutput, `asset_path=${assetPath}\nasset_name=${assetName}\n`)
   }
 

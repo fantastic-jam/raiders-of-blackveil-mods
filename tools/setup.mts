@@ -14,16 +14,19 @@ function readStoredGameRoot(): string | null {
   if (!fs.existsSync(propsPath)) return null
   const m = fs
     .readFileSync(propsPath, 'utf8')
-    .match(/<RaidersOfBlackveilRootPath>([^<]+)<\/RaidersOfBlackveilRootPath>/)
+    .match(/<RaidersOfBlackveilRootPath>([^<]+)<\/RaidersOfBlackveilRootPath>/u)
   return m ? m[1].trim() : null
 }
 
-async function promptGameRoot(): Promise<string> {
+function promptGameRoot(): Promise<string> {
   const stored = readStoredGameRoot()
   const defaultPath = stored ?? DEFAULT_GAME_ROOT
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
   return new Promise((resolve) => {
-    const label = stored ? `Enter to keep: ${stored}` : `Enter for default: ${DEFAULT_GAME_ROOT}`
+    const label =
+      stored !== null && stored !== ''
+        ? `Enter to keep: ${stored}`
+        : `Enter for default: ${DEFAULT_GAME_ROOT}`
     rl.question(`Enter game path (${label}): `, (answer: string) => {
       rl.close()
       resolve(answer.trim() || defaultPath)
@@ -55,7 +58,7 @@ function copyGameAssemblies(gameRoot: string): void {
   console.log('Copied Assembly-CSharp.dll to game-lib/')
 }
 
-async function promptYesNo(question: string): Promise<boolean> {
+function promptYesNo(question: string): Promise<boolean> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
   return new Promise((resolve) => {
     rl.question(`${question} [y/N] `, (answer: string) => {
@@ -63,6 +66,58 @@ async function promptYesNo(question: string): Promise<boolean> {
       resolve(answer.trim().toLowerCase() === 'y')
     })
   })
+}
+
+interface GitHubReleaseAsset {
+  name: string
+  browser_download_url: string
+}
+
+interface GitHubRelease {
+  tag_name: string
+  prerelease: boolean
+  assets: GitHubReleaseAsset[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseGitHubReleaseAsset(json: unknown): GitHubReleaseAsset | null {
+  if (!isRecord(json)) return null
+  const { name, browser_download_url: url } = json
+  if (typeof name !== 'string' || typeof url !== 'string') return null
+  return { name, browser_download_url: url }
+}
+
+function parseGitHubRelease(json: unknown): GitHubRelease | null {
+  if (!isRecord(json)) return null
+  const { tag_name: tagName, prerelease, assets } = json
+  if (typeof tagName !== 'string' || typeof prerelease !== 'boolean' || !Array.isArray(assets))
+    return null
+  const parsedAssets: GitHubReleaseAsset[] = []
+  for (const asset of assets) {
+    const parsed = parseGitHubReleaseAsset(asset)
+    if (parsed === null) return null
+    parsedAssets.push(parsed)
+  }
+  return { tag_name: tagName, prerelease, assets: parsedAssets }
+}
+
+/** Validates a GitHub "list releases" API response, keeping only the fields setup uses. */
+function parseGitHubReleases(json: unknown, repoLabel: string): GitHubRelease[] {
+  if (!Array.isArray(json)) {
+    throw new TypeError(`Unexpected GitHub releases response for ${repoLabel}: expected an array`)
+  }
+  const releases: GitHubRelease[] = []
+  for (const item of json) {
+    const release = parseGitHubRelease(item)
+    if (release === null) {
+      throw new TypeError(`Unexpected GitHub releases response for ${repoLabel}: malformed release`)
+    }
+    releases.push(release)
+  }
+  return releases
 }
 
 async function installUnityHotReload(gameRoot: string): Promise<void> {
@@ -80,10 +135,7 @@ async function installUnityHotReload(gameRoot: string): Promise<void> {
         headers: { 'User-Agent': 'setup-script' },
       },
     )
-    const releases = (await releasesRes.json()) as {
-      prerelease: boolean
-      assets: { name: string; browser_download_url: string }[]
-    }[]
+    const releases = parseGitHubReleases(await releasesRes.json(), 'UnityHotReload')
     const rel = releases.find((r) => !r.prerelease)
     if (!rel) throw new Error('Cannot find UnityHotReload release')
     const asset = rel.assets.find((a) => a.name.endsWith('.zip'))
@@ -95,7 +147,7 @@ async function installUnityHotReload(gameRoot: string): Promise<void> {
 
     const devDir = path.join(REPO_ROOT, 'dev', 'UnityHotReload')
     fs.mkdirSync(devDir, { recursive: true })
-    await extractZip(zipPath, devDir)
+    extractZip(zipPath, devDir)
     fs.unlinkSync(zipPath)
 
     // Remove non-DLL files extracted from the zip
@@ -121,20 +173,16 @@ async function installBepInEx(): Promise<void> {
   const releasesRes = await fetch('https://api.github.com/repos/BepInEx/BepInEx/releases', {
     headers: { 'User-Agent': 'setup-script' },
   })
-  const releases = (await releasesRes.json()) as {
-    tag_name: string
-    prerelease: boolean
-    assets: { name: string; browser_download_url: string }[]
-  }[]
+  const releases = parseGitHubReleases(await releasesRes.json(), 'BepInEx')
   const rel = releases.find((r) => r.tag_name.startsWith('v5.') && !r.prerelease)
   if (!rel) throw new Error('Cannot find BepInEx 5 release')
-  const asset = rel.assets.find((a) => /^BepInEx_win_x64_.*\.zip$/.test(a.name))
+  const asset = rel.assets.find((a) => /^BepInEx_win_x64_.*\.zip$/u.test(a.name))
   if (!asset) throw new Error('Cannot find BepInEx 5 win-x64 asset')
 
   const zipPath = path.join(os.tmpdir(), 'bepinex_rob.zip')
   const res = await fetch(asset.browser_download_url)
   fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
-  await extractZip(zipPath, bepinexDir)
+  extractZip(zipPath, bepinexDir)
   fs.unlinkSync(zipPath)
   console.log('BepInEx 5 downloaded to bepinex/.')
 }

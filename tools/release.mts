@@ -1,8 +1,8 @@
-import 'dotenv/config'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
+import { loadDotEnv } from './lib/env.mts'
 import {
   commit,
   createTag,
@@ -24,6 +24,8 @@ import {
   readProjectVersion,
 } from './lib/mod.mts'
 
+loadDotEnv()
+
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((a) => a !== '--'),
   options: {
@@ -35,7 +37,8 @@ const { values } = parseArgs({
   },
 })
 
-const { mod: modName, lib: libName } = values
+const modName = values.mod ?? ''
+const libName = values.lib ?? ''
 
 const allMods = listMods()
 const allLibs = listLibs()
@@ -74,7 +77,7 @@ if (skipPush && !skipRelease) {
   process.exit(1)
 }
 
-if (!skipRelease && !process.env['GITHUB_TOKEN']) {
+if (!skipRelease && (process.env['GITHUB_TOKEN'] ?? '') === '') {
   console.error('GITHUB_TOKEN is not set. Copy .env.template to .env and fill in your token.')
   process.exit(1)
 }
@@ -95,7 +98,7 @@ if (modName) {
 
 // Build the set of files that are allowed to be dirty (pre-release artifacts)
 function toRelative(absPath: string): string {
-  return path.relative(REPO_ROOT, absPath).replace(/\\/g, '/')
+  return path.relative(REPO_ROOT, absPath).replaceAll('\\', '/')
 }
 
 const allowedDirty = new Set<string>()
@@ -117,7 +120,7 @@ if (unexpected.length > 0) {
 async function runRelease(name: string, kind: ProjectKind): Promise<void> {
   const version = readProjectVersion(name, kind)
 
-  if (!version.match(/^\d+\.\d+\.\d+/)) {
+  if (!/^\d+\.\d+\.\d+/u.test(version)) {
     console.error(
       `Version "${version}" in ${projectVersionFile(name, kind)} does not look like a valid version. Did you run pre-release?`,
     )
@@ -197,5 +200,6 @@ ${notes}
 }
 
 for (const [name, kind] of projects) {
+  // oxlint-disable-next-line no-await-in-loop -- releases commit, tag, push and publish; they must run one after another
   await runRelease(name, kind)
 }

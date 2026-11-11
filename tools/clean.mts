@@ -1,13 +1,10 @@
-import { rmSync } from 'node:fs'
+import { globSync, rmSync } from 'node:fs'
 import path from 'node:path'
-import { glob } from 'glob'
 import { REPO_ROOT } from './lib/mod.mts'
 
-const toRemove = [
-  ...glob.sync('mods/**/bin', { cwd: REPO_ROOT, absolute: true }),
-  ...glob.sync('mods/**/obj', { cwd: REPO_ROOT, absolute: true }),
-  ...glob.sync('dist/*-staging', { cwd: REPO_ROOT, absolute: true }),
-]
+const toRemove = ['mods/**/bin', 'mods/**/obj', 'dist/*-staging'].flatMap((pattern) =>
+  globSync(pattern, { cwd: REPO_ROOT }).map((rel) => path.join(REPO_ROOT, rel)),
+)
 
 for (const dir of toRemove) {
   console.log(`Removing ${path.relative(REPO_ROOT, dir)}`)

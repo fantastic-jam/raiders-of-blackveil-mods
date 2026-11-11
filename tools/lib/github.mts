@@ -6,13 +6,14 @@ import { REPO_ROOT } from './mod.mts'
 
 function getOctokit(): Octokit {
   const token = process.env['GITHUB_TOKEN']
-  if (!token) throw new Error('GITHUB_TOKEN environment variable is not set.')
+  if (token === undefined || token === '')
+    throw new Error('GITHUB_TOKEN environment variable is not set.')
   return new Octokit({ auth: token })
 }
 
 function parseRepo(): { owner: string; repo: string } {
   const env = process.env['GITHUB_REPOSITORY']
-  if (env) {
+  if (env !== undefined && env !== '') {
     const [owner, repo] = env.split('/')
     return { owner, repo }
   }
@@ -20,7 +21,7 @@ function parseRepo(): { owner: string; repo: string } {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   }).trim()
-  const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/)
+  const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/u)
   if (!m) throw new Error(`Could not parse GitHub owner/repo from remote: ${remote}`)
   return { owner: m[1], repo: m[2] }
 }
@@ -45,11 +46,14 @@ export async function createRelease(
   const assetData = fs.readFileSync(assetPath)
   const assetName = path.basename(assetPath)
 
-  await octokit.repos.uploadReleaseAsset({
+  // Same request octokit.repos.uploadReleaseAsset sends (route + uploads baseUrl), but through
+  // the generic route so the binary Buffer body type-checks (the typed method declares data: string).
+  await octokit.request('POST /repos/{owner}/{repo}/releases/{release_id}/assets{?name,label}', {
+    baseUrl: 'https://uploads.github.com',
     owner,
     repo,
     release_id: release.data.id,
     name: assetName,
-    data: assetData as unknown as string,
+    data: assetData,
   })
 }

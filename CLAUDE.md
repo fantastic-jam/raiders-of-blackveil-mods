@@ -70,9 +70,9 @@ libs/                   # shared C# libraries (not mods — no BepInEx plugin cl
 tools/                  # Node/TypeScript build tooling
   build.mts / deploy.mts / package.mts / release.mts / setup.mts
   validate-commit-msg.mts
-  lib/mod.mts / git.mts / github.mts / zip.mts
+  lib/mod.mts / git.mts / github.mts / zip.mts / env.mts
   tsconfig.json
-  eslint.config.mts
+  .oxlintrc.json        # oxlint config (pnpm run lint)
 ```
 
 ## Mod structure
