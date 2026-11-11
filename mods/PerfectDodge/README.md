@@ -1,5 +1,7 @@
 # PerfectDodge
 
+> **Works with the Arms Race update (game version 0.6.5).**
+
 Adds a **just-dodge** mechanic: if you get hit within a short window right after pressing dash, the hit is fully blocked and your dash charge is instantly refunded. A *dodged* label appears overhead to confirm it.
 
 The timing window is configurable.

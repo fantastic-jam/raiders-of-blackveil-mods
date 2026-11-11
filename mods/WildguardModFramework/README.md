@@ -1,5 +1,7 @@
 # Wildguard Mod Framework (WMF)
 
+> **Works with the Arms Race update (game version 0.6.5).**
+
 The mod framework for Raiders of Blackveil. WMF gives players in-game control over their mods and gives mod authors a common API for discovery, game modes, and settings menus — with no engine restarts required.
 
 - In-game Mods menu with enable/disable toggles and per-mod settings panels

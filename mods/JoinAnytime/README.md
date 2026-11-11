@@ -1,5 +1,7 @@
 # JoinAnytime
 
+> **Works with the Arms Race update (game version 0.6.5).** JoinAnytime 0.1.0 is a full rewrite. Older versions don't work with the current game and should be replaced.
+
 JoinAnytime lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 
 Only the host needs the mod. Joining players don't need anything installed.

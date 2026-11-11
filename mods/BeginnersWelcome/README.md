@@ -1,5 +1,7 @@
 # BeginnersWelcome
 
+> **Works with the Arms Race update (game version 0.6.5).**
+
 Got a friend who just picked up the game? Bring them along. This mod lets the host dial in a handicap per player so the seasoned raider and the complete newcomer can share the same run without it being a disaster for one of them.
 
 Press **F3** (configurable) in the lobby to open the handicap panel. Only the host can change the values. The panel is also accessible in-game in read-only mode so everyone can see the current settings.

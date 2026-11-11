@@ -2,5 +2,5 @@
   "nexus_mod_id": 16,
   "nexus_file_id": "7373279",
   "nexus_mod_uid": "36743445217296",
-  "nexus_short_description": "Lets players join a session mid-run. They wait out the current room and spawn at the start of the next one, with XP and perks averaged to match the existing players. Host-only install."
+  "nexus_short_description": "Updated for the Arms Race update. Lets anyone join a run in progress: they spawn next to the host with XP and perks matched to the party. Host-only install, joining players need nothing."
 }

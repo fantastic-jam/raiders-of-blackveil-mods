@@ -1,5 +1,7 @@
 # DisableSkillsBar
 
+> **Works with the Arms Race update (game version 0.6.5).**
+
 Prevents the skills bar from reacting to accidental hover or clicks during combat.
 
 By default, mousing over the skills bar while fighting unlocks your cursor and disables your attack input — a death sentence mid-fight. This mod blocks that behavior, including direct ability upgrades from clicking, unless you are deliberately holding **Alt**.
