@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.8.2] - 2026-11-11
 
 ### Fixed
 - Sessions resumed with Continue no longer show up in the server list as just "(modded)": they get the usual default name
