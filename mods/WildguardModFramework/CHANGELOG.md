@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - patch
+## [0.8.1] - 2026-11-11
 
 ### Fixed
 - Players with WMF are recognized again: 0.8.0 never actually announced the host as a WMF host, so chat and mod-required game modes treated everyone as unmodded
