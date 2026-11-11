@@ -1,0 +1,59 @@
+name: Update Nexus descriptions
+
+# Pushes a mod's Nexus page description + summary as soon as they change on main.
+# This is the only place they are updated — releases (nexus-publish.yml) upload the file only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mods/*/nexus-description.txt'
+      - 'mods/*/metadata.json'
+  workflow_dispatch:
+    inputs:
+      mod:
+        description: 'Mod folder under mods/ (e.g. JoinAnytime)'
+        required: true
+
+env:
+  NEXUS_API: https://api.nexusmods.com/v3
+
+jobs:
+  update-descriptions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the pushed range to find which mods changed
+
+      - name: Find changed mods
+        id: mods
+        env:
+          INPUT_MOD: ${{ inputs.mod }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -n "$INPUT_MOD" ]; then
+            if ! [[ "$INPUT_MOD" =~ ^[A-Za-z0-9_-]+$ ]] || [ ! -d "mods/$INPUT_MOD" ]; then
+              echo "::error::'$INPUT_MOD' is not a folder under mods/"
+              exit 1
+            fi
+            MODS="$INPUT_MOD"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "::notice::No previous commit to diff against — nothing to update."
+            MODS=""
+          else
+            MODS=$(git diff --name-only "$BEFORE" "$AFTER" -- 'mods/*/nexus-description.txt' 'mods/*/metadata.json' \
+              | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          fi
+          echo "Mods to update: ${MODS:-<none>}"
+          echo "list=$MODS" >> "$GITHUB_OUTPUT"
+
+      - name: Update Nexus pages
+        if: steps.mods.outputs.list != ''
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+          MODS: ${{ steps.mods.outputs.list }}
+        run: |
+          for mod in $MODS; do
+            bash .github/scripts/nexus-update-description.sh "mods/$mod"
+          done

@@ -159,7 +159,9 @@ using [ModName];
 - `nexus_mod_uid` — the mod's API id: `curl -H "apikey: $NEXUS_TOKEN" https://api.nexusmods.com/v3/games/raidersofblackveil/mods/<nexus_mod_id>` → `data.id`.
 - `nexus_file_id` — the main file's id: `curl -H "apikey: $NEXUS_TOKEN" https://api.nexusmods.com/v3/mods/<nexus_mod_uid>/files` → `data.mod_files[].id`.
 
-The Nexus publish workflow skips mods where `nexus_file_id` or `nexus_mod_uid` is null. On each release it uploads a new version of `nexus_file_id`, posts the CHANGELOG section as the Nexus changelog, and overwrites the mod page description with `nexus-description.txt` (and the summary with `nexus_short_description`, if set).
+The Nexus publish workflow (`nexus-publish.yml`) skips mods where `nexus_file_id` or `nexus_mod_uid` is null. On each release it uploads a new version of `nexus_file_id` and posts the CHANGELOG section as the Nexus changelog.
+
+The mod page text is updated separately, without a release. Whenever a push to `main` changes `mods/<ModName>/nexus-description.txt` or `metadata.json`, `nexus-description.yml` overwrites that mod's page description with `nexus-description.txt`, and its summary with `nexus_short_description` if set. Mods without `nexus_mod_uid` are skipped. To push one by hand, run the workflow from the Actions tab with the mod folder name.
 
 ## 8. Update the root README
 

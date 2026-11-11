@@ -130,23 +130,5 @@ jobs:
           mod_id: ${{ steps.meta.outputs.mod_uid }}
           changelog: ${{ steps.changelog.outputs.text }}
 
-      - name: Update mod page description
-        if: steps.meta.outputs.skip == 'false'
-        env:
-          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
-        run: |
-          DESC_FILE="${{ steps.meta.outputs.mod_dir }}/nexus-description.txt"
-          if [ ! -f "$DESC_FILE" ]; then
-            echo "::notice::No nexus-description.txt — mod page description left unchanged"
-            exit 0
-          fi
-          BODY=$(jq -n \
-            --rawfile description "$DESC_FILE" \
-            --arg summary "$(jq -r '.nexus_short_description // empty' "${{ steps.meta.outputs.mod_dir }}/metadata.json")" \
-            '{description: $description} + (if $summary == "" then {} else {summary: $summary} end)')
-          STATUS=$(curl -s -o response.txt -w "%{http_code}" -X PATCH \
-            -H "apikey: $NEXUS_API_KEY" -H "Content-Type: application/json" \
-            -d "$BODY" "$NEXUS_API/mods/${{ steps.meta.outputs.mod_uid }}")
-          if [ "${STATUS:0:1}" != "2" ]; then
-            echo "::warning::Mod page description update failed (HTTP $STATUS): $(cat response.txt)"
-          fi
+      # The mod page description/summary is not updated here: nexus-description.yml pushes it
+      # whenever mods/*/nexus-description.txt or metadata.json changes on main.
