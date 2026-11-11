@@ -3,6 +3,7 @@ using WildguardModFramework.Chat;
 using WildguardModFramework.Registry;
 using RR;
 using RR.Backend.Session;
+using RR.UI.Components;
 
 namespace WildguardModFramework.ModMenu {
     /// <summary>
@@ -32,6 +33,12 @@ namespace WildguardModFramework.ModMenu {
 
             var suffix = ComputeSuffix(activeCheats, activeMods, activeGameMode);
             if (string.IsNullOrEmpty(suffix)) { return; }
+
+            // "Continue" on a hosted raid (MenuStartPage.ResumeHostedRaid) starts the session with an empty
+            // name; only the Host page substitutes the default. Without this the listing reads " (modded)".
+            if (string.IsNullOrWhiteSpace(sessionTag) && playSessionMode == PlaySessionMode.MultiPlayer) {
+                sessionTag = DefaultSessionName();
+            }
 
             int maxBase = SessionNameMaxLength - suffix.Length;
             if (maxBase < 0) { maxBase = 0; }
@@ -79,6 +86,12 @@ namespace WildguardModFramework.ModMenu {
 
             WmfConfig.ActiveGameModeId = selectedId ?? "";
             return activeGameMode;
+        }
+
+        // Same default as MenuStartHostPage.GetDefaultName ("<player>’s Game").
+        private static string DefaultSessionName() {
+            var name = BackendManager.Instance?.LoggedInWomboPlayer?.PlayerProfile?.Name;
+            return name == null ? "Unnamed" : LocString.Get("StartMenu.host-default-name", "@" + name);
         }
 
         private static string ComputeSuffix(bool activeCheats, bool activeMods, RegisteredGameMode activeGameMode) {

@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - patch
+
+### Fixed
+- Sessions resumed with Continue no longer show up in the server list as just "(modded)": they get the usual default name
+
 ## [0.8.1] - 2026-11-11
 
 ### Fixed
