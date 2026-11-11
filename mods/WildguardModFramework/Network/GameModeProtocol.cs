@@ -113,7 +113,6 @@ namespace WildguardModFramework.Network {
             if (!runner.IsServer) { return; }
 
             if (playerRef == runner.LocalPlayer) {
-                PresenceProtocol.Advertise(runner);
                 ConfirmedPlayers.Add(playerRef); // _knownModded already set above
                 WmfNetwork.RaisePlayerJoined(playerRef, isModded: true);
                 WmfNetwork.RaisePlayerConfirmed(playerRef, isModded: true);

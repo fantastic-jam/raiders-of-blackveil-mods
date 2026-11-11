@@ -35,18 +35,16 @@ namespace WildguardModFramework.Network {
 
         // ── Host ──────────────────────────────────────────────────────────────
 
-        /// <summary>Advertises this host as WMF to every client that connects. Host mode only.</summary>
-        internal static void Advertise(NetworkRunner runner) {
-            if (runner == null || !runner.IsServer || runner.GameMode != GameMode.Host) { return; }
-            try {
-                var ok = runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> {
-                    { SessionPropertyKey, ProtocolVersion },
-                });
-                WmfMod.PublicLogger.LogInfo($"WMF: advertised WMF host in session properties (ok={ok}).");
-            }
-            catch (Exception ex) {
-                WmfMod.PublicLogger.LogWarning($"WMF: could not advertise WMF host — remote players will be seen as unmodded. {ex.Message}");
-            }
+        /// <summary>
+        /// Advertises this host as WMF by declaring the session property at room creation. Host mode only.
+        /// Must happen in StartGameArgs: Fusion's SessionInfo.UpdateCustomProperties can only change keys
+        /// that already exist ("Only existing custom properties can be updated").
+        /// </summary>
+        internal static void InjectSessionProperty(ref StartGameArgs args) {
+            if (args.GameMode != GameMode.Host) { return; }
+            args.SessionProperties ??= new Dictionary<string, SessionProperty>();
+            args.SessionProperties[SessionPropertyKey] = ProtocolVersion;
+            WmfMod.PublicLogger.LogInfo("WMF: advertising WMF host in session properties.");
         }
 
         /// <summary>

@@ -83,7 +83,10 @@ namespace WildguardModFramework.Network {
 
         // The connection token is left untouched: the game puts the profile GUID there and needs it
         // to re-admit raid members mid-run. Modded detection goes through PresenceProtocol instead.
-        private static void StartGamePrefix() => ServerChat.ClearAll();
+        private static void StartGamePrefix(ref StartGameArgs args) {
+            PresenceProtocol.InjectSessionProperty(ref args);
+            ServerChat.ClearAll();
+        }
 
         private static void OnConnectedToServerPostfix(NetworkRunner runner) =>
             PresenceProtocol.OnConnectedToServer(runner);
