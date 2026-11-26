@@ -1,6 +1,12 @@
-[size=5]JoinAnytime[/size]
+[center][size=5][color=#ff4444][b]NOT WORKING — INCOMPATIBLE WITH THE CURRENT GAME VERSION[/b][/color][/size]
 
-[b]Works with the Arms Race update (game version 0.6.5).[/b] JoinAnytime 0.1.0 is a full rewrite. Older versions don't work with the current game and should be replaced.
+[b]The game has switched to IL2CPP, which makes this mod incompatible.[/b]
+It was built for BepInEx 5 on the Mono build of the game (last working version: Arms Race update, 0.6.5).
+Mod loaders (BepInEx, MelonLoader) do not support the game's new build yet. Once they do, I will look into porting this mod, but I can't promise it will be possible.
+Until then, please uninstall it.[/center]
+[line]
+
+[size=5]JoinAnytime[/size]
 
 Lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 

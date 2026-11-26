@@ -1,5 +1,6 @@
 {
   "nexus_mod_id": 10,
   "nexus_file_id": "7262906",
-  "nexus_mod_uid": "36743445217290"
+  "nexus_mod_uid": "36743445217290",
+  "nexus_short_description": "NOT WORKING: incompatible since the game switched to IL2CPP. A port may follow once mod loaders support the new build, but is not guaranteed. Please uninstall for now."
 }
