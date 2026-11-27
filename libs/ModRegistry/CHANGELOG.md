@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased] - minor
+
+### Changed
+- Ported to the IL2CPP build of the game (BepInEx 6)
+
 ## [0.4.0] - 2026-05-03
 
 ### Changed
