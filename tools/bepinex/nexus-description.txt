@@ -15,6 +15,9 @@ Since version 0.6.5, the game is built with IL2CPP. Mods now need [b]BepInEx 6[/
 [*]Manage the game in Vortex. It downloads and installs this pack automatically, and updates it when a new version comes out.[/*]
 [/list]
 
+[b]If the download isn't available here[/b]
+Nexus reviews every new version of this file before it can be downloaded. In the meantime, get the same ZIP from [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=bepinex]GitHub[/url] ([b]BepInEx-IL2CPP-RoB.zip[/b] in the latest [i]BepInEx IL2CPP[/i] release), then drag it into Vortex or install it manually as below.
+
 [b]Manually[/b]
 [list]
 [*]Remove any previous BepInEx: the [b]BepInEx[/b] folder, [b]winhttp.dll[/b] and [b]doorstop_config.ini[/b] in the game folder.[/*]

@@ -1,7 +1,7 @@
 name: Publish BepInEx IL2CPP pack
 
-# Rebuilds the BepInEx IL2CPP pack (tools/build-bepinex.mts) and uploads it to its Nexus page
-# (tools/bepinex/metadata.json) whenever its inputs change on main.
+# Rebuilds the BepInEx IL2CPP pack (tools/build-bepinex.mts) whenever its inputs change on main, publishes
+# it as a GitHub release (bepinex-<version>) and uploads it to its Nexus page (tools/bepinex/metadata.json).
 # The page description is pushed separately by nexus-description.yml.
 # Vortex users get the new file automatically: the game extension always installs the newest MAIN file.
 on:
@@ -24,6 +24,8 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write # GitHub release of the pack
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -71,6 +73,29 @@ jobs:
           [ -s changelog.txt ] || echo "Rebuilt from $(git rev-parse --short HEAD)." > changelog.txt
           echo "Version: $VERSION"
           cat changelog.txt
+
+      # Same zip as on Nexus, downloadable without a Nexus account and while Nexus reviews a new file.
+      # Not marked latest (the repo's latest release stays a mod). No "-v" in the tag: nexus-publish.yml ignores it.
+      - name: GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo "BepInEx 6 IL2CPP pack for Raiders of Blackveil (game 0.6.5+). Same file as on [Nexus Mods](https://www.nexusmods.com/raidersofblackveil/mods/19)."
+            echo
+            echo "**Install:** drag the zip into Vortex (with the Raiders of Blackveil extension 0.5.0+), or extract it into the game folder next to \`RoB.exe\` after removing any previous BepInEx (\`BepInEx/\`, \`winhttp.dll\`, \`doorstop_config.ini\`). The first launch takes 1–2 minutes longer while BepInEx generates its interop assemblies."
+            echo
+            echo "What it contains and how it is built: [tools/bepinex](https://github.com/${{ github.repository }}/tree/main/tools/bepinex)."
+            echo
+            echo "Changes:"
+            sed 's/^/- /' changelog.txt
+          } > release-notes.md
+          gh release create "bepinex-$VERSION" dist/BepInEx-IL2CPP-RoB.zip \
+            --target "$GITHUB_SHA" --latest=false \
+            --title "BepInEx IL2CPP for Raiders of Blackveil $VERSION" \
+            --notes-file release-notes.md
 
       - uses: actions/upload-artifact@v5
         with:

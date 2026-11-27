@@ -49,8 +49,10 @@ The script is [`tools/build-bepinex.mts`](../build-bepinex.mts), with the pinned
    `Il2CppInterop.Runtime`;
 3. downloads stock be.793, copies the two DLLs over it and adds the Cpp2IL build to `BepInEx/cpp2il/`.
 
-Pushing a change to the patches or the build script on `main` rebuilds the pack and uploads it to Nexus
-([`bepinex-publish.yml`](../../.github/workflows/bepinex-publish.yml)). Vortex users get it automatically.
+Pushing a change to the patches or the build script on `main` rebuilds the pack, publishes it as a
+[GitHub release](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=bepinex) (`bepinex-<version>`)
+and uploads it to Nexus ([`bepinex-publish.yml`](../../.github/workflows/bepinex-publish.yml)). Vortex users get
+it automatically once Nexus has reviewed the file; until then, the GitHub release has the same zip.
 
 The output goes to `dist/BepInEx-IL2CPP-RoB/` and `dist/BepInEx-IL2CPP-RoB.zip`.
 
