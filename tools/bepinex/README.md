@@ -30,8 +30,9 @@ Every other file, including the bundled .NET runtime, `winhttp.dll` (Doorstop) a
 
 ## Build
 
-You need Windows, Git, the .NET SDK 8 or newer, Node.js 22+ with pnpm, and the GitHub CLI logged in
-(`gh auth login`, needed to download the Cpp2IL CI artifact).
+You need Windows, Git, the .NET SDK 8 or newer, and Node.js 22+ with pnpm. Cpp2IL is downloaded from
+the [`cpp2il-b5ad444`](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases/tag/cpp2il-b5ad444)
+release of this repo: an unmodified copy of the CI artifacts, which GitHub deletes after 90 days.
 
 ```bash
 git clone https://github.com/fantastic-jam/raiders-of-blackveil-mods.git
@@ -47,6 +48,9 @@ The script is [`tools/build-bepinex.mts`](../build-bepinex.mts), with the pinned
 2. clones Il2CppInterop @ `v1.5.3`, applies `il2cppinterop-unity6000_5-class.patch` and builds
    `Il2CppInterop.Runtime`;
 3. downloads stock be.793, copies the two DLLs over it and adds the Cpp2IL build to `BepInEx/cpp2il/`.
+
+Pushing a change to the patches or the build script on `main` rebuilds the pack and uploads it to Nexus
+([`bepinex-publish.yml`](../../.github/workflows/bepinex-publish.yml)). Vortex users get it automatically.
 
 The output goes to `dist/BepInEx-IL2CPP-RoB/` and `dist/BepInEx-IL2CPP-RoB.zip`.
 

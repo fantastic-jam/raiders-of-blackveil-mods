@@ -1,17 +1,20 @@
 name: Update Nexus descriptions
 
-# Pushes a mod's Nexus page description + summary as soon as they change on main.
-# This is the only place they are updated — releases (nexus-publish.yml) upload the file only.
+# Pushes a Nexus page description + summary as soon as they change on main: each mod under mods/, plus
+# the BepInEx IL2CPP pack (tools/bepinex/).
+# This is the only place they are updated — uploads (nexus-publish.yml, bepinex-publish.yml) send the file only.
 on:
   push:
     branches: [main]
     paths:
       - 'mods/*/nexus-description.txt'
       - 'mods/*/metadata.json'
+      - 'tools/bepinex/nexus-description.txt'
+      - 'tools/bepinex/metadata.json'
   workflow_dispatch:
     inputs:
       mod:
-        description: 'Mod folder under mods/ (e.g. JoinAnytime)'
+        description: 'Mod folder under mods/ (e.g. JoinAnytime), or "bepinex" for the BepInEx pack'
         required: true
 
 env:
@@ -23,37 +26,41 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # need the pushed range to find which mods changed
+          fetch-depth: 0 # need the pushed range to find which pages changed
 
-      - name: Find changed mods
-        id: mods
+      - name: Find changed pages
+        id: pages
         env:
           INPUT_MOD: ${{ inputs.mod }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
-          if [ -n "$INPUT_MOD" ]; then
+          if [ "$INPUT_MOD" = "bepinex" ]; then
+            DIRS="tools/bepinex"
+          elif [ -n "$INPUT_MOD" ]; then
             if ! [[ "$INPUT_MOD" =~ ^[A-Za-z0-9_-]+$ ]] || [ ! -d "mods/$INPUT_MOD" ]; then
               echo "::error::'$INPUT_MOD' is not a folder under mods/"
               exit 1
             fi
-            MODS="$INPUT_MOD"
+            DIRS="mods/$INPUT_MOD"
           elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
             echo "::notice::No previous commit to diff against — nothing to update."
-            MODS=""
+            DIRS=""
           else
-            MODS=$(git diff --name-only "$BEFORE" "$AFTER" -- 'mods/*/nexus-description.txt' 'mods/*/metadata.json' \
-              | cut -d/ -f2 | sort -u | tr '\n' ' ')
+            DIRS=$(git diff --name-only "$BEFORE" "$AFTER" -- \
+                'mods/*/nexus-description.txt' 'mods/*/metadata.json' \
+                'tools/bepinex/nexus-description.txt' 'tools/bepinex/metadata.json' \
+              | xargs -r -n1 dirname | sort -u | tr '\n' ' ')
           fi
-          echo "Mods to update: ${MODS:-<none>}"
-          echo "list=$MODS" >> "$GITHUB_OUTPUT"
+          echo "Pages to update: ${DIRS:-<none>}"
+          echo "list=$DIRS" >> "$GITHUB_OUTPUT"
 
       - name: Update Nexus pages
-        if: steps.mods.outputs.list != ''
+        if: steps.pages.outputs.list != ''
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
-          MODS: ${{ steps.mods.outputs.list }}
+          DIRS: ${{ steps.pages.outputs.list }}
         run: |
-          for mod in $MODS; do
-            bash .github/scripts/nexus-update-description.sh "mods/$mod"
+          for dir in $DIRS; do
+            bash .github/scripts/nexus-update-description.sh "$dir"
           done

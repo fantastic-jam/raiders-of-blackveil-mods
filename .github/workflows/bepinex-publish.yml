@@ -1,0 +1,152 @@
+name: Publish BepInEx IL2CPP pack
+
+# Rebuilds the BepInEx IL2CPP pack (tools/build-bepinex.mts) and uploads it to its Nexus page
+# (tools/bepinex/metadata.json) whenever its inputs change on main.
+# The page description is pushed separately by nexus-description.yml.
+# Vortex users get the new file automatically: the game extension always installs the newest MAIN file.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/bepinex/*.patch'
+      - 'tools/build-bepinex.mts'
+      - 'tools/lib/il2cpp.mts'
+      - 'tools/lib/zip.mts'
+  workflow_dispatch:
+
+concurrency:
+  group: bepinex-publish
+  cancel-in-progress: false
+
+env:
+  NEXUS_API: https://api.nexusmods.com/v3
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      # Windows runners default to autocrlf=true: the patches and the sources the build script clones
+      # must keep LF line endings or `git apply` fails.
+      - run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the changelog lists the commits of the pushed range
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+
+      - run: pnpm install --frozen-lockfile
+
+      # Cpp2IL comes from the cpp2il-* release mirror; GH_TOKEN is only for the CI-artifact fallback.
+      - name: Build pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm run build:bepinex
+
+      - name: Version and changelog
+        id: version
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          BUILD=$(sed -nE 's/^export const BEPINEX_BUILD = ([0-9]+).*/\1/p' tools/lib/il2cpp.mts)
+          VERSION="6.0.0-be.${BUILD}-rob.${{ github.run_number }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          PATHS=(tools/bepinex tools/build-bepinex.mts tools/lib/il2cpp.mts tools/lib/zip.mts)
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git log --format='%s' "$BEFORE..$AFTER" -- "${PATHS[@]}" > changelog.txt
+          fi
+          [ -s changelog.txt ] || echo "Rebuilt from $(git rev-parse --short HEAD)." > changelog.txt
+          echo "Version: $VERSION"
+          cat changelog.txt
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: bepinex-pack
+          path: |
+            dist/BepInEx-IL2CPP-RoB.zip
+            changelog.txt
+          if-no-files-found: error
+
+  nexus-upload:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: bepinex-pack
+          path: pack
+
+      - name: Read metadata
+        id: meta
+        run: |
+          META=tools/bepinex/metadata.json
+          echo "file_id=$(jq -r '.nexus_file_id' "$META")" >> "$GITHUB_OUTPUT"
+          echo "mod_uid=$(jq -r '.nexus_mod_uid' "$META")" >> "$GITHUB_OUTPUT"
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            cat pack/changelog.txt
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Fail fast with a clear message when the key is expired or revoked.
+      - name: Check Nexus API key
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "apikey: $NEXUS_API_KEY" \
+            "$NEXUS_API/mods/${{ steps.meta.outputs.mod_uid }}/files")
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Nexus API key check failed (HTTP $STATUS). Regenerate the key and run: gh secret set NEXUS_API_KEY"
+            exit 1
+          fi
+
+      - name: Upload to Nexus Mods
+        id: nexus_upload
+        continue-on-error: true
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.11
+        with:
+          api_key: ${{ secrets.NEXUS_API_KEY }}
+          file_id: ${{ steps.meta.outputs.file_id }}
+          filename: pack/dist/BepInEx-IL2CPP-RoB.zip
+          display_name: BepInEx IL2CPP RoB
+          version: ${{ needs.build.outputs.version }}
+          category: main
+          archive_existing_version: true
+          update_mod_version: true
+          mod_id: ${{ steps.meta.outputs.mod_uid }}
+          changelog: ${{ steps.meta.outputs.changelog }}
+
+      # Nexus beta API returns intermittent 500s — retry once.
+      - name: Wait before retry
+        if: steps.nexus_upload.outcome == 'failure'
+        run: sleep 30
+
+      - name: Upload to Nexus Mods (retry)
+        if: steps.nexus_upload.outcome == 'failure'
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.11
+        with:
+          api_key: ${{ secrets.NEXUS_API_KEY }}
+          file_id: ${{ steps.meta.outputs.file_id }}
+          filename: pack/dist/BepInEx-IL2CPP-RoB.zip
+          display_name: BepInEx IL2CPP RoB
+          version: ${{ needs.build.outputs.version }}
+          category: main
+          archive_existing_version: true
+          update_mod_version: true
+          mod_id: ${{ steps.meta.outputs.mod_uid }}
+          changelog: ${{ steps.meta.outputs.changelog }}

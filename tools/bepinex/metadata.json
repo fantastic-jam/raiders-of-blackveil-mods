@@ -1,0 +1,6 @@
+{
+  "nexus_mod_id": 19,
+  "nexus_file_id": "8468334",
+  "nexus_mod_uid": "36743445217299",
+  "nexus_short_description": "Mod loader for the IL2CPP version of Raiders of Blackveil (0.6.5+). BepInEx 6 with the fixes the game needs, since stock BepInEx doesn't run on it yet. Required by every mod for the current game version."
+}

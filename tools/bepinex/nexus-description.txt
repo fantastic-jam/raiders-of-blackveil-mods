@@ -1,0 +1,62 @@
+[size=5]BepInEx IL2CPP for Raiders of Blackveil[/size]
+
+The mod loader for the current version of Raiders of Blackveil. [b]Every mod made for game 0.6.5 and later needs it.[/b]
+
+Since version 0.6.5, the game is built with IL2CPP. Mods now need [b]BepInEx 6[/b], and the official BepInEx 6 build doesn't start on this game yet. This pack is the official BepInEx 6 (bleeding edge build 793) with the fixes the game needs. Nothing else is changed.
+
+[b]BepInEx 5, and mods made for the old version of the game, no longer work.[/b] Uninstall them.
+
+[line]
+[heading]Installation[/heading]
+
+[b]With Vortex (recommended)[/b]
+[list]
+[*]Install the [i]Raiders of Blackveil[/i] game extension (Vortex → Extensions).[/*]
+[*]Manage the game in Vortex. It downloads and installs this pack automatically, and updates it when a new version comes out.[/*]
+[/list]
+
+[b]Manually[/b]
+[list]
+[*]Remove any previous BepInEx: the [b]BepInEx[/b] folder, [b]winhttp.dll[/b] and [b]doorstop_config.ini[/b] in the game folder.[/*]
+[*]Extract the ZIP into your game folder, the one containing [b]RoB.exe[/b].[/*]
+[*]Launch the game once.[/*]
+[/list]
+
+[line]
+[heading]First launch[/heading]
+
+The first launch takes [b]one to two minutes longer[/b] than usual, with a console window open: BepInEx reads the game's code and generates the files mods need to work with it. The game isn't frozen, let it finish. It happens again after each game update.
+
+[line]
+[heading]Good to know[/heading]
+
+[list]
+[*]Mods go in [b]BepInEx/plugins/[/b].[/*]
+[*]The log is in [b]BepInEx/LogOutput.log[/b]. Attach it when you report a problem.[/*]
+[*]If the game was updated and mods stop loading, check this page for a new version.[/*]
+[*]This pack is temporary. Once official BepInEx supports the game, it will point you there.[/*]
+[/list]
+
+[line]
+[heading]What's changed compared to the official BepInEx[/heading]
+
+Two files are rebuilt from the official source code with small fixes:
+[list]
+[*][b]BepInEx.Unity.IL2CPP.dll[/b]: uses a newer Cpp2IL (the tool that reads the game's code), because the bundled one can't read this game. It runs as a separate program, included in [b]BepInEx/cpp2il/[/b].[/*]
+[*][b]Il2CppInterop.Runtime.dll[/b]: supports the internal data layout of Unity 6000.5, the engine version the game uses.[/*]
+[/list]
+Every other file is the official BepInEx 6 build 793.
+
+Source code, patches and build steps: [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/tree/main/tools/bepinex]GitHub[/url]
+
+[line]
+[heading]Credits[/heading]
+
+[list]
+[*][url=https://github.com/BepInEx/BepInEx]BepInEx[/url] by the BepInEx team (LGPL-2.1)[/*]
+[*][url=https://github.com/BepInEx/Il2CppInterop]Il2CppInterop[/url] by the BepInEx team, originally Unhollower by knah (LGPL-3.0)[/*]
+[*][url=https://github.com/SamboyCoding/Cpp2IL]Cpp2IL[/url] by Samboy063 (MIT)[/*]
+[*][url=https://github.com/NeighTools/UnityDoorstop]UnityDoorstop[/url] by NeighTools (LGPL-2.1)[/*]
+[*].NET runtime by Microsoft and the .NET Foundation (MIT)[/*]
+[*]Unity 6000.5 class layout from [url=https://github.com/roytu/Il2CppDumper/pull/5]roytu/Il2CppDumper#5[/url][/*]
+[/list]
