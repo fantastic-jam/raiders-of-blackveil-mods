@@ -1,0 +1,127 @@
+diff --git a/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs b/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs
+index fe9de89..8b70dba 100644
+--- a/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs
++++ b/Runtimes/Unity/BepInEx.Unity.IL2CPP/Il2CppInteropManager.cs
+@@ -112,8 +112,30 @@ internal static partial class Il2CppInteropManager
+          .AppendLine("{GameDataPath} - Path to the game's Data folder.")
+          .ToString());
+ 
++    private static readonly ConfigEntry<string> ExternalCpp2IlPath = ConfigFile.CoreConfig.Bind(
++     "IL2CPP", "ExternalCpp2ILPath",
++     "{BepInEx}/cpp2il/Cpp2IL.exe",
++     new StringBuilder()
++         .AppendLine("Path to a standalone Cpp2IL executable. When the file exists, BepInEx runs it in a separate process")
++         .AppendLine("to generate dummy assemblies instead of the bundled Cpp2IL. Use it when the game's IL2CPP metadata is newer")
++         .AppendLine("than the bundled Cpp2IL supports (newer Cpp2IL builds cannot be loaded in-process next to Il2CppInterop).")
++         .AppendLine("Supports the {BepInEx} placeholder. Leave empty to always use the bundled Cpp2IL.")
++         .ToString());
++
+     private static readonly ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource("InteropManager");
+ 
++    private static string ExternalCpp2IlExecutable
++    {
++        get
++        {
++            var value = ExternalCpp2IlPath.Value;
++            if (string.IsNullOrWhiteSpace(value))
++                return null;
++            var path = Path.GetFullPath(value.Replace("{BepInEx}", Paths.BepInExRootPath));
++            return File.Exists(path) ? path : null;
++        }
++    }
++
+     private static string il2cppInteropBasePath;
+ 
+     private static bool initialized;
+@@ -185,6 +207,11 @@ internal static partial class Il2CppInteropManager
+         // Hash some common dependencies as they can affect output
+         HashString(md5, typeof(InteropAssemblyGenerator).Assembly.GetName().Version.ToString());
+         HashString(md5, typeof(Cpp2IlApi).Assembly.GetName().Version.ToString());
++        if (ExternalCpp2IlExecutable is { } externalCpp2Il)
++        {
++            HashString(md5, "external-cpp2il");
++            HashFile(md5, externalCpp2Il);
++        }
+ 
+         md5.TransformFinalBlock(new byte[0], 0, 0);
+ 
+@@ -348,6 +375,9 @@ internal static partial class Il2CppInteropManager
+                                                           .Replace("{ProcessName}", Paths.ProcessName)
+                                                           .Replace("{GameDataPath}", Paths.GameDataPath));
+         
++        if (ExternalCpp2IlExecutable is { } externalCpp2Il)
++            return RunExternalCpp2Il(externalCpp2Il, metadataPath);
++
+         Logger.LogMessage("Running Cpp2IL to generate dummy assemblies from " + metadataPath);
+ 
+         var stopwatch = new Stopwatch();
+@@ -390,6 +420,69 @@ internal static partial class Il2CppInteropManager
+         return assemblies;
+     }
+ 
++    /// <summary>
++    /// Runs a standalone Cpp2IL in its own process and loads its dummy DLLs with BepInEx's own AsmResolver.
++    /// Newer Cpp2IL builds depend on AsmResolver 6.x, which is not binary compatible with the version
++    /// Il2CppInterop is built against, so they cannot share this process.
++    /// </summary>
++    private static List<AsmResolver.DotNet.AssemblyDefinition> RunExternalCpp2Il(string cpp2IlPath, string metadataPath)
++    {
++        var outputDir = Path.Combine(IL2CPPBasePath, "cpp2il-out");
++        if (Directory.Exists(outputDir))
++            Directory.Delete(outputDir, true);
++        Directory.CreateDirectory(outputDir);
++
++        var unityVersion = UnityInfo.Version;
++        var args = new[]
++        {
++            "--force-binary-path", GameAssemblyPath,
++            "--force-metadata-path", metadataPath,
++            "--force-unity-version", $"{unityVersion.Major}.{unityVersion.Minor}.{unityVersion.Build}",
++            "--use-processor", "attributeinjector",
++            "--output-as", "dummydll",
++            "--output-to", outputDir,
++        };
++
++        Logger.LogMessage($"Running external Cpp2IL ({cpp2IlPath}) to generate dummy assemblies from {metadataPath}");
++        var stopwatch = Stopwatch.StartNew();
++        var cpp2IlLogger = BepInEx.Logging.Logger.CreateLogSource("Cpp2IL");
++
++        var startInfo = new ProcessStartInfo(cpp2IlPath)
++        {
++            UseShellExecute = false,
++            CreateNoWindow = true,
++            RedirectStandardOutput = true,
++            RedirectStandardError = true,
++            WorkingDirectory = Path.GetDirectoryName(cpp2IlPath)!,
++        };
++        foreach (var arg in args)
++            startInfo.ArgumentList.Add(arg);
++
++        using (var process = new Process { StartInfo = startInfo })
++        {
++            process.OutputDataReceived += (_, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) cpp2IlLogger.LogInfo(StripAnsi(e.Data)); };
++            process.ErrorDataReceived += (_, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) cpp2IlLogger.LogError(StripAnsi(e.Data)); };
++            process.Start();
++            process.BeginOutputReadLine();
++            process.BeginErrorReadLine();
++            process.WaitForExit();
++            if (process.ExitCode != 0)
++                throw new InvalidOperationException($"External Cpp2IL exited with code {process.ExitCode}");
++        }
++
++        var assemblies = Directory.EnumerateFiles(outputDir, "*.dll")
++                                  .Select(AsmResolver.DotNet.AssemblyDefinition.FromFile)
++                                  .ToList();
++        if (assemblies.Count == 0)
++            throw new InvalidOperationException("External Cpp2IL produced no assemblies");
++
++        stopwatch.Stop();
++        Logger.LogInfo($"External Cpp2IL finished in {stopwatch.Elapsed} ({assemblies.Count} assemblies)");
++        return assemblies;
++    }
++
++    private static string StripAnsi(string text) => Regex.Replace(text, @"\x1B\[[0-9;]*m", string.Empty);
++
+     private static void RunIl2CppInteropGenerator(List<AsmResolver.DotNet.AssemblyDefinition> sourceAssemblies)
+     {
+         var opts = new GeneratorOptions

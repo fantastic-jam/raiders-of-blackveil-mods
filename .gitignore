@@ -2,7 +2,7 @@
 bin/
 obj/
 /packages/
-game-lib/*.dll
+game-lib/
 /dev/
 *.iml
 *.user
@@ -10,8 +10,9 @@ game-lib/*.dll
 UserPaths.props
 .claude/
 node_modules/
-bepinex/
+/bepinex/
 game-src/*
+game-src-mono/
 dist
 deploy.log
 plans/*
