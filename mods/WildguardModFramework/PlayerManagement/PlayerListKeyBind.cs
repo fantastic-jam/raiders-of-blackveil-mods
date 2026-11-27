@@ -36,12 +36,12 @@ namespace WildguardModFramework.PlayerManagement {
             if (isInGameMenu) {
                 row.Enabled = false;
             } else {
-                row.OnRebindCompleted = _ => {
+                row.OnRebindCompleted = (System.Action<OptionKeyBind>)(_ => {
                     var segments = row.BindingPath.Split('/');
                     if (System.Enum.TryParse<Key>(segments[segments.Length - 1], ignoreCase: true, out var newKey)) {
                         WmfConfig.PlayerListKey.Value = newKey;
                     }
-                };
+                });
             }
 
             container.Add(row);

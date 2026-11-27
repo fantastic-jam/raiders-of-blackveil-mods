@@ -11,6 +11,8 @@
   "stepper.no": "No",
   "gamemode.normal": "Normal",
   "solo.title": "SOLO GAME",
+  "solo.start": "Start",
+  "solo.back": "Back",
   "options.chat.tab": "Chat",
   "options.players.tab": "Players",
   "players.overlay_key": "Show player list (hold)",

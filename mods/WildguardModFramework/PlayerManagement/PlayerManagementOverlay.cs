@@ -4,7 +4,9 @@ using Fusion;
 using RR;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WildguardModFramework.Interop;
 using WildguardModFramework.Network;
+using WildguardModFramework.Ui;
 
 namespace WildguardModFramework.PlayerManagement {
     /// <summary>
@@ -49,7 +51,7 @@ namespace WildguardModFramework.PlayerManagement {
             backdrop.style.backgroundColor = new Color(0f, 0f, 0f, 0.75f);
             backdrop.style.alignItems = Align.Center;
             backdrop.style.justifyContent = Justify.Center;
-            backdrop.RegisterCallback<ClickEvent>(evt => { if (evt.target == backdrop) { _onClose(); } });
+            backdrop.On<ClickEvent>(evt => { if (evt.target.SameAs(backdrop)) { _onClose(); } });
 
             var card = new VisualElement();
             card.pickingMode = PickingMode.Position;

@@ -1,8 +1,9 @@
 ﻿using System;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
+using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
+using Il2CppInterop.Runtime.Injection;
 using ModRegistry;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,7 +17,7 @@ using WildguardModFramework.Translation;
 
 namespace WildguardModFramework {
     [BepInPlugin(Id, Name, Version)]
-    public class WmfMod : BaseUnityPlugin, IModRegistrant {
+    public class WmfMod : BasePlugin, IModRegistrant {
         internal const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework";
         public const string Name = "WMF";
         public const string Version = "0.8.2";
@@ -27,16 +28,12 @@ namespace WildguardModFramework {
         internal static T t;
 
         /// <summary>
-        /// Persistent coroutine host. Created in Awake() with DontDestroyOnLoad so it survives
+        /// Persistent coroutine host. Created in Load() with DontDestroyOnLoad so it survives
         /// scene transitions and is always available for networking coroutines.
         /// </summary>
         internal static CoroutineRunner Runner { get; private set; }
 
         private Harmony _harmony;
-#if DEV_HOTRELOAD
-        public static ConfigEntry<string> CfgDevHotReloadDllPath;
-        private Harmony _devHarmony;
-#endif
 
         public string GetModType() => nameof(ModType.Utility);
         public string GetModName() => Name;
@@ -45,18 +42,12 @@ namespace WildguardModFramework {
         public bool IsClientRequired => false;
         public void Enable() {
             Disabled = false;
-#if DEV_HOTRELOAD
-            Dev.HotReloadController.Enable();
-#endif
         }
 
         public void Disable() {
             PublicLogger.LogInfo($"{Name}: disabled.");
             Disabled = true;
             _harmony?.UnpatchSelf();
-#if DEV_HOTRELOAD
-            Dev.HotReloadController.Disable();
-#endif
         }
 
         // IModMenuProvider — WMF's own settings appear in the Mods menu left nav via ModScanner
@@ -68,16 +59,19 @@ namespace WildguardModFramework {
             ("Players", (c, g) => PlayerManagementController.BuildBanListPanel(c, g)),
         };
 
-        public void Awake() {
+        public override void Load() {
             Instance = this;
-            PublicLogger = Logger;
+            PublicLogger = Log;
             try {
+                ClassInjector.RegisterTypeInIl2Cpp<CoroutineRunner>();
+                ClassInjector.RegisterTypeInIl2Cpp<ModNotificationOverlay>();
                 var runnerGo = new GameObject("WMF.CoroutineRunner");
-                DontDestroyOnLoad(runnerGo);
+                UnityEngine.Object.DontDestroyOnLoad(runnerGo);
+                runnerGo.hideFlags = HideFlags.HideAndDontSave;
                 Runner = runnerGo.AddComponent<CoroutineRunner>();
                 WmfNotifications.Init(runnerGo.AddComponent<ModNotificationOverlay>());
 
-                t = TranslationService.For(Name, Info.Location);
+                t = TranslationService.For(Name, typeof(WmfMod).Assembly.Location);
                 _harmony = new Harmony(Id);
                 WmfConfig.Init(Config);
                 ServerChat.Init(_harmony);
@@ -93,15 +87,6 @@ namespace WildguardModFramework {
             catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
-#if DEV_HOTRELOAD
-            CfgDevHotReloadDllPath = Config.Bind(
-                "DevHotReload", "DllPath", "",
-                "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/WildguardModFramework/bin/Debug/WildguardModFramework.dll");
-            _devHarmony = new Harmony(Id + ".dev");
-            Dev.HotReloadController.Initialize(_devHarmony, CfgDevHotReloadDllPath.Value);
-            Dev.HotReloadController.Enable();
-            PublicLogger.LogWarning($"[HotReload] DEV BUILD. DLL: {CfgDevHotReloadDllPath.Value}");
-#endif
         }
 
     }

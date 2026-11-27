@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+﻿using System;
 using HarmonyLib;
 using RR.Input;
 using RR.UI.Controls;
@@ -7,32 +7,26 @@ using RR.UI.Pages;
 using RR.UI.UISystem;
 using RR.UI.Utils;
 using UnityEngine.UIElements;
+using WildguardModFramework.Interop;
 
 namespace WildguardModFramework.ModMenu {
     internal static class MenuPausePagePatch {
-        private static FieldInfo _cursorField;
         private static ModsMenuOverlay _overlay;
         private static ButtonShared _modsButton;
         private static VisualElement _pageRoot;
+        private static readonly InstanceTracker _page = new();
 
         internal static void Apply(Harmony harmony) {
-            _cursorField = AccessTools.Field(typeof(MenuPausePage), "_cursor");
-            if (_cursorField == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage._cursor not found — Mods button keyboard nav unavailable.");
-            }
-
-            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
-            var ctor = AccessTools.Constructor(typeof(MenuPausePage), new[] { typeof(PageArgs) });
-            if (ctor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage(PageArgs) constructor not found — in-game Mods button skipped.");
+            // Pages are built in their PageArgs constructor, but IL2CPP constructors can't be patched:
+            // inject the button on the first OnActivate of each page instance (prefix), register it after (postfix).
+            var onActivate = AccessTools.Method(typeof(MenuPausePage), "OnActivate");
+            if (onActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuPausePage.OnActivate not found — in-game Mods button skipped.");
                 return;
             }
-            harmony.Patch(ctor, postfix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(CtorPostfix)));
-
-            var onActivate = AccessTools.Method(typeof(MenuPausePage), "OnActivate");
-            if (onActivate != null) {
-                harmony.Patch(onActivate, postfix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(OnActivatePostfix)));
-            }
+            harmony.Patch(onActivate,
+                prefix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(OnActivatePrefix)),
+                postfix: new HarmonyMethod(typeof(MenuPausePagePatch), nameof(OnActivatePostfix)));
 
             var onNavigate = AccessTools.Method(typeof(MenuPausePage), "OnNavigateInput");
             if (onNavigate != null) {
@@ -40,7 +34,13 @@ namespace WildguardModFramework.ModMenu {
             }
         }
 
-        private static void CtorPostfix(MenuPausePage __instance) {
+        private static void OnActivatePrefix(MenuPausePage __instance) => EnsureInjected(__instance);
+
+        private static void EnsureInjected(MenuPausePage page) {
+            if (_page.IsNew(page)) { Inject(page); }
+        }
+
+        private static void Inject(MenuPausePage __instance) {
             _pageRoot = __instance.RootElement;
             _overlay = null;
             _modsButton = null;
@@ -56,17 +56,17 @@ namespace WildguardModFramework.ModMenu {
 
             _modsButton = new ButtonShared {
                 // ParentPage gates clicks through PageBase.AllowClick (blocked during transitions / popups).
-                ParentPage = __instance,
+                ParentPage = __instance.Cast<IAllowClick>(),
                 IsLarge = optionsBtn.IsLarge,
                 SoundType = ButtonSoundType.PauseMenu,
-                OnClicked = OpenOverlay
+                OnClicked = (Action)OpenOverlay
             };
             _modsButton.style.alignSelf = Align.Stretch;
 
             // ButtonShared.LabelCustomTransform was removed — set the text on the inner LocLabel directly.
             var lbl = _modsButton.Q<LocLabel>("Label");
             if (lbl != null) {
-                lbl.SetLiteral("", customTransform: _ => WmfMod.t("label.mods"));
+                lbl.SetLiteral("", customTransform: (Func<string, string>)(_ => WmfMod.t("label.mods")));
             }
 
             container.Insert(container.IndexOf(optionsBtn) + 1, _modsButton);
@@ -80,8 +80,7 @@ namespace WildguardModFramework.ModMenu {
 
         private static void OnActivatePostfix(MenuPausePage __instance) {
             if (_modsButton == null) { return; }
-            var cursor = _cursorField?.GetValue(__instance) as UICursorLinear<object>;
-            cursor?.RegisterItem(_modsButton);
+            __instance._cursor?.RegisterItem(_modsButton.Cast<ICursorLinearStopElement>());
         }
 
         private static bool OnNavigateInputPrefix(InputPressEvent evt) {

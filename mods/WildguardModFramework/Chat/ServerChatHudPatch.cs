@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using HarmonyLib;
+﻿using HarmonyLib;
 using RR.Input;
 using RR.UI.Pages;
 using RR.UI.UISystem;
@@ -7,29 +6,21 @@ using UnityEngine.InputSystem;
 
 namespace WildguardModFramework.Chat {
     internal static class ServerChatHudPatch {
-        private static MethodInfo _isAnyPageOpenGetter;
-
         internal static void Apply(Harmony harmony) {
-            _isAnyPageOpenGetter = AccessTools.Property(typeof(GameHUDPage), "IsAnyPageOpen")
-                ?.GetGetMethod(nonPublic: true);
-            if (_isAnyPageOpenGetter == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage.IsAnyPageOpen not found — chat may open over sub-pages.");
-            }
-
-            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
-            // Patch the concrete HUD ctors so the overlay is added after the HUD's own elements (on top).
-            var ctorPostfix = new HarmonyMethod(typeof(ServerChatHudPatch), nameof(HudCtorPostfix));
-            var gameHudCtor = AccessTools.Constructor(typeof(GameHUDPage), new[] { typeof(PageArgs) });
-            if (gameHudCtor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage(PageArgs) constructor not found — in-raid chat overlay inactive.");
+            // Pages are built in their PageArgs constructor, but IL2CPP constructors can't be patched.
+            // Build the overlay on the first OnActivate of each concrete HUD (after the HUD's own elements → on top).
+            var activatePrefix = new HarmonyMethod(typeof(ServerChatHudPatch), nameof(HudActivatePrefix));
+            var gameHudActivate = AccessTools.Method(typeof(GameHUDPage), "OnActivate");
+            if (gameHudActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage.OnActivate not found — in-raid chat overlay inactive.");
             } else {
-                harmony.Patch(gameHudCtor, postfix: ctorPostfix);
+                harmony.Patch(gameHudActivate, prefix: activatePrefix);
             }
-            var lobbyHudCtor = AccessTools.Constructor(typeof(LobbyHUDPage), new[] { typeof(PageArgs) });
-            if (lobbyHudCtor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage(PageArgs) constructor not found — lobby chat overlay inactive.");
+            var lobbyHudActivate = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
+            if (lobbyHudActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage.OnActivate not found — lobby chat overlay inactive.");
             } else {
-                harmony.Patch(lobbyHudCtor, postfix: ctorPostfix);
+                harmony.Patch(lobbyHudActivate, prefix: activatePrefix);
             }
 
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
@@ -51,13 +42,16 @@ namespace WildguardModFramework.Chat {
             if (lobbyNavInput != null) { harmony.Patch(lobbyNavInput, prefix: navigatePrefix); }
         }
 
-        private static void HudCtorPostfix(BaseHUDPage __instance) => ServerChat.OnHudInit(__instance);
+        private static void HudActivatePrefix(BaseHUDPage __instance) => ServerChat.OnHudInit(__instance);
 
         private static string _lastPageType;
 
+        // IL2CPP: __instance is wrapped as the declared parameter type (BaseHUDPage), so C# `is`
+        // never matches a subclass — always TryCast to test the native runtime type.
         private static void OnUpdatePostfix(BaseHUDPage __instance) {
-            if (!(__instance is GameHUDPage) && !(__instance is LobbyHUDPage)) { return; }
-            var typeName = __instance.GetType().Name;
+            var gameHud = __instance.TryCast<GameHUDPage>();
+            if (gameHud == null && __instance.TryCast<LobbyHUDPage>() == null) { return; }
+            var typeName = __instance.GetIl2CppType().Name;
             if (typeName != _lastPageType) {
                 _lastPageType = typeName;
                 WmfMod.PublicLogger.LogInfo($"[Chat] OnUpdate page type: {typeName}");
@@ -67,15 +61,12 @@ namespace WildguardModFramework.Chat {
             var kb = Keyboard.current;
             if (kb?.enterKey.wasPressedThisFrame != true && kb?.numpadEnterKey.wasPressedThisFrame != true) { return; }
             WmfMod.PublicLogger.LogInfo("[Chat] Enter detected");
-            if (__instance is GameHUDPage gameHud) {
-                bool anyPageOpen = _isAnyPageOpenGetter != null && (bool)_isAnyPageOpenGetter.Invoke(gameHud, null);
-                if (anyPageOpen) { return; }
-            }
+            if (gameHud != null && gameHud.IsAnyPageOpen) { return; }
             ServerChat.Open();
         }
 
         private static void OnDeactivatePostfix(BaseHUDPage __instance) {
-            if (__instance is GameHUDPage || __instance is LobbyHUDPage) {
+            if (__instance.TryCast<GameHUDPage>() != null || __instance.TryCast<LobbyHUDPage>() != null) {
                 ServerChat.ForceClose(__instance);
             }
         }

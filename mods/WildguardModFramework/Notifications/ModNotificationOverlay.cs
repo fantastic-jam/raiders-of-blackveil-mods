@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace WildguardModFramework.Notifications {
@@ -30,6 +31,8 @@ namespace WildguardModFramework.Notifications {
         private readonly List<Entry> _entries = new();
         private GUIStyle _labelStyle;
         private GUIStyle _boxStyle;
+
+        public ModNotificationOverlay(IntPtr ptr) : base(ptr) { }
 
         internal void Show(string message, NotificationLevel level, bool autoClose) {
             _entries.Add(new Entry(message, level, autoClose));

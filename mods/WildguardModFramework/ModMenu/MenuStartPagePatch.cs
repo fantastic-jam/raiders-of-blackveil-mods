@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using WildguardModFramework.Interop;
 using WildguardModFramework.Lifecycle;
 using WildguardModFramework.Registry;
 using RR;
@@ -8,6 +9,8 @@ using RR.UI.UISystem;
 
 namespace WildguardModFramework.ModMenu {
     internal static class MenuStartPagePatch {
+        private static readonly InstanceTracker _page = new();
+
         internal static void Apply(Harmony harmony) {
             var appManagerInit = AccessTools.Method(typeof(AppManager), nameof(AppManager.Init));
             if (appManagerInit != null) {
@@ -16,13 +19,16 @@ namespace WildguardModFramework.ModMenu {
                 WmfMod.PublicLogger.LogWarning("WMF: AppManager.Init not found — startup disable will not run.");
             }
 
-            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
-            var ctor = AccessTools.Constructor(typeof(MenuStartPage), new[] { typeof(PageArgs) });
-            if (ctor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage(PageArgs) constructor not found — Mods button skipped.");
+            // Pages are built in their PageArgs constructor, but IL2CPP constructors can't be patched:
+            // inject on the first OnActivate of each page instance (prefix — before it calls ResetCursor).
+            var onActivate = AccessTools.Method(typeof(MenuStartPage), "OnActivate");
+            if (onActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage.OnActivate not found — Mods button skipped.");
                 return;
             }
-            harmony.Patch(ctor, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(CtorPostfix)));
+            harmony.Patch(onActivate,
+                prefix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(OnActivatePrefix)),
+                postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(OnActivatePostfix)));
 
             // ResetCursor clears and rebuilds the button cursor on every OnActivate / OnReady.
             var resetCursor = AccessTools.Method(typeof(MenuStartPage), "ResetCursor");
@@ -30,11 +36,6 @@ namespace WildguardModFramework.ModMenu {
                 WmfMod.PublicLogger.LogWarning("WMF: MenuStartPage.ResetCursor not found — Mods button keyboard/gamepad nav unavailable.");
             } else {
                 harmony.Patch(resetCursor, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(ResetCursorPostfix)));
-            }
-
-            var onActivate = AccessTools.Method(typeof(MenuStartPage), "OnActivate");
-            if (onActivate != null) {
-                harmony.Patch(onActivate, postfix: new HarmonyMethod(typeof(MenuStartPagePatch), nameof(OnActivatePostfix)));
             }
 
             var onNavigate = AccessTools.Method(typeof(MenuStartPage), "OnNavigateInput");
@@ -49,9 +50,12 @@ namespace WildguardModFramework.ModMenu {
             ModLifecycle.ApplyStartupDisables();
         }
 
-        private static void CtorPostfix(MenuStartPage __instance) {
-            ModsButtonInjector.Inject(__instance);
-            SoloModePickerInjector.Inject(__instance);
+        private static void OnActivatePrefix(MenuStartPage __instance) => EnsureInjected(__instance);
+
+        private static void EnsureInjected(MenuStartPage page) {
+            if (!_page.IsNew(page)) { return; }
+            ModsButtonInjector.Inject(page);
+            SoloModePickerInjector.Inject(page);
         }
 
         private static void ResetCursorPostfix(MenuStartPage __instance) => ModsButtonInjector.RegisterInCursor(__instance);

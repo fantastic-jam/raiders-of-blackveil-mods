@@ -4,12 +4,8 @@
   <Import Project="..\Common.props" />
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>WildguardModFramework</AssemblyName>
     <RootNamespace>WildguardModFramework</RootNamespace>
-    <LangVersion>10</LangVersion>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -18,42 +14,17 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <Optimize>false</Optimize>
-    <DefineConstants>DEV_HOTRELOAD;WMF_DEBUG</DefineConstants>
+    <DefineConstants>WMF_DEBUG</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UIElementsModule">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UniTask">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UniTask.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(InteropDir)UnityEngine.IMGUIModule.dll" Private="False" />
+    <Reference Include="UnityEngine.UIElementsModule" HintPath="$(InteropDir)UnityEngine.UIElementsModule.dll" Private="False" />
+    <Reference Include="UniTask" HintPath="$(InteropDir)UniTask.dll" Private="False" />
     <!-- SessionProperty (Fusion session custom properties) — used by PresenceProtocol. -->
-    <Reference Include="Fusion.Realtime">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Fusion.Realtime.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <Reference Include="UnityHotReload">
-      <HintPath>..\..\dev\UnityHotReload\UnityHotReload.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="UnityEngine.UnityWebRequestModule">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>$(RaidersOfBlackveilRootPath)\RoB_Data\Managed\Newtonsoft.Json.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <Reference Include="Fusion.Realtime" HintPath="$(InteropDir)Fusion.Realtime.dll" Private="False" />
+    <!-- BepInEx INativeDetour (native detour for Span-parameter methods Harmony cannot call) -->
+    <Reference Include="MonoMod.RuntimeDetour" HintPath="$(BepInExCoreDir)MonoMod.RuntimeDetour.dll" Private="False" />
   </ItemGroup>
 
   <ItemGroup>

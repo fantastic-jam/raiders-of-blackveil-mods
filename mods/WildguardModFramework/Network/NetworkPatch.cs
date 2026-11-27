@@ -2,10 +2,12 @@
 using Fusion;
 using Fusion.Sockets;
 using HarmonyLib;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using RR;
 using RR.Backend.API.V2.Multiplayer.Types;
 using RR.Level;
 using WildguardModFramework.Chat;
+using WildguardModFramework.Interop;
 using WildguardModFramework.PlayerManagement;
 
 namespace WildguardModFramework.Network {
@@ -45,13 +47,8 @@ namespace WildguardModFramework.Network {
                 harmony.Patch(onPlayerLeft, postfix: new HarmonyMethod(typeof(NetworkPatch), nameof(OnPlayerLeftPostfix)));
             }
 
-            var reliableDataReceived = AccessTools.Method(typeof(NetworkManager), "OnReliableDataReceived",
-                new[] { typeof(NetworkRunner), typeof(PlayerRef), typeof(ReliableKey), typeof(ReadOnlySpan<byte>) });
-            if (reliableDataReceived == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: NetworkManager.OnReliableDataReceived not found — mod data channel inactive.");
-            } else {
-                harmony.Patch(reliableDataReceived, prefix: new HarmonyMethod(typeof(NetworkPatch), nameof(OnReliableDataReceivedPrefix)));
-            }
+            // ReadOnlySpan parameter: Harmony can't call the original under IL2CPP — native detour instead.
+            ReliableDataDetour.Apply();
 
             var onShutdown = AccessTools.Method(typeof(NetworkManager), "OnShutdown");
             if (onShutdown != null) {
@@ -104,9 +101,6 @@ namespace WildguardModFramework.Network {
             PlayerManagementController.RefreshOverlay();
         }
 
-        private static bool OnReliableDataReceivedPrefix(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) =>
-            GameModeProtocol.OnReliableDataReceived(runner, player, key, data);
-
         private static void OnShutdownPostfix() {
             GameModeProtocol.OnShutdown();
             ServerChat.ClearAll();
@@ -120,11 +114,13 @@ namespace WildguardModFramework.Network {
 
         // Harmony binds by parameter name — must match the game's RPC signature (renamed in 0.6.5).
         // Disconnected roster entries carry PlayerRef.None and resolve to a null player below.
-        private static void SetUserDataAllPostfix(PlayerManager __instance, PlayerRef[] raidPlayerRefs) {
+        // IL2CPP: arrays arrive as Il2CppStructArray, not T[].
+        private static void SetUserDataAllPostfix(PlayerManager __instance, Il2CppStructArray<PlayerRef> raidPlayerRefs) {
+            if (raidPlayerRefs == null) { return; }
             foreach (var playerRef in raidPlayerRefs) {
                 var player = __instance.GetPlayer(playerRef);
                 if (player == null) { continue; }
-                PlayerManagementController.OnSetUserData(__instance, playerRef, player.ProfileUUID);
+                PlayerManagementController.OnSetUserData(__instance, playerRef, player.ProfileUUID.ToManaged());
             }
             PlayerManagementController.MarkDirty();
         }

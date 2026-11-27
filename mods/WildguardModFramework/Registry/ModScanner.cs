@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using BepInEx;
-using BepInEx.Bootstrap;
+using BepInEx.Unity.IL2CPP;
 using ModRegistry;
 using UnityEngine.UIElements;
 using WildguardModFramework.ModMenu;
@@ -23,7 +23,7 @@ namespace WildguardModFramework.Registry {
             GameModes.Clear();
             AllDiscovered.Clear();
 
-            foreach (var info in Chainloader.PluginInfos.Values) {
+            foreach (var info in IL2CPPChainloader.Instance.Plugins.Values) {
                 if (info.Metadata.GUID == WmfMod.Id) { continue; }
 
                 var mod = TryResolve(info);

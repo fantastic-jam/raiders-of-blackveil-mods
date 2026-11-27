@@ -6,20 +6,20 @@ using UnityEngine.InputSystem;
 namespace WildguardModFramework.PlayerManagement {
     internal static class PlayerManagementPatch {
         internal static void Apply(Harmony harmony) {
-            // Pages no longer have an OnInit hook — all init happens in the PageArgs constructor.
-            // Patch the concrete HUD ctors so the overlay is added after the HUD's own elements (on top).
-            var ctorPostfix = new HarmonyMethod(typeof(PlayerManagementPatch), nameof(HudCtorPostfix));
-            var gameHudCtor = AccessTools.Constructor(typeof(GameHUDPage), new[] { typeof(PageArgs) });
-            if (gameHudCtor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage(PageArgs) constructor not found — in-raid player management overlay inactive.");
+            // Pages are built in their PageArgs constructor, but IL2CPP constructors can't be patched.
+            // Build the overlay on the first OnActivate of each concrete HUD (after the HUD's own elements → on top).
+            var activatePrefix = new HarmonyMethod(typeof(PlayerManagementPatch), nameof(HudActivatePrefix));
+            var gameHudActivate = AccessTools.Method(typeof(GameHUDPage), "OnActivate");
+            if (gameHudActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: GameHUDPage.OnActivate not found — in-raid player management overlay inactive.");
             } else {
-                harmony.Patch(gameHudCtor, postfix: ctorPostfix);
+                harmony.Patch(gameHudActivate, prefix: activatePrefix);
             }
-            var lobbyHudCtor = AccessTools.Constructor(typeof(LobbyHUDPage), new[] { typeof(PageArgs) });
-            if (lobbyHudCtor == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage(PageArgs) constructor not found — lobby player management overlay inactive.");
+            var lobbyHudActivate = AccessTools.Method(typeof(LobbyHUDPage), "OnActivate");
+            if (lobbyHudActivate == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: LobbyHUDPage.OnActivate not found — lobby player management overlay inactive.");
             } else {
-                harmony.Patch(lobbyHudCtor, postfix: ctorPostfix);
+                harmony.Patch(lobbyHudActivate, prefix: activatePrefix);
             }
 
             var onUpdate = AccessTools.Method(typeof(BaseHUDPage), "OnUpdate");
@@ -35,10 +35,11 @@ namespace WildguardModFramework.PlayerManagement {
             }
         }
 
-        private static void HudCtorPostfix(BaseHUDPage __instance) => PlayerManagementController.OnHudInit(__instance);
+        private static void HudActivatePrefix(BaseHUDPage __instance) => PlayerManagementController.OnHudInit(__instance);
 
+        // IL2CPP: __instance is wrapped as BaseHUDPage — TryCast tests the native runtime type.
         private static void OnUpdatePostfix(BaseHUDPage __instance) {
-            if (!(__instance is GameHUDPage) && !(__instance is LobbyHUDPage)) { return; }
+            if (__instance.TryCast<GameHUDPage>() == null && __instance.TryCast<LobbyHUDPage>() == null) { return; }
             PlayerManagementController.SetActivePage(__instance);
             var kb = Keyboard.current;
             var listKey = kb?[WmfConfig.PlayerListKey.Value];
@@ -47,16 +48,11 @@ namespace WildguardModFramework.PlayerManagement {
             } else if (listKey?.wasReleasedThisFrame == true) {
                 PlayerManagementController.HideOverlay();
             }
-#if WMF_DEBUG
-            if (kb?[Key.F5].wasPressedThisFrame == true) {
-                WildguardModFramework.Debug.GameModeDebug.PollSessions();
-            }
-#endif
             PlayerManagementController.TickInputMode();
         }
 
         private static void OnDeactivatePostfix(BaseHUDPage __instance) {
-            if (__instance is GameHUDPage || __instance is LobbyHUDPage) {
+            if (__instance.TryCast<GameHUDPage>() != null || __instance.TryCast<LobbyHUDPage>() != null) {
                 PlayerManagementController.ForceClose(__instance);
             }
         }

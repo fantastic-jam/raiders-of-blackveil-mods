@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using Fusion;
 using HarmonyLib;
 using RR;
@@ -9,11 +10,13 @@ using RR.UI.Pages;
 using RR.UI.UISystem;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WildguardModFramework.Interop;
 using WildguardModFramework.Network;
 
 namespace WildguardModFramework.PlayerManagement {
     internal static class PlayerManagementController {
-        private static readonly Dictionary<BaseHUDPage, PlayerManagementOverlay> _overlays = new();
+        private static readonly Dictionary<BaseHUDPage, PlayerManagementOverlay> _overlays =
+            new(NativeIdentityComparer<BaseHUDPage>.Instance);
         private static BaseHUDPage _activePage;
 
         private static PlayerManagementOverlay ActiveOverlay =>
@@ -66,11 +69,11 @@ namespace WildguardModFramework.PlayerManagement {
             var pm = PlayerManager.Instance;
             var rows = new List<PlayerRow>();
             if (runner == null || pm == null) { return rows; }
-            foreach (var playerRef in runner.ActivePlayers) {
+            foreach (var playerRef in runner.ActivePlayers.ToManagedList()) {
                 var player = pm.GetPlayer(playerRef);
                 if (player == null) { continue; }
                 bool isModded = GameModeProtocol.IsKnownModded(playerRef);
-                rows.Add(new PlayerRow(playerRef, player.ProfileUUID, player.UserName ?? "?", isModded, player.IsLocal));
+                rows.Add(new PlayerRow(playerRef, player.ProfileUUID.ToManaged(), player.UserName ?? "?", isModded, player.IsLocal));
             }
             return rows;
         }
@@ -84,7 +87,7 @@ namespace WildguardModFramework.PlayerManagement {
                     im.SetCursorToMenuMode(false);
                 }
             }
-            if (_activePage == page) { _activePage = null; }
+            if (_activePage.SameAs(page)) { _activePage = null; }
         }
 
         private static void Close() {
@@ -99,6 +102,8 @@ namespace WildguardModFramework.PlayerManagement {
         // ── HUD lifecycle ──────────────────────────────────────────────────
 
         internal static void OnHudInit(BaseHUDPage page) {
+            // Called on every OnActivate — build the overlay once per HUD instance.
+            if (_overlays.ContainsKey(page)) { return; }
             _overlays[page] = new PlayerManagementOverlay(page.RootElement, Close);
         }
 
@@ -108,7 +113,7 @@ namespace WildguardModFramework.PlayerManagement {
             WmfMod.PublicLogger.LogInfo($"WMF: SetUserData({playerRef.PlayerId}) isServer={pm.Runner?.IsServer} banned={BanList.IsBanned(profileUuid)}.");
             if (pm.Runner?.IsServer != true || !BanList.IsBanned(profileUuid)) { return; }
             WmfMod.PublicLogger.LogInfo($"WMF: {playerRef.PlayerId} is banned — disconnecting.");
-            pm.StartCoroutine(GameModeProtocol.DisconnectAfterDelayCoroutine(pm.Runner, playerRef));
+            pm.StartCoroutine(GameModeProtocol.DisconnectAfterDelayCoroutine(pm.Runner, playerRef).WrapToIl2Cpp());
         }
 
         // ── Ban list menu panel ────────────────────────────────────────────
@@ -159,10 +164,10 @@ namespace WildguardModFramework.PlayerManagement {
                 nameLabel.pickingMode = PickingMode.Ignore;
                 row.Add(nameLabel);
 
-                var unbanBtn = new Button(() => {
+                var unbanBtn = new Button((Action)(() => {
                     BanList.Remove(capturedId);
                     RefreshBanList(scroll);
-                }) { text = WmfMod.t("players.banned.unban") };
+                })) { text = WmfMod.t("players.banned.unban") };
                 unbanBtn.style.fontSize = 11;
                 unbanBtn.style.color = new Color(0.75f, 0.75f, 0.75f, 1f);
                 unbanBtn.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using Fusion;
 using RR;
 using UnityEngine;
@@ -42,7 +43,7 @@ namespace WildguardModFramework.Network {
         /// </summary>
         internal static void InjectSessionProperty(ref StartGameArgs args) {
             if (args.GameMode != GameMode.Host) { return; }
-            args.SessionProperties ??= new Dictionary<string, SessionProperty>();
+            args.SessionProperties ??= new Il2CppSystem.Collections.Generic.Dictionary<string, SessionProperty>();
             args.SessionProperties[SessionPropertyKey] = ProtocolVersion;
             WmfMod.PublicLogger.LogInfo("WMF: advertising WMF host in session properties.");
         }
@@ -57,7 +58,7 @@ namespace WildguardModFramework.Network {
                 return;
             }
             _awaiting[playerRef] = onResolved;
-            WmfMod.Runner.StartCoroutine(HelloTimeoutCoroutine(playerRef));
+            WmfMod.Runner.StartCoroutine(HelloTimeoutCoroutine(playerRef).WrapToIl2Cpp());
         }
 
         internal static bool HandleHello(NetworkRunner runner, PlayerRef playerRef) {
@@ -95,7 +96,7 @@ namespace WildguardModFramework.Network {
         /// <summary>Client: once connected, say hello if (and only if) the host advertises WMF.</summary>
         internal static void OnConnectedToServer(NetworkRunner runner) {
             if (runner == null || runner.IsServer) { return; }
-            WmfMod.Runner.StartCoroutine(SendHelloWhenAdvertisedCoroutine(runner));
+            WmfMod.Runner.StartCoroutine(SendHelloWhenAdvertisedCoroutine(runner).WrapToIl2Cpp());
         }
 
         private static IEnumerator SendHelloWhenAdvertisedCoroutine(NetworkRunner runner) {

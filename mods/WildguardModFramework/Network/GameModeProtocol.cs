@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using Cysharp.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
@@ -13,6 +14,7 @@ using RR.UI.Extensions;
 using RR.UI.Pages;
 using RR.UI.UISystem;
 using UnityEngine;
+using WildguardModFramework.Interop;
 
 namespace WildguardModFramework.Network {
     /// <summary>
@@ -125,7 +127,7 @@ namespace WildguardModFramework.Network {
 
         // Server: continues the join once we know whether the remote player runs WMF.
         private static void OnPresenceResolved(NetworkRunner runner, PlayerRef playerRef, bool isModded) {
-            if (!runner.IsRunning || !runner.ActivePlayers.Contains(playerRef)) { return; }
+            if (!runner.IsRunning || !runner.ActivePlayers.ToManagedList().Contains(playerRef)) { return; }
 
             WmfNetwork.RaisePlayerJoined(playerRef, isModded);
 
@@ -143,7 +145,7 @@ namespace WildguardModFramework.Network {
                         FusionRpcHelper.SendErrorMessageTo(runner, gm, playerRef,
                             $"@This session is running a community mod: \"{activeMode.DisplayName}\".\n\nTo play modded sessions, install WMF from the Raiders of Blackveil Nexus page.");
                     }
-                    WmfMod.Runner.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef));
+                    WmfMod.Runner.StartCoroutine(DisconnectAfterDelayCoroutine(runner, playerRef).WrapToIl2Cpp());
                     return;
                 }
 
@@ -183,12 +185,14 @@ namespace WildguardModFramework.Network {
         /// Dispatches mod stream types. Must return false for all mod stream types — the game's switch
         /// throws NotImplementedException for unknown values.
         /// </summary>
-        // Fusion 2.x delivers the payload as ReadOnlySpan<byte>; it is only copied out for WMF streams
-        // (the span cannot outlive the callback).
-        internal static bool OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data) {
-            key.GetInts(out var key2, out _, out _, out _);
-            var streamType = (DataStreamType)key2;
-
+        // Fusion 2.x delivers the payload as a span; it is only copied out for WMF streams
+        // (the span cannot outlive the callback). IL2CPP: Il2CppSystem.ReadOnlySpan, ToArray() converts to byte[].
+        /// <summary>
+        /// Called from <see cref="ReliableDataDetour"/> for every reliable message. <paramref name="data"/> points to
+        /// native memory valid only during the call — copy it (ToArray) before keeping it.
+        /// Returns false when the message was ours (the game never sees it).
+        /// </summary>
+        internal static bool OnReliableDataReceived(NetworkRunner runner, PlayerRef player, DataStreamType streamType, ReadOnlySpan<byte> data) {
             if (streamType == PresenceProtocol.StreamTypeHello) { return PresenceProtocol.HandleHello(runner, player); }
             if (streamType == StreamTypeJoinMsg) { return HandleJoinMessage(runner, new ArraySegment<byte>(data.ToArray())); }
             if (streamType == StreamTypeAck) { return HandleAck(runner, player, new ArraySegment<byte>(data.ToArray())); }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using WildguardModFramework.Registry;
+using WildguardModFramework.Ui;
 using RR.Input;
 using RR.UI.Controls.Menu.Options;
 using RR.UI.UISystem;
@@ -13,10 +14,10 @@ namespace WildguardModFramework.ModMenu {
     internal sealed class ModsMenuOverlay {
         private readonly VisualElement _root;
 
-        // Left bar cursor (navigates section entries)
-        private readonly UICursorLinear<object> _leftCursor = new(CursorInputType.ArrowsAndStickOnly);
-        // Right cursor (navigates the WMF toggle list)
-        private readonly UICursorLinear<object> _rightCursor = new(CursorInputType.ArrowsAndStickOnly);
+        // Left bar cursor (navigates section entries) — managed, see NavCursor.
+        private readonly NavCursor _leftCursor = new();
+        // Right cursor (navigates the WMF toggle list — native game controls)
+        private readonly UICursorLinear<Il2CppSystem.Object> _rightCursor = new(CursorInputType.ArrowsAndStickOnly);
 
         private bool _leftFocused = true;
 
@@ -62,7 +63,7 @@ namespace WildguardModFramework.ModMenu {
             // Start on left bar if there are menu entries, otherwise go straight to right
             if (_menuEntries.Count > 0) {
                 _leftFocused = true;
-                _leftCursor.ResetSelection(true);
+                _leftCursor.ResetSelection();
             } else {
                 _leftFocused = false;
                 _rightCursor.ResetSelection(true);
@@ -92,7 +93,7 @@ namespace WildguardModFramework.ModMenu {
                         Close();
                         break;
                     case PageNavType.Submit:
-                        _leftCursor.SelectedItem?.Element?.Submit();
+                        _leftCursor.SelectedItem?.Submit();
                         break;
                     case PageNavType.NavigateRight:
                     case PageNavType.TabRight:
@@ -172,7 +173,7 @@ namespace WildguardModFramework.ModMenu {
 
         private void FocusLeft() {
             _leftFocused = true;
-            _leftCursor.ResetSelection(true);
+            _leftCursor.ResetSelection();
         }
 
         private void FocusRight() {
@@ -230,8 +231,8 @@ namespace WildguardModFramework.ModMenu {
 
             // "Mods" entry — always first
             _wmfBtn = new NavButton(WmfMod.t("label.mods")) { Active = true, OnClickedEvent = SelectWmfEntry };
-            _leftCursor.RegisterItem(_wmfBtn);
-            leftBar.Add(_wmfBtn);
+            _leftCursor.Register(_wmfBtn);
+            leftBar.Add(_wmfBtn.Root);
 
             // One entry per mod that has a custom settings menu
             _menuEntries.Clear();
@@ -239,24 +240,24 @@ namespace WildguardModFramework.ModMenu {
             foreach (var mod in ModScanner.AllMods().Where(m => m.MenuName != null)) {
                 if (mod.SubMenus?.Length > 0) {
                     var entry = new ExpandableNavEntry(mod.MenuName);
-                    _leftCursor.RegisterItem(entry);
+                    _leftCursor.Register(entry);
                     var capturedMod = mod;
                     for (var i = 0; i < mod.SubMenus.Length; i++) {
                         var idx = i;
                         var child = entry.AddChild(mod.SubMenus[i].Title, () => SelectSubMenu(capturedMod, idx));
-                        _leftCursor.RegisterItem(child);
+                        _leftCursor.Register(child);
                     }
-                    entry.OnExpanded = () => _leftCursor.SelectItem(entry.Children[0]);
+                    entry.OnExpanded = () => _leftCursor.Select(entry.Children[0]);
                     _menuEntries.Add((mod, v => { entry.HeaderActive = v; if (!v) { entry.ClearChildActive(); } }));
                     _expandable[mod] = entry;
-                    leftBar.Add(entry);
+                    leftBar.Add(entry.Root);
                 } else {
                     var btn = new NavButton(mod.MenuName);
                     var capturedMod = mod;
                     btn.OnClickedEvent = () => SelectModEntry(capturedMod);
-                    _leftCursor.RegisterItem(btn);
+                    _leftCursor.Register(btn);
                     _menuEntries.Add((mod, v => btn.Active = v));
-                    leftBar.Add(btn);
+                    leftBar.Add(btn.Root);
                 }
             }
 
@@ -310,12 +311,12 @@ namespace WildguardModFramework.ModMenu {
                 if (mod.IsManaged && !_isInGameMenu) {
                     toggle.Value = WmfConfig.IsEnabled(guid);
                     var capturedMod = mod;
-                    toggle.OnValueChangedCallback = v => {
+                    toggle.OnValueChangedCallback = (Action<bool>)(v => {
                         WmfConfig.GetEntry(guid).Value = v;
                         if (v) { capturedMod.Enable(); } else { capturedMod.Disable(); }
-                    };
+                    });
                     _toggles.Add((guid, toggle));
-                    _rightCursor.RegisterItem(toggle);
+                    _rightCursor.RegisterItem(toggle.Cast<ICursorLinearStopElement>());
                 } else {
                     toggle.Value = mod.IsManaged ? WmfConfig.IsEnabled(guid) : true;
                     toggle.SetEnabled(false);
@@ -346,9 +347,83 @@ namespace WildguardModFramework.ModMenu {
             return panel;
         }
 
+        // ── Left-bar navigation (managed) ─────────────────────────────────
+        //
+        // IL2CPP: game interfaces (ICursorLinearStopElement) become classes in the interop
+        // assemblies, so a managed VisualElement subclass can no longer implement them.
+        // The left bar therefore uses a small managed cursor over composed VisualElements
+        // instead of the game's UICursorLinear.
+
+        private abstract class NavItem {
+            internal readonly VisualElement Root = new();
+            internal bool Enabled = true;
+            internal NavCursor Cursor;
+            internal abstract bool Hovered { get; set; }
+            internal abstract void Submit();
+
+            protected void WireMouse(VisualElement target, bool stopClickPropagation = false) {
+                target.On<ClickEvent>(evt => {
+                    if (stopClickPropagation) { evt.StopPropagation(); }
+                    Submit();
+                });
+                target.On<MouseEnterEvent>(_ => Cursor?.Select(this));
+                target.On<MouseLeaveEvent>(_ => Cursor?.ClearSelection());
+            }
+        }
+
+        private sealed class NavCursor {
+            private readonly List<NavItem> _items = new();
+            private int _selected = -1;
+
+            internal NavItem SelectedItem => _selected >= 0 ? _items[_selected] : null;
+
+            internal void Register(NavItem item) {
+                item.Cursor = this;
+                _items.Add(item);
+            }
+
+            internal void Select(NavItem item) => SetSelection(_items.IndexOf(item));
+
+            internal void ClearSelection() => SetSelection(-1);
+
+            internal void ResetSelection() => SetSelection(-1);
+
+            internal void OnNavigateInput(InputPressEvent evt) {
+                if (!evt.IsPressed) { return; }
+                switch (evt.Type) {
+                    case PageNavType.NavigateDown:
+                        Step(+1);
+                        break;
+                    case PageNavType.NavigateUp:
+                        Step(-1);
+                        break;
+                }
+            }
+
+            private void Step(int dir) {
+                if (_items.Count == 0) { return; }
+                var i = _selected < 0 ? (dir > 0 ? -1 : _items.Count) : _selected;
+                for (var n = 0; n < _items.Count; n++) {
+                    i += dir;
+                    if (i < 0 || i >= _items.Count) { return; }
+                    if (_items[i].Enabled) {
+                        SetSelection(i);
+                        return;
+                    }
+                }
+            }
+
+            private void SetSelection(int index) {
+                if (index == _selected) { return; }
+                if (SelectedItem != null) { SelectedItem.Hovered = false; }
+                _selected = index >= 0 && index < _items.Count && _items[index].Enabled ? index : -1;
+                if (SelectedItem != null) { SelectedItem.Hovered = true; }
+            }
+        }
+
         // ── NavButton ─────────────────────────────────────────────────────
 
-        private sealed class NavButton : VisualElement, ICursorLinearStopElement {
+        private sealed class NavButton : NavItem {
             private static readonly Color _activeColor = Color.white;
             private static readonly Color _inactiveColor = new(0.55f, 0.55f, 0.55f, 1f);
 
@@ -356,15 +431,9 @@ namespace WildguardModFramework.ModMenu {
             private bool _active;
             private bool _hover;
 
-            public Action<ICursorLinearStopElement, bool> OnMouseHover { get; set; }
             public Action OnClickedEvent;
 
-            public bool Enabled { get; set; } = true;
-            public bool InEditMode => false;
-            public Rect ContentRect => worldBound;
-
-            /// <summary>Cursor navigation focus highlight.</summary>
-            public bool Hover {
+            internal override bool Hovered {
                 get => _hover;
                 set { _hover = value; RefreshStyle(); }
             }
@@ -375,43 +444,35 @@ namespace WildguardModFramework.ModMenu {
                 set { _active = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
-
-            public void NavigateLeft() { }
-            public void NavigateRight() { }
-            public void Submit() => OnClickedEvent?.Invoke();
-            public void Escape() { }
+            internal override void Submit() => OnClickedEvent?.Invoke();
             internal void UpdateText(string text) => _label.text = text;
 
             internal NavButton(string text) {
-                style.paddingTop = style.paddingBottom = 8;
-                style.paddingLeft = style.paddingRight = 4;
-                style.borderBottomWidth = 0;
-                style.flexShrink = 0;
+                Root.style.paddingTop = Root.style.paddingBottom = 8;
+                Root.style.paddingLeft = Root.style.paddingRight = 4;
+                Root.style.borderBottomWidth = 0;
+                Root.style.flexShrink = 0;
 
                 _label = new Label { text = text };
                 _label.style.fontSize = 13;
                 _label.style.unityTextAlign = TextAnchor.MiddleLeft;
-                Add(_label);
+                Root.Add(_label);
 
                 RefreshStyle();
-
-                RegisterCallback<ClickEvent>(_ => Submit());
-                RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
-                RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
+                WireMouse(Root);
             }
 
             private void RefreshStyle() {
                 _label.style.color = _active || _hover ? _activeColor : _inactiveColor;
-                style.borderBottomWidth = _active ? 2 : 0;
-                style.borderBottomColor = _active ? _activeColor : Color.clear;
-                style.paddingBottom = _active ? 6 : 8; // compensate 2px border
+                Root.style.borderBottomWidth = _active ? 2 : 0;
+                Root.style.borderBottomColor = _active ? _activeColor : Color.clear;
+                Root.style.paddingBottom = _active ? 6 : 8; // compensate 2px border
             }
         }
 
         // ── ExpandableNavEntry ────────────────────────────────────────────────
 
-        private sealed class ExpandableNavEntry : VisualElement, ICursorLinearStopElement {
+        private sealed class ExpandableNavEntry : NavItem {
             private static readonly Color _activeColor = Color.white;
             private static readonly Color _inactiveColor = new(0.55f, 0.55f, 0.55f, 1f);
 
@@ -421,12 +482,7 @@ namespace WildguardModFramework.ModMenu {
             private bool _headerActive;
             private bool _hover;
 
-            public new List<ChildNavButton> Children { get; } = new();
-
-            public Action<ICursorLinearStopElement, bool> OnMouseHover { get; set; }
-            public bool Enabled { get; set; } = true;
-            public bool InEditMode => false;
-            public Rect ContentRect => worldBound;
+            public List<ChildNavButton> Children { get; } = new();
             public bool IsExpanded { get; private set; }
 
             public Action OnExpanded;
@@ -436,18 +492,12 @@ namespace WildguardModFramework.ModMenu {
                 set { _headerActive = value; RefreshStyle(); }
             }
 
-            public bool Hover {
+            internal override bool Hovered {
                 get => _hover;
                 set { _hover = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
-
-            public void NavigateLeft() { }
-            public void NavigateRight() { }
-            public void Escape() { }
-
-            public void Submit() {
+            internal override void Submit() {
                 IsExpanded = !IsExpanded;
                 _arrow.text = IsExpanded ? " ▾" : " ▸";
                 _childList.style.display = IsExpanded ? DisplayStyle.Flex : DisplayStyle.None;
@@ -466,12 +516,12 @@ namespace WildguardModFramework.ModMenu {
             public ChildNavButton AddChild(string title, Action onClicked) {
                 var child = new ChildNavButton(title, onClicked) { Enabled = false };
                 Children.Add(child);
-                _childList.Add(child);
+                _childList.Add(child.Root);
                 return child;
             }
 
             internal ExpandableNavEntry(string text) {
-                style.flexShrink = 0;
+                Root.style.flexShrink = 0;
 
                 var headerRow = new VisualElement();
                 headerRow.style.flexDirection = FlexDirection.Row;
@@ -490,17 +540,14 @@ namespace WildguardModFramework.ModMenu {
 
                 headerRow.Add(_label);
                 headerRow.Add(_arrow);
-                Add(headerRow);
+                Root.Add(headerRow);
 
                 _childList = new VisualElement();
                 _childList.style.display = DisplayStyle.None;
-                Add(_childList);
+                Root.Add(_childList);
 
                 RefreshStyle();
-
-                RegisterCallback<ClickEvent>(_ => Submit());
-                RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
-                RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
+                WireMouse(headerRow);
             }
 
             private void RefreshStyle() {
@@ -512,7 +559,7 @@ namespace WildguardModFramework.ModMenu {
 
         // ── ChildNavButton ────────────────────────────────────────────────────
 
-        private sealed class ChildNavButton : VisualElement, ICursorLinearStopElement {
+        private sealed class ChildNavButton : NavItem {
             private static readonly Color _activeColor = new(0.85f, 0.85f, 0.85f, 1f);
             private static readonly Color _hoverColor = Color.white;
             private static readonly Color _inactiveColor = new(0.45f, 0.45f, 0.45f, 1f);
@@ -521,47 +568,34 @@ namespace WildguardModFramework.ModMenu {
             private bool _active;
             private bool _hover;
 
-            public Action<ICursorLinearStopElement, bool> OnMouseHover { get; set; }
             public Action OnClickedEvent;
-
-            public bool Enabled { get; set; } = true;
-            public bool InEditMode => false;
-            public Rect ContentRect => worldBound;
 
             public bool Active {
                 get => _active;
                 set { _active = value; RefreshStyle(); }
             }
 
-            public bool Hover {
+            internal override bool Hovered {
                 get => _hover;
                 set { _hover = value; RefreshStyle(); }
             }
 
-            public bool Hovered { get => _hover; set { _hover = value; RefreshStyle(); } }
-
-            public void NavigateLeft() { }
-            public void NavigateRight() { }
-            public void Submit() => OnClickedEvent?.Invoke();
-            public void Escape() { }
+            internal override void Submit() => OnClickedEvent?.Invoke();
 
             internal ChildNavButton(string text, Action onClicked) {
                 OnClickedEvent = onClicked;
-                style.paddingTop = style.paddingBottom = 6;
-                style.paddingLeft = 16;
-                style.paddingRight = 4;
-                style.flexShrink = 0;
+                Root.style.paddingTop = Root.style.paddingBottom = 6;
+                Root.style.paddingLeft = 16;
+                Root.style.paddingRight = 4;
+                Root.style.flexShrink = 0;
 
                 _label = new Label { text = text };
                 _label.style.fontSize = 12;
                 _label.style.unityTextAlign = TextAnchor.MiddleLeft;
-                Add(_label);
+                Root.Add(_label);
 
                 RefreshStyle();
-
-                RegisterCallback<ClickEvent>(evt => { evt.StopPropagation(); Submit(); });
-                RegisterCallback<MouseEnterEvent>(_ => OnMouseHover?.Invoke(this, true));
-                RegisterCallback<MouseLeaveEvent>(_ => OnMouseHover?.Invoke(this, false));
+                WireMouse(Root, stopClickPropagation: true);
             }
 
             private void RefreshStyle() {

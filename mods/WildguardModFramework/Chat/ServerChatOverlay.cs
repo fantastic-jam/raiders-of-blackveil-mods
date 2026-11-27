@@ -1,6 +1,7 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WildguardModFramework.Ui;
 
 namespace WildguardModFramework.Chat {
     internal sealed class ServerChatOverlay {
@@ -73,7 +74,7 @@ namespace WildguardModFramework.Chat {
             _inputField.maxLength = 200;
             // Clear the inner input element's USS background; allow overflow so descenders are not clipped.
             _inputField.style.marginLeft = 0;
-            _inputField.RegisterCallback<AttachToPanelEvent>(_ => {
+            _inputField.On<AttachToPanelEvent>(_ => {
                 var inner = _inputField.Q(className: TextField.inputUssClassName);
                 if (inner != null) {
                     inner.style.backgroundColor = Color.clear;
@@ -87,13 +88,13 @@ namespace WildguardModFramework.Chat {
                     if (textEl != null) { textEl.style.color = new Color(0.85f, 0.85f, 0.85f, 1f); }
                 }
                 // Defer so USS resolution doesn't overwrite it.
-                _inputField.schedule.Execute(() => _inputField.textSelection.cursorColor = Color.white);
+                _inputField.schedule.Execute((Action)SetCursorColor);
             });
-            _inputField.RegisterCallback<KeyDownEvent>(OnKeyDown);
+            _inputField.On<KeyDownEvent>(OnKeyDown);
             // Prevent the field from losing focus while the input row is visible.
-            _inputField.RegisterCallback<FocusOutEvent>(_ => {
+            _inputField.On<FocusOutEvent>(_ => {
                 if (_inputRow.style.display == DisplayStyle.Flex) {
-                    _inputField.schedule.Execute(() => _inputField.Focus());
+                    _inputField.schedule.Execute((Action)_inputField.Focus);
                 }
             });
             _inputRow.Add(_inputField);
@@ -122,7 +123,7 @@ namespace WildguardModFramework.Chat {
             label.style.paddingBottom = 3;
             label.pickingMode = PickingMode.Ignore;
             _logScroll.Add(label);
-            _logScroll.schedule.Execute(() => _logScroll.scrollOffset = new Vector2(0, float.MaxValue)).StartingIn(50);
+            _logScroll.schedule.Execute((Action)(() => _logScroll.scrollOffset = new Vector2(0, float.MaxValue))).StartingIn(50);
 
             if (_root.style.display == DisplayStyle.None) {
                 _root.style.display = DisplayStyle.Flex;
@@ -137,8 +138,8 @@ namespace WildguardModFramework.Chat {
             _root.pickingMode = PickingMode.Position; // intercept all clicks while typing
             _inputRow.style.display = DisplayStyle.Flex;
             _inputField.value = "";
-            _inputField.textSelection.cursorColor = Color.white;
-            _inputField.schedule.Execute(() => _inputField.Focus());
+            SetCursorColor();
+            _inputField.schedule.Execute((Action)_inputField.Focus);
         }
 
         internal void HideInputRow() {
@@ -159,7 +160,14 @@ namespace WildguardModFramework.Chat {
 
         private void RestartFadeTimer() {
             _fadeTimer?.Pause();
-            _fadeTimer = _root.schedule.Execute(HideLog).StartingIn(8000);
+            _fadeTimer = _root.schedule.Execute((Action)HideLog).StartingIn(8000);
+        }
+
+        // ITextSelection is an interface in the game build; interop exposes it as a class without
+        // cursorColor, so cast to the TextElement that implements it.
+        private void SetCursorColor() {
+            var selection = _inputField.textSelection?.TryCast<TextElement>();
+            if (selection != null) { selection.cursorColor = Color.white; }
         }
 
         private void HideLog() {

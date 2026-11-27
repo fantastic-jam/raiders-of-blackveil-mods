@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Reflection;
+
 using Fusion;
 using HarmonyLib;
 using RR;
@@ -14,15 +14,7 @@ namespace WildguardModFramework.Fixes {
     internal static class HostNameSync {
         // Clients clear their raid roster on receipt, so the payload must be the full roster,
         // never just the host — reuse the game's own collector.
-        private static MethodInfo _collectRaidInfo;
-
         internal static void Apply(Harmony harmony) {
-            _collectRaidInfo = AccessTools.Method(typeof(PlayerManager), "CollectRaidInfoForBroadcast");
-            if (_collectRaidInfo == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: PlayerManager.CollectRaidInfoForBroadcast not found — host name sync inactive.");
-                return;
-            }
-
             var onPlayerJoined = AccessTools.Method(typeof(PlayerManager), nameof(PlayerManager.OnPlayerJoined));
             if (onPlayerJoined == null) {
                 WmfMod.PublicLogger.LogWarning("WMF: PlayerManager.OnPlayerJoined not found — host name sync inactive.");
@@ -42,11 +34,10 @@ namespace WildguardModFramework.Fixes {
                 return;
             }
 
-            var args = new object[5];
-            _collectRaidInfo.Invoke(manager, args);
+            // IL2CPP: private methods are public on the interop wrapper — call directly.
+            manager.CollectRaidInfoForBroadcast(out var names, out var refs, out var uuids, out var champions, out var connected);
             WmfMod.PublicLogger.LogInfo($"WMF: HostNameSync — re-broadcasting roster (host '{local.UserName}') to {playerRef.PlayerId}.");
-            manager.RPC_Handle_SetUserData_All(
-                (string[])args[0], (PlayerRef[])args[1], (Guid[])args[2], (int[])args[3], (NetworkBool[])args[4]);
+            manager.RPC_Handle_SetUserData_All(names, refs, uuids, champions, connected);
         }
     }
 }

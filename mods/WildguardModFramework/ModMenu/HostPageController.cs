@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
+using WildguardModFramework.Interop;
 using WildguardModFramework.Registry;
+using WildguardModFramework.Ui;
 using RR.UI.Components;
 using RR.UI.Controls;
 using RR.UI.Controls.Menu.JoinHost;
 using RR.UI.Extensions;
 using RR.UI.Pages;
+using RR.UI.UISystem;
 using RR.UI.Utils;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -20,12 +21,6 @@ namespace WildguardModFramework.ModMenu {
     /// </summary>
     internal sealed class HostPageController {
         internal static HostPageController Current { get; private set; }
-
-        // Reflection handles resolved once at class initialization.
-        private static readonly FieldInfo CursorField = AccessTools.Field(typeof(MenuStartHostPage), "_cursor");
-        private static readonly FieldInfo PrivacyField = AccessTools.Field(typeof(MenuStartHostPage), "_privacyStepper");
-        private static readonly FieldInfo SessionInputField = AccessTools.Field(typeof(MenuStartHostPage), "_sessionNameTextInput");
-        private static readonly FieldInfo JoinHostLabelField = AccessTools.Field(typeof(JoinHostControl), "_label");
 
         private static string[] StepperItems => new[] { WmfMod.t("stepper.yes"), WmfMod.t("stepper.no") };
 
@@ -64,16 +59,15 @@ namespace WildguardModFramework.ModMenu {
 
             if (!hasMods && !hasCheats && !hasGameModes) { return; }
 
-            if (CursorField == null || PrivacyField == null || SessionInputField == null) {
-                WmfMod.PublicLogger.LogWarning("WMF: host page fields not found — skipping UI injection.");
+            // IL2CPP: private fields are exposed as public properties on the interop wrapper.
+            var cursor = page._cursor;
+            var privacyStepper = page._privacyStepper;
+            _sessionInput = page._sessionNameTextInput;
+
+            if (cursor == null || privacyStepper == null) {
+                WmfMod.PublicLogger.LogWarning("WMF: host page cursor/privacy stepper missing — skipping UI injection.");
                 return;
             }
-
-            var cursor = CursorField.GetValue(page) as UICursorLinear<object>;
-            var privacyStepper = PrivacyField.GetValue(page) as JoinHostStepper;
-            _sessionInput = SessionInputField.GetValue(page) as JoinHostTextInput;
-
-            if (cursor == null || privacyStepper == null) { return; }
 
             var container = privacyStepper.parent;
             if (container == null) { return; }
@@ -85,16 +79,16 @@ namespace WildguardModFramework.ModMenu {
                 _allowModsStepper = CreateStepper(page, () => WmfMod.t("stepper.allow_mods"));
                 RegisterTooltip(_allowModsStepper, string.Join("\n", enabledMods.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowModsStepper);
-                cursor.RegisterItem(_allowModsStepper);
-                _allowModsStepper.OnValueChangedCallback = _ => UpdateFinalName();
+                cursor.RegisterItem(_allowModsStepper.Cast<ICursorLinearStopElement>());
+                _allowModsStepper.OnValueChangedCallback = (Action<int>)(_ => UpdateFinalName());
             }
 
             if (hasCheats) {
                 _allowCheatsStepper = CreateStepper(page, () => WmfMod.t("stepper.allow_cheats"));
                 RegisterTooltip(_allowCheatsStepper, string.Join("\n", enabledCheats.Select(m => m.Name)));
                 container.Insert(insertIndex++, _allowCheatsStepper);
-                cursor.RegisterItem(_allowCheatsStepper);
-                _allowCheatsStepper.OnValueChangedCallback = _ => UpdateFinalName();
+                cursor.RegisterItem(_allowCheatsStepper.Cast<ICursorLinearStopElement>());
+                _allowCheatsStepper.OnValueChangedCallback = (Action<int>)(_ => UpdateFinalName());
             }
 
             if (hasGameModes) {
@@ -105,16 +99,16 @@ namespace WildguardModFramework.ModMenu {
                 _gameModeStepper = CreateStepper(page, () => WmfMod.t("stepper.game_mode"));
                 _gameModeStepper.SetItems(items, GetCurrentGameModeIndex());
                 container.Insert(insertIndex++, _gameModeStepper);
-                cursor.RegisterItem(_gameModeStepper);
-                _gameModeStepper.OnValueChangedCallback = idx => {
+                cursor.RegisterItem(_gameModeStepper.Cast<ICursorLinearStopElement>());
+                _gameModeStepper.OnValueChangedCallback = (Action<int>)(idx => {
                     ModScanner.SelectedGameModeVariantId = idx == 0 ? null : gameModes[idx - 1].VariantId;
                     UpdateFinalName();
-                };
+                });
             }
 
             _allowChatStepper = CreateStepper(page, () => WmfMod.t("stepper.server_chat"));
             container.Insert(insertIndex++, _allowChatStepper);
-            cursor.RegisterItem(_allowChatStepper);
+            cursor.RegisterItem(_allowChatStepper.Cast<ICursorLinearStopElement>());
 
             _finalNameLabel = new Label();
             _finalNameLabel.style.color = new Color(0.55f, 0.55f, 0.55f, 1f);
@@ -124,9 +118,9 @@ namespace WildguardModFramework.ModMenu {
 
             if (_sessionInput != null) {
                 var prevSessionCallback = _sessionInput.OnValueChangedCallback;
-                _sessionInput.OnValueChangedCallback = inp => { prevSessionCallback?.Invoke(inp); UpdateFinalName(); };
+                _sessionInput.OnValueChangedCallback = (Action<JoinHostTextInput>)(inp => { prevSessionCallback?.Invoke(inp); UpdateFinalName(); });
 
-                if (_sessionInput.parent == container) {
+                if (_sessionInput.parent.SameAs(container)) {
                     container.Insert(container.IndexOf(_sessionInput) + 1, _finalNameLabel);
                 } else {
                     container.Insert(insertIndex, _finalNameLabel);
@@ -160,9 +154,7 @@ namespace WildguardModFramework.ModMenu {
         }
 
         private static void RefreshStepperLabel(JoinHostStepper stepper) {
-            if (stepper != null && JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
-                lbl.Refresh();
-            }
+            stepper?._label?.Refresh();
         }
 
         private void UpdateFinalName() {
@@ -232,8 +224,8 @@ namespace WildguardModFramework.ModMenu {
         }
 
         private void RegisterTooltip(VisualElement target, string text) {
-            target.RegisterCallback<MouseEnterEvent>(_ => ShowTooltip(target, text));
-            target.RegisterCallback<MouseLeaveEvent>(_ => {
+            target.On<MouseEnterEvent>(_ => ShowTooltip(target, text));
+            target.On<MouseLeaveEvent>(_ => {
                 if (_tooltipPanel != null) { _tooltipPanel.style.display = DisplayStyle.None; }
             });
         }
@@ -252,11 +244,9 @@ namespace WildguardModFramework.ModMenu {
 
         private static JoinHostStepper CreateStepper(MenuStartHostPage page, Func<string> labelProvider) {
             // ParentPage gates the stepper arrows' clicks through PageBase.AllowClick (blocked during transitions / popups).
-            var stepper = new JoinHostStepper { ParentPage = page };
+            var stepper = new JoinHostStepper { ParentPage = page.Cast<IAllowClick>() };
             stepper.SetItems(StepperItems, 0);
-            if (JoinHostLabelField?.GetValue(stepper) is LocLabel lbl) {
-                lbl.SetLiteral("", customTransform: _ => labelProvider());
-            }
+            stepper._label?.SetLiteral("", customTransform: (Func<string, string>)(_ => labelProvider()));
             return stepper;
         }
     }
