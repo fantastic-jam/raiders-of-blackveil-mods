@@ -22,6 +22,12 @@ export const CPP2IL_RUN_ID = '34694167702'
 export const CPP2IL_ARTIFACT_NET9 = 'Cpp2IL-net9-win-x64'
 // .NET Framework 4.7.2 build: runs on any Windows without a .NET 9 runtime — shipped inside our BepInEx
 export const CPP2IL_ARTIFACT_NET472 = 'Cpp2IL-Netframework472-Windows'
+// GitHub Actions artifacts expire after 90 days (this run: 2026-12-11), so the two artifacts above are
+// mirrored, unmodified, as assets of a release of this repo: <artifact>.zip. To pin a newer Cpp2IL build:
+// `gh run download <run> -R SamboyCoding/Cpp2IL -n <artifact>`, zip each folder's contents as <artifact>.zip,
+// `gh release create cpp2il-<commit> <zips> --prerelease`, then update the constants here.
+export const CPP2IL_MIRROR_URL =
+  'https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases/download/cpp2il-b5ad444'
 
 export const IL2CPPINTEROP_VERSION = '1.5.3'
 export const IL2CPPINTEROP_URL = `https://github.com/BepInEx/Il2CppInterop/releases/download/v${IL2CPPINTEROP_VERSION}/Il2CppInterop.CLI.${IL2CPPINTEROP_VERSION}.zip`
@@ -44,16 +50,25 @@ export async function downloadAndExtract(url: string, destDir: string): Promise<
   }
 }
 
-/** Downloads a Cpp2IL CI artifact into destDir (GitHub Actions artifacts need `gh auth login`). */
-export function downloadCpp2Il(artifact: string, destDir: string): void {
-  const result = spawnSync(
-    'gh',
-    ['run', 'download', CPP2IL_RUN_ID, '-R', CPP2IL_REPO, '-n', artifact, '-D', destDir],
-    { stdio: 'inherit' },
-  )
-  if (result.status !== 0 || !fs.existsSync(path.join(destDir, 'Cpp2IL.exe'))) {
+/**
+ * Downloads the pinned Cpp2IL build into destDir: from our release mirror, falling back to the original
+ * CI artifact (needs `gh auth login`, and only works until it expires).
+ */
+export async function downloadCpp2Il(artifact: string, destDir: string): Promise<void> {
+  const exe = path.join(destDir, 'Cpp2IL.exe')
+  try {
+    await downloadAndExtract(`${CPP2IL_MIRROR_URL}/${artifact}.zip`, destDir)
+  } catch (err) {
+    console.warn(`Cpp2IL mirror download failed (${String(err)}), trying the CI artifact...`)
+    spawnSync(
+      'gh',
+      ['run', 'download', CPP2IL_RUN_ID, '-R', CPP2IL_REPO, '-n', artifact, '-D', destDir],
+      { stdio: 'inherit' },
+    )
+  }
+  if (!fs.existsSync(exe)) {
     throw new Error(
-      'Cpp2IL download failed. GitHub Actions artifacts need an authenticated GitHub CLI: run `gh auth login`.',
+      `Cpp2IL download failed: neither ${CPP2IL_MIRROR_URL} nor CI run ${CPP2IL_RUN_ID} (needs \`gh auth login\`) provided ${artifact}.`,
     )
   }
 }

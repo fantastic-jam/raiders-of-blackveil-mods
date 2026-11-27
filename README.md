@@ -17,10 +17,10 @@ Requires Node.js 22+ and .NET SDK 9+.
 
 ```bash
 pnpm install
-pnpm run setup        # prompts for game path, downloads BepInEx 5, copies game DLLs
+pnpm run setup        # prompts for game path, downloads BepInEx 6 (IL2CPP), generates interop assemblies
 ```
 
-`setup` writes `mods/UserPaths.props` with your local game path (gitignored) and downloads BepInEx 5 into `bepinex/` (gitignored).
+`setup` writes `mods/UserPaths.props` with your local game path (gitignored), downloads BepInEx 6 IL2CPP into `bepinex/` (gitignored), and generates the Il2CppInterop assemblies the mods compile against into `game-lib/il2cpp/` (gitignored) with Cpp2IL + Il2CppInterop. The game is IL2CPP since 0.6.5 — see [`docs/dev/patterns/il2cpp.md`](docs/dev/patterns/il2cpp.md). Requires the .NET SDK and an authenticated GitHub CLI (`gh auth login`, used to fetch a Cpp2IL CI build).
 
 To publish GitHub releases, create a `.env` from the template and add your token:
 

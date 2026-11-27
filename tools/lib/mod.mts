@@ -9,11 +9,19 @@ export type ProjectKind = 'mod' | 'lib'
 
 // ─── Mods ────────────────────────────────────────────────────────────────────
 
+export const SOLUTION_PATH = path.join(MODS_DIR, 'raiders-of-blackveil-mods.sln')
+
+/**
+ * Mods that build: present in the solution and not deprecated. Mods still waiting for their
+ * IL2CPP port stay on disk but are left out of the solution, so tooling skips them.
+ */
 export function listMods(): string[] {
+  const sln = fs.readFileSync(SOLUTION_PATH, 'utf8')
   return fs
     .readdirSync(MODS_DIR)
     .filter((f) => fs.statSync(path.join(MODS_DIR, f)).isDirectory())
     .filter((f) => !f.startsWith('.'))
+    .filter((f) => sln.includes(`"${f}\\${f}.csproj"`))
     .filter((f) => readModMetadata(f).deprecated !== true)
 }
 

@@ -1,5 +1,10 @@
 # Harmony patching
 
+> **IL2CPP (game ≥ 0.6.5):** the examples below are Mono-era. The *structure* still applies (resolve patch
+> targets once in `Apply()`, warn and bail per handle), but `AccessTools.Field` on game types now returns
+> null — read private fields directly as properties of the interop wrapper. Entry point is `BasePlugin.Load()`
+> with `Log`, not `Awake()` / `Logger`. See [il2cpp.md](il2cpp.md).
+
 ## Resolve reflection handles once, in `Apply()` — never inline
 
 ```csharp

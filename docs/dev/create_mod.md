@@ -1,5 +1,7 @@
 # Creating a new mod
 
+> The game is IL2CPP — read [`patterns/il2cpp.md`](patterns/il2cpp.md) first. Mods target BepInEx 6 (Unity.IL2CPP).
+
 ## 1. Create the project folder
 
 ```
@@ -17,18 +19,22 @@ mods/[ModName]/
   <Import Project="..\Common.props" />
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>[ModName]</AssemblyName>
     <RootNamespace>[ModName]</RootNamespace>
-    <LangVersion>10</LangVersion>
     <Optimize>true</Optimize>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
 </Project>
 ```
 
-Add mod-specific DLL references (e.g. `Fusion.Runtime`) directly here, not in `Common.props`.
+`Common.props` sets `net6.0`, C# 10, unsafe blocks and the loader + common interop references.
+Add mod-specific interop references here, from `$(InteropDir)`:
+
+```xml
+<ItemGroup>
+  <Reference Include="UnityEngine.UIElementsModule" HintPath="$(InteropDir)UnityEngine.UIElementsModule.dll" Private="False" />
+</ItemGroup>
+```
 
 ## 3. Add to the solution
 
@@ -56,12 +62,13 @@ And in `GlobalSection(ProjectConfigurationPlatforms)`:
 using System;
 using BepInEx;
 using BepInEx.Logging;
+using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using [ModName].Patch;
 
 namespace [ModName] {
     [BepInPlugin(Id, Name, Version)]
-    public class [ModName]Mod : BaseUnityPlugin {
+    public class [ModName]Mod : BasePlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.[modname]";
         public const string Name = "[ModName]";
         public const string Version = "0.1.0";
@@ -69,8 +76,8 @@ namespace [ModName] {
 
         public static ManualLogSource PublicLogger;
 
-        private void Awake() {
-            PublicLogger = Logger;
+        public override void Load() {
+            PublicLogger = Log;
 
             try {
                 [ModName]Patch.Apply(new Harmony(Id));
@@ -116,8 +123,9 @@ namespace [ModName].Patch {
 ```
 
 Rules:
-- Resolve all reflection handles once in `Apply()`, warn and bail if not found
-- Use `AccessTools.Field` / `AccessTools.Method` for private member access
+- Resolve patch targets (`AccessTools.Method`) once in `Apply()`, warn and bail if not found
+- Private fields and methods are public on the interop wrapper — access them directly, never `AccessTools.Field`
+- Patch parameters use interop types (`Il2CppStructArray<T>`…); test runtime types with `TryCast<T>()`, never `is`
 - Use `prefix` to intercept/block, `postfix` to observe/modify after
 
 ## 6. Create AssemblyInfo
@@ -185,7 +193,7 @@ One-line description.
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
-- [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
+- [BepInEx 6 (Unity.IL2CPP)](https://builds.bepinex.dev/projects/bepinex_be)
 
 ---
 
@@ -195,9 +203,9 @@ One-line description.
 
 Skip this step if BepInEx is already installed.
 
-1. Download **BepInEx 5** from the [BepInEx releases page](https://github.com/BepInEx/BepInEx/releases) — pick the `BepInEx_win_x64` build.
+1. Download **BepInEx 6** from the [BepInEx bleeding-edge builds](https://builds.bepinex.dev/projects/bepinex_be) — pick the `BepInEx-Unity.IL2CPP-win-x64` build.
 2. Extract the contents into your game folder (the one containing `RoB.exe`).
-3. Launch the game once and close it — BepInEx will initialize its folder structure.
+3. Launch the game once and close it — BepInEx will generate its interop assemblies (first launch is slow).
 
 ### 2. Install the mod
 
@@ -233,7 +241,7 @@ pnpm run release -- --mod [ModName] --bump patch   # release when ready
 
 Use `--dry-run` to preview the release plan (changelog, version bump, tag) before touching anything.
 
-`deploy.mts` and `package.mts` both auto-discover mods via `listMods()` (reads `mods/` subdirectories) — no changes needed in those scripts when adding a new mod.
+`deploy.mts` and `package.mts` both auto-discover mods via `listMods()` (mods referenced in the solution) — no changes needed in those scripts when adding a new mod.
 
 ## Commit message format
 

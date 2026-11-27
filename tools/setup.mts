@@ -1,13 +1,39 @@
 import { createHash } from 'node:crypto'
-import { execSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import { MODS_DIR, REPO_ROOT } from './lib/mod.mts'
-import { extractZip } from './lib/zip.mts'
+import {
+  BEPINEX_BUILD,
+  BEPINEX_URL,
+  CPP2IL_ARTIFACT_NET9,
+  CPP2IL_RUN_ID,
+  IL2CPPINTEROP_URL,
+  IL2CPPINTEROP_VERSION,
+  UNITY_LIBS_URL,
+  downloadAndExtract,
+  downloadCpp2Il,
+} from './lib/il2cpp.mts'
+
+// ─── Paths ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_GAME_ROOT = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Raiders of Blackveil'
+const GAME_DATA = 'RoB_Data'
+const GAME_EXE_NAME = 'RoB'
+
+const IL2CPP_DIR = path.join(REPO_ROOT, 'game-lib', 'il2cpp')
+const TOOLS_DIR = path.join(IL2CPP_DIR, 'tools')
+// Cpp2IL output: signatures + attributes, no bodies
+const DUMMY_DIR = path.join(IL2CPP_DIR, 'dummy')
+// Il2CppInterop wrappers: what mods compile against
+const INTEROP_DIR = path.join(IL2CPP_DIR, 'interop')
+// Decompiled wrappers: the exact interop API
+const INTEROP_SRC_DIR = path.join(IL2CPP_DIR, 'interop-src')
+const SOURCE_HASH_FILE = path.join(IL2CPP_DIR, '.source.sha256')
+const GAME_SRC_DIR = path.join(REPO_ROOT, 'game-src')
+
+// ─── Prompts / user paths ────────────────────────────────────────────────────
 
 function readStoredGameRoot(): string | null {
   const propsPath = path.join(MODS_DIR, 'UserPaths.props')
@@ -46,167 +72,148 @@ function writeUserPaths(gameRoot: string): void {
   console.log(`Wrote ${propsPath}`)
 }
 
-function copyGameAssemblies(gameRoot: string): void {
-  const src = path.join(gameRoot, 'RoB_Data', 'Managed', 'Assembly-CSharp.dll')
-  if (!fs.existsSync(src)) {
-    console.warn(`WARNING: ${src} not found. Skipping lib copy.`)
-    return
-  }
-  const libDir = path.join(REPO_ROOT, 'game-lib')
-  fs.mkdirSync(libDir, { recursive: true })
-  fs.copyFileSync(src, path.join(libDir, 'Assembly-CSharp.dll'))
-  console.log('Copied Assembly-CSharp.dll to game-lib/')
-}
+// ─── Downloads ───────────────────────────────────────────────────────────────
 
-function promptYesNo(question: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolve) => {
-    rl.question(`${question} [y/N] `, (answer: string) => {
-      rl.close()
-      resolve(answer.trim().toLowerCase() === 'y')
-    })
-  })
-}
-
-interface GitHubReleaseAsset {
-  name: string
-  browser_download_url: string
-}
-
-interface GitHubRelease {
-  tag_name: string
-  prerelease: boolean
-  assets: GitHubReleaseAsset[]
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function parseGitHubReleaseAsset(json: unknown): GitHubReleaseAsset | null {
-  if (!isRecord(json)) return null
-  const { name, browser_download_url: url } = json
-  if (typeof name !== 'string' || typeof url !== 'string') return null
-  return { name, browser_download_url: url }
-}
-
-function parseGitHubRelease(json: unknown): GitHubRelease | null {
-  if (!isRecord(json)) return null
-  const { tag_name: tagName, prerelease, assets } = json
-  if (typeof tagName !== 'string' || typeof prerelease !== 'boolean' || !Array.isArray(assets))
-    return null
-  const parsedAssets: GitHubReleaseAsset[] = []
-  for (const asset of assets) {
-    const parsed = parseGitHubReleaseAsset(asset)
-    if (parsed === null) return null
-    parsedAssets.push(parsed)
-  }
-  return { tag_name: tagName, prerelease, assets: parsedAssets }
-}
-
-/** Validates a GitHub "list releases" API response, keeping only the fields setup uses. */
-function parseGitHubReleases(json: unknown, repoLabel: string): GitHubRelease[] {
-  if (!Array.isArray(json)) {
-    throw new TypeError(`Unexpected GitHub releases response for ${repoLabel}: expected an array`)
-  }
-  const releases: GitHubRelease[] = []
-  for (const item of json) {
-    const release = parseGitHubRelease(item)
-    if (release === null) {
-      throw new TypeError(`Unexpected GitHub releases response for ${repoLabel}: malformed release`)
-    }
-    releases.push(release)
-  }
-  return releases
-}
-
-async function installUnityHotReload(gameRoot: string): Promise<void> {
-  const devDll = path.join(REPO_ROOT, 'dev', 'UnityHotReload', 'UnityHotReload.dll')
-  const pluginsDest = path.join(gameRoot, 'BepInEx', 'plugins', 'UnityHotReload.dll')
-
-  if (!fs.existsSync(devDll)) {
-    const yes = await promptYesNo('Install UnityHotReload for hot-reload dev (F9 in-game)?')
-    if (!yes) return
-
-    console.log('Downloading UnityHotReload (latest)...')
-    const releasesRes = await fetch(
-      'https://api.github.com/repos/xiaoxiao921/UnityHotReload/releases',
-      {
-        headers: { 'User-Agent': 'setup-script' },
-      },
-    )
-    const releases = parseGitHubReleases(await releasesRes.json(), 'UnityHotReload')
-    const rel = releases.find((r) => !r.prerelease)
-    if (!rel) throw new Error('Cannot find UnityHotReload release')
-    const asset = rel.assets.find((a) => a.name.endsWith('.zip'))
-    if (!asset) throw new Error('Cannot find UnityHotReload zip asset')
-
-    const zipPath = path.join(os.tmpdir(), 'unity_hot_reload.zip')
-    const res = await fetch(asset.browser_download_url)
-    fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
-
-    const devDir = path.join(REPO_ROOT, 'dev', 'UnityHotReload')
-    fs.mkdirSync(devDir, { recursive: true })
-    extractZip(zipPath, devDir)
-    fs.unlinkSync(zipPath)
-
-    // Remove non-DLL files extracted from the zip
-    for (const f of fs.readdirSync(devDir)) {
-      if (!f.endsWith('.dll')) fs.rmSync(path.join(devDir, f))
-    }
-  }
-
-  fs.copyFileSync(devDll, pluginsDest)
-  console.log(`UnityHotReload installed to ${pluginsDest}`)
-}
-
+/** BepInEx 6 IL2CPP — compile references only (bepinex/ is gitignored). */
 async function installBepInEx(): Promise<void> {
   const bepinexDir = path.join(REPO_ROOT, 'bepinex')
-  const coreDll = path.join(bepinexDir, 'BepInEx', 'core', 'BepInEx.dll')
-  if (fs.existsSync(coreDll)) {
-    console.log('BepInEx 5.x already present.')
+  const marker = path.join(bepinexDir, 'BepInEx', 'core', 'BepInEx.Unity.IL2CPP.dll')
+  if (fs.existsSync(marker)) {
+    console.log('BepInEx 6 (IL2CPP) already present.')
     return
   }
-  fs.mkdirSync(bepinexDir, { recursive: true })
-  console.log('Downloading BepInEx 5 (latest stable)...')
-
-  const releasesRes = await fetch('https://api.github.com/repos/BepInEx/BepInEx/releases', {
-    headers: { 'User-Agent': 'setup-script' },
-  })
-  const releases = parseGitHubReleases(await releasesRes.json(), 'BepInEx')
-  const rel = releases.find((r) => r.tag_name.startsWith('v5.') && !r.prerelease)
-  if (!rel) throw new Error('Cannot find BepInEx 5 release')
-  const asset = rel.assets.find((a) => /^BepInEx_win_x64_.*\.zip$/u.test(a.name))
-  if (!asset) throw new Error('Cannot find BepInEx 5 win-x64 asset')
-
-  const zipPath = path.join(os.tmpdir(), 'bepinex_rob.zip')
-  const res = await fetch(asset.browser_download_url)
-  fs.writeFileSync(zipPath, Buffer.from(await res.arrayBuffer()))
-  extractZip(zipPath, bepinexDir)
-  fs.unlinkSync(zipPath)
-  console.log('BepInEx 5 downloaded to bepinex/.')
+  if (fs.existsSync(bepinexDir)) {
+    console.log('Replacing bepinex/ with BepInEx 6 (IL2CPP)...')
+    fs.rmSync(bepinexDir, { recursive: true })
+  }
+  console.log(`Downloading BepInEx 6 IL2CPP be.${BEPINEX_BUILD}...`)
+  await downloadAndExtract(BEPINEX_URL, bepinexDir)
+  console.log('BepInEx 6 downloaded to bepinex/.')
 }
 
-function decompileIfNeeded(gameRoot: string): void {
-  const assemblyPath = path.join(REPO_ROOT, 'game-lib', 'Assembly-CSharp.dll')
-  if (!fs.existsSync(assemblyPath)) {
-    console.warn('game-lib/Assembly-CSharp.dll not found. Skipping decompile.')
-    return
+async function installCpp2Il(): Promise<string> {
+  const exe = path.join(TOOLS_DIR, 'cpp2il', 'Cpp2IL.exe')
+  if (fs.existsSync(exe)) return exe
+  console.log(`Downloading Cpp2IL (CI build, run ${CPP2IL_RUN_ID})...`)
+  await downloadCpp2Il(CPP2IL_ARTIFACT_NET9, path.dirname(exe))
+  return exe
+}
+
+async function installIl2CppInteropCli(): Promise<string> {
+  const dll = path.join(TOOLS_DIR, 'il2cppinterop', 'net6.0', 'Il2CppInterop.CLI.dll')
+  if (fs.existsSync(dll)) return dll
+  console.log(`Downloading Il2CppInterop CLI ${IL2CPPINTEROP_VERSION}...`)
+  await downloadAndExtract(IL2CPPINTEROP_URL, path.join(TOOLS_DIR, 'il2cppinterop'))
+  return dll
+}
+
+// ─── Interop generation ──────────────────────────────────────────────────────
+
+/** Reads "6000.5.10f1" from globalgamemanagers and returns "6000.5.10" (unity.bepinex.dev naming). */
+function readUnityVersion(gameRoot: string): string {
+  const ggm = path.join(gameRoot, GAME_DATA, 'globalgamemanagers')
+  const head = fs.readFileSync(ggm).subarray(0, 256).toString('latin1')
+  const m = head.match(/(\d{4,})\.(\d+)\.(\d+)[abfp]\d+/u)
+  if (!m) throw new Error(`Could not read the Unity version from ${ggm}`)
+  return `${m[1]}.${m[2]}.${m[3]}`
+}
+
+function hashGameBinaries(gameRoot: string): string {
+  const hash = createHash('sha256')
+  hash.update(fs.readFileSync(path.join(gameRoot, 'GameAssembly.dll')))
+  hash.update(
+    fs.readFileSync(
+      path.join(gameRoot, GAME_DATA, 'il2cpp_data', 'Metadata', 'global-metadata.dat'),
+    ),
+  )
+  return hash.digest('hex')
+}
+
+/** Returns true when interop assemblies were (re)generated. */
+async function generateInterop(gameRoot: string): Promise<boolean> {
+  if (!fs.existsSync(path.join(gameRoot, 'GameAssembly.dll'))) {
+    throw new Error(`${gameRoot} has no GameAssembly.dll — not an IL2CPP build of the game?`)
   }
 
-  const gameSrcDir = path.join(REPO_ROOT, 'game-src')
-  const hashFile = path.join(gameSrcDir, '.assembly.sha256')
-  const currentHash = createHash('sha256').update(fs.readFileSync(assemblyPath)).digest('hex')
-  const storedHash = fs.existsSync(hashFile) ? fs.readFileSync(hashFile, 'utf8').trim() : null
+  const currentHash = hashGameBinaries(gameRoot)
+  const storedHash = fs.existsSync(SOURCE_HASH_FILE)
+    ? fs.readFileSync(SOURCE_HASH_FILE, 'utf8').trim()
+    : null
+  if (storedHash === currentHash && fs.existsSync(path.join(INTEROP_DIR, 'Assembly-CSharp.dll'))) {
+    console.log('Interop assemblies are up to date.')
+    return false
+  }
 
-  if (fs.existsSync(gameSrcDir) && storedHash === currentHash) {
+  const cpp2il = await installCpp2Il()
+  const interopCli = await installIl2CppInteropCli()
+
+  const unityVersion = readUnityVersion(gameRoot)
+  const unityLibsDir = path.join(TOOLS_DIR, 'unity-libs', unityVersion)
+  if (!fs.existsSync(unityLibsDir)) {
+    console.log(`Downloading Unity ${unityVersion} base libraries (unstripping)...`)
+    await downloadAndExtract(UNITY_LIBS_URL(unityVersion), unityLibsDir)
+  }
+
+  for (const dir of [DUMMY_DIR, INTEROP_DIR, INTEROP_SRC_DIR]) {
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true })
+  }
+
+  console.log('Running Cpp2IL (dummy assemblies)...')
+  execFileSync(
+    cpp2il,
+    [
+      '--game-path',
+      gameRoot,
+      '--exe-name',
+      GAME_EXE_NAME,
+      '--use-processor',
+      'attributeinjector',
+      '--output-as',
+      'dummydll',
+      '--output-to',
+      DUMMY_DIR,
+    ],
+    { stdio: 'inherit', cwd: TOOLS_DIR },
+  )
+
+  console.log('Running Il2CppInterop (wrapper assemblies)...')
+  execFileSync(
+    'dotnet',
+    [
+      interopCli,
+      'generate',
+      '--input',
+      DUMMY_DIR,
+      '--output',
+      INTEROP_DIR,
+      '--unity',
+      unityLibsDir,
+      '--game-assembly',
+      path.join(gameRoot, 'GameAssembly.dll'),
+    ],
+    { stdio: 'inherit' },
+  )
+
+  fs.writeFileSync(SOURCE_HASH_FILE, currentHash, 'ascii')
+  console.log(`Interop assemblies written to ${path.relative(REPO_ROOT, INTEROP_DIR)}/`)
+  return true
+}
+
+// ─── Decompiled references ───────────────────────────────────────────────────
+
+function decompile(assembly: string, outDir: string, refDir: string): void {
+  fs.mkdirSync(outDir, { recursive: true })
+  execFileSync('ilspycmd', ['-p', '-o', outDir, '-r', refDir, assembly], { stdio: 'inherit' })
+}
+
+/**
+ * game-src/: Cpp2IL dummy Assembly-CSharp — original signatures and attributes (e.g. [Rpc] keys),
+ * method bodies are empty. game-lib/il2cpp/interop-src/: the interop wrapper as mods see it.
+ */
+function decompileReferences(force: boolean): void {
+  if (!force && fs.existsSync(GAME_SRC_DIR) && fs.existsSync(INTEROP_SRC_DIR)) {
     console.log('game-src is up to date. Skipping decompile.')
     return
-  }
-
-  if (fs.existsSync(gameSrcDir)) {
-    console.log('Assembly hash changed. Removing game-src/ for fresh decompile.')
-    fs.rmSync(gameSrcDir, { recursive: true })
   }
 
   console.log('Installing ilspycmd...')
@@ -214,22 +221,26 @@ function decompileIfNeeded(gameRoot: string): void {
     stdio: 'inherit',
   })
 
-  const managedDir = path.join(gameRoot, 'RoB_Data', 'Managed')
-  console.log('Decompiling Assembly-CSharp.dll into game-src/...')
-  fs.mkdirSync(gameSrcDir, { recursive: true })
-  execSync(`ilspycmd -p -o "${gameSrcDir}" -r "${managedDir}" "${assemblyPath}"`, {
-    stdio: 'inherit',
-  })
-  fs.writeFileSync(hashFile, currentHash, 'ascii')
-  console.log('Decompiled game code into game-src/')
+  if (fs.existsSync(GAME_SRC_DIR)) fs.rmSync(GAME_SRC_DIR, { recursive: true })
+  console.log('Decompiling dummy Assembly-CSharp into game-src/...')
+  decompile(path.join(DUMMY_DIR, 'Assembly-CSharp.dll'), GAME_SRC_DIR, DUMMY_DIR)
+
+  if (fs.existsSync(INTEROP_SRC_DIR)) fs.rmSync(INTEROP_SRC_DIR, { recursive: true })
+  console.log('Decompiling interop Assembly-CSharp into game-lib/il2cpp/interop-src/...')
+  decompile(
+    path.join(INTEROP_DIR, 'Assembly-CSharp.dll'),
+    path.join(INTEROP_SRC_DIR, 'Assembly-CSharp'),
+    INTEROP_DIR,
+  )
 }
 
-console.log('=== Raiders of Blackveil Modding Setup ===')
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+console.log('=== Raiders of Blackveil Modding Setup (IL2CPP) ===')
 const gameRoot = await promptGameRoot()
 console.log(`Game: ${gameRoot}`)
 writeUserPaths(gameRoot)
 await installBepInEx()
-await installUnityHotReload(gameRoot)
-copyGameAssemblies(gameRoot)
-decompileIfNeeded(gameRoot)
+const regenerated = await generateInterop(gameRoot)
+decompileReferences(regenerated)
 console.log('\nSetup complete. Next: pnpm run build')

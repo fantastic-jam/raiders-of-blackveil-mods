@@ -38,7 +38,7 @@ WMF calls `Disable()` before `BeginPlaySession` when the host disallows a mod ty
 
 ## Patch lifecycle
 
-**Resolve reflection handles once in `Awake()`.** Never inside `Enable()` — handles do not change between enable/disable cycles.
+**Resolve patch targets once in `Load()`.** Never inside `Enable()` — handles do not change between enable/disable cycles. Under IL2CPP, private fields are read directly on the interop wrapper (no `AccessTools.Field`) — see [il2cpp.md](il2cpp.md).
 
 **Patch in `Enable()`, unpatch in `Disable()`.** Use a `_patched` guard so `Enable()` is idempotent.
 
@@ -49,12 +49,12 @@ internal static class [ModName]Patch {
     private static bool _patched;
     internal static bool Disabled;
 
-    // Called once from Awake() — resolve reflection handles only, no patches.
+    // Called once from Load() — resolve patch targets only, no patches.
     // Returns false if any critical handle is missing (caller should abort).
     internal static bool Init() {
-        // _someField = AccessTools.Field(typeof(SomeClass), "_someField");
-        // if (_someField == null) {
-        //     [ModName]Mod.PublicLogger.LogWarning("[ModName]: SomeClass._someField not found.");
+        // _someMethod = AccessTools.Method(typeof(SomeClass), "SomeMethod");
+        // if (_someMethod == null) {
+        //     [ModName]Mod.PublicLogger.LogWarning("[ModName]: SomeClass.SomeMethod not found.");
         // }
         return true;
     }
@@ -79,7 +79,7 @@ internal static class [ModName]Patch {
 ```csharp
 // [ModName]Mod.cs
 [BepInPlugin(Id, Name, Version)]
-public class [ModName]Mod : BaseUnityPlugin {
+public class [ModName]Mod : BasePlugin {
     private const string Id   = "io.github.fantastic-jam.raidersofblackveil.mods.[modname-lowercase]";
     public const string Name    = "[ModName]";
     public const string Version = "0.1.0";
@@ -105,8 +105,8 @@ public class [ModName]Mod : BaseUnityPlugin {
         [ModName]Patch.Unpatch();
     }
 
-    private void Awake() {
-        PublicLogger = Logger;
+    public override void Load() {
+        PublicLogger = Log;
         try {
             if (![ModName]Patch.Init()) {
                 PublicLogger.LogError($"{Name}: init failed — mod disabled.");
@@ -143,6 +143,6 @@ See [API.md](../../../mods/WildguardModFramework/API.md#notifications-api) for t
 
 - **No `BepInDependency` on WMF.** Duck-typed mods are fully optional WMF participants.
 - **`Init()` returns `bool`.** Return `false` only if a critical reflection handle is missing and the mod cannot function at all. Missing non-critical handles should warn and continue.
-- **`Enable()` is called in `Awake()` to default to active.** WMF may call `Disable()` later if needed.
+- **`Enable()` is called in `Load()` to default to active.** WMF may call `Disable()` later if needed.
 - **`Disable()` unpatches** — patch methods do not need to check a `Disabled` flag because they won't run when unpatched.
 - **Unpatch is idempotent** — `_harmony?.UnpatchSelf()` is safe to call when nothing is patched.

@@ -9,7 +9,6 @@ import {
   modDllPath,
   modOutputDir,
   readModMetadata,
-  readModPluginId,
   readUserPaths,
 } from './lib/mod.mts'
 
@@ -70,7 +69,7 @@ for (const mod of mods) {
 
   if (isDebug) {
     // Copy mod DLLs from the debug output; some DLLs are managed externally:
-    const EXTERNALLY_MANAGED = new Set(['UnityHotReload.dll', 'ModRegistry.dll'])
+    const EXTERNALLY_MANAGED = new Set(['ModRegistry.dll'])
     // A mod's own plugin_dlls are not externally managed — include them here
     for (const dll of meta.plugin_dlls ?? []) EXTERNALLY_MANAGED.delete(dll)
     const dlls = fs
@@ -122,25 +121,6 @@ for (const mod of mods) {
           console.log(`Config deployed: ${dest}`)
         }
       }
-    }
-  }
-
-  if (isDebug) {
-    const pluginId = readModPluginId(mod)
-    if (pluginId !== null) {
-      const hotReloadCfgPath = path.join(configDir, `${pluginId}.cfg`)
-      const line = `DllPath = ${dllPath}`
-      let content = fs.existsSync(hotReloadCfgPath) ? fs.readFileSync(hotReloadCfgPath, 'utf8') : ''
-      if (/^\[DevHotReload\]/mu.test(content)) {
-        content = /^DllPath\s*=/mu.test(content)
-          ? content.replace(/^DllPath\s*=.*$/mu, line)
-          : content.replace(/^(\[DevHotReload\])/mu, `$1\n\n${line}`)
-      } else {
-        content += `${content ? '\n' : ''}[DevHotReload]\n\n${line}\n`
-      }
-      fs.mkdirSync(configDir, { recursive: true })
-      fs.writeFileSync(hotReloadCfgPath, content, 'utf8')
-      console.log(`HotReload config: ${hotReloadCfgPath}`)
     }
   }
 }

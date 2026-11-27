@@ -1,5 +1,9 @@
 # Patch extraction — patches are wiring only
 
+> **IL2CPP (game ≥ 0.6.5):** the one-liner rule is unchanged. Field-access examples using
+> `AccessTools.Field` are Mono-era — use the interop property (`page._cursor`). Coroutines started on an
+> injected runner need `.WrapToIl2Cpp()`. See [il2cpp.md](il2cpp.md).
+
 ## Rule: patch methods must be one-liners
 
 Every Harmony patch method body is a single delegating call. Any logic beyond a guard check belongs in a Controller, Proxify, Orchestrator, or Protocol class.

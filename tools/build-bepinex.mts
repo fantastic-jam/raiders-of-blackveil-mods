@@ -138,7 +138,7 @@ async function assemble(): Promise<void> {
   )
 
   console.log('Downloading Cpp2IL (net472)...')
-  downloadCpp2Il(CPP2IL_ARTIFACT_NET472, path.join(OUT_DIR, 'BepInEx', 'cpp2il'))
+  await downloadCpp2Il(CPP2IL_ARTIFACT_NET472, path.join(OUT_DIR, 'BepInEx', 'cpp2il'))
 
   fs.writeFileSync(
     path.join(OUT_DIR, 'BepInEx', 'cpp2il', 'README.txt'),

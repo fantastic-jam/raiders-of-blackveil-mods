@@ -1,5 +1,12 @@
 # Proxy pattern — per-instance logic alongside or replacing vanilla
 
+> **IL2CPP (game ≥ 0.6.5):** `ConditionalWeakTable<GameType, Proxy>` no longer works — Il2CppInterop
+> wrappers are not unique per native object, so the table can miss or drop entries while the game object
+> lives on. Key the proxy by native identity (`Dictionary<GameType, Proxy>` with
+> `NativeIdentityComparer<GameType>`, or by `Pointer`) and remove the entry from a lifecycle hook
+> (despawn / destroy / session end). Reflection examples (`AccessTools.Field`) are Mono-era too.
+> See [il2cpp.md](il2cpp.md).
+
 Two variants depending on whether vanilla should run or not:
 
 | Variant | Patch type | When to use |
