@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
 using RR;
 using RR.Backend.Phoenix;
 using RR.Game;
 using RR.Game.Perk;
 using RR.Level;
+using Il2CppList = Il2CppSystem.Collections.Generic;
 
 namespace JoinAnytime {
     /// <summary>
@@ -20,32 +19,27 @@ namespace JoinAnytime {
     /// </para>
     /// </summary>
     internal static class NewcomerFactory {
-        // internal PhoenixPartyMember DungeonManager.BuildPartyMember(Player) — the game's own snapshot builder.
-        private static MethodInfo _buildPartyMember;
-
-        internal static bool Init() {
-            _buildPartyMember = AccessTools.Method(typeof(DungeonManager), "BuildPartyMember", new[] { typeof(Player) });
-            if (_buildPartyMember == null) {
-                JoinAnytimeMod.PublicLogger.LogWarning("JoinAnytime: DungeonManager.BuildPartyMember not found — newcomers can't be averaged, mid-run joins disabled.");
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>Snapshot of every live player except <paramref name="exclude"/>, built by the game.</summary>
+        /// <summary>
+        /// Snapshot of every live player except <paramref name="exclude"/>, built by the game's own
+        /// <c>DungeonManager.BuildPartyMember</c> (private in game code, public on the interop wrapper).
+        /// </summary>
         private static List<PhoenixPartyMember> SnapshotParty(Player exclude = null) {
-            var dungeon = GameManager.Instance?.GetLevelManager() as DungeonManager;
+            var result = new List<PhoenixPartyMember>();
+            var dungeon = GameManager.Instance?.GetLevelManager()?.TryCast<DungeonManager>();
             var pm = PlayerManager.Instance;
-            if (dungeon == null || pm == null) { return new List<PhoenixPartyMember>(); }
-            return pm.GetPlayers()
-                .Where(p => p != exclude)
-                .Select(p => _buildPartyMember.Invoke(dungeon, new object[] { p }) as PhoenixPartyMember)
-                .Where(m => m != null)
-                .ToList();
+            if (dungeon == null || pm == null) { return result; }
+            var players = pm.GetPlayers();
+            for (var i = 0; i < players.Count; i++) {
+                var p = players[i];
+                if (exclude != null && p.Pointer == exclude.Pointer) { continue; }
+                var member = dungeon.BuildPartyMember(p);
+                if (member != null) { result.Add(member); }
+            }
+            return result;
         }
 
         /// <summary>Connect time: XP and ability levels averaged over the party, full health, no talents or perks yet.</summary>
-        internal static PhoenixPartyMember BuildSkeleton(Guid playerId) {
+        internal static PhoenixPartyMember BuildSkeleton(Il2CppSystem.Guid playerId, int slotIndex) {
             var party = SnapshotParty();
             if (party.Count == 0) { return null; }
 
@@ -61,6 +55,7 @@ namespace JoinAnytime {
                 IsHost = false,
                 UserName = "",              // unknown until the join RPC; only used for the crash-recovery roster
                 PlayableCharacterIndex = 0, // not used on the reconnect path — the client's own champion wins
+                SlotIndex = slotIndex,
                 ChampionXPAmount = Avg(m => m.ChampionXPAmount),
                 ChampionAbilityPoints = Avg(m => m.ChampionAbilityPoints),
                 ChampionUltimatePoints = Avg(m => m.ChampionUltimatePoints),
@@ -75,11 +70,11 @@ namespace JoinAnytime {
                 ChampionInjury = 0f,
                 ExtraLifeProductUsed = false,
                 // Talents are champion-specific and the newcomer picks their own champion — leave them empty.
-                ActivatedTalents = new List<PhoenixTalentRef>(),
-                SelectableTalents = new List<PhoenixTalentRef>(),
-                CollectedPerkIdsLevel0 = new List<int>(),
-                CollectedPerkIdsLevel1 = new List<int>(),
-                CollectedPerkIdsLevel2 = new List<int>(),
+                ActivatedTalents = new Il2CppList.List<PhoenixTalentRef>(),
+                SelectableTalents = new Il2CppList.List<PhoenixTalentRef>(),
+                CollectedPerkIdsLevel0 = new Il2CppList.List<int>(),
+                CollectedPerkIdsLevel1 = new Il2CppList.List<int>(),
+                CollectedPerkIdsLevel2 = new Il2CppList.List<int>(),
             };
         }
 
@@ -92,32 +87,37 @@ namespace JoinAnytime {
             var party = SnapshotParty(exclude: newcomer);
             if (party.Count == 0) { return; }
 
-            var rolled = new List<PerkDescriptor>();
+            var rolled = new Il2CppList.List<PerkDescriptor>();
             RollLevel(party.Select(m => m.CollectedPerkIdsLevel0).ToList(), member.CollectedPerkIdsLevel0, newcomer, rolled);
             RollLevel(party.Select(m => m.CollectedPerkIdsLevel1).ToList(), member.CollectedPerkIdsLevel1, newcomer, rolled);
             RollLevel(party.Select(m => m.CollectedPerkIdsLevel2).ToList(), member.CollectedPerkIdsLevel2, newcomer, rolled);
         }
 
-        private static void RollLevel(List<List<int>> partyLevelPerks, List<int> target, Player newcomer, List<PerkDescriptor> rolled) {
+        private static void RollLevel(List<Il2CppList.List<int>> partyLevelPerks, Il2CppList.List<int> target, Player newcomer,
+            Il2CppList.List<PerkDescriptor> rolled) {
             var db = PerkDatabase.Instance;
             // Each party member's perks at this level, sorted by rarity, so slot i averages comparable perks.
-            var byMember = partyLevelPerks
-                .Select(ids => (ids ?? new List<int>())
-                    .Select(db.PerkDescriptorByID)
-                    .Where(p => p != null)
-                    .OrderBy(p => (int)p.Rarity)
-                    .ToList())
-                .ToList();
+            var byMember = partyLevelPerks.Select(ids => Descriptors(db, ids).OrderBy(p => (int)p.Rarity).ToList()).ToList();
 
-            int count = (int)byMember.Average(list => (double)list.Count);
-            for (int i = 0; i < count; i++) {
+            var count = (int)byMember.Average(list => (double)list.Count);
+            for (var i = 0; i < count; i++) {
                 var rarities = byMember.Where(list => i < list.Count).Select(list => (int)list[i].Rarity).ToList();
                 var rarity = rarities.Count == 0 ? Rarity.Common : (Rarity)(int)rarities.Average();
                 var roll = db.GetRandomPerkAmount(1, Category.None, rarity, newcomer.PlayerFilter, rolled);
-                if (roll.Count == 0) { return; }
+                if (roll == null || roll.Count == 0) { return; }
                 rolled.Add(roll[0]);
                 target.Add(roll[0].PerkID);
             }
+        }
+
+        private static List<PerkDescriptor> Descriptors(PerkDatabase db, Il2CppList.List<int> ids) {
+            var result = new List<PerkDescriptor>();
+            if (ids == null) { return result; }
+            for (var i = 0; i < ids.Count; i++) {
+                var perk = db.PerkDescriptorByID(ids[i]);
+                if (perk != null) { result.Add(perk); }
+            }
+            return result;
         }
     }
 }

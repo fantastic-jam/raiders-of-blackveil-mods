@@ -27,21 +27,30 @@ namespace JoinAnytime {
 
         internal static bool IsAvailable => _wmfSend != null && _serverChatReceive != null && _confirmedPlayersField != null;
 
+        // Look the type up in WMF's assembly only: AccessTools.TypeByName scans every loaded assembly, and the
+        // IL2CPP interop ones throw (logged as dozens of HarmonyX warnings) when enumerated.
+        private static Type WmfType(string fullName) {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+                if (asm.GetName().Name == "WildguardModFramework") { return asm.GetType(fullName); }
+            }
+            return null;
+        }
+
         internal static void Resolve() {
             if (_resolved) { return; }
             _resolved = true;
 
-            var wmfNetwork = AccessTools.TypeByName("WildguardModFramework.Network.WmfNetwork");
+            var wmfNetwork = WmfType("WildguardModFramework.Network.WmfNetwork");
             if (wmfNetwork != null) {
                 _wmfSend = AccessTools.Method(wmfNetwork, "Send", new[] { typeof(PlayerRef), typeof(string), typeof(byte[]) });
             }
 
-            var serverChat = AccessTools.TypeByName("WildguardModFramework.Chat.ServerChat");
+            var serverChat = WmfType("WildguardModFramework.Chat.ServerChat");
             if (serverChat != null) {
                 _serverChatReceive = AccessTools.Method(serverChat, "ReceiveMessage", new[] { typeof(string), typeof(string) });
             }
 
-            var protocol = AccessTools.TypeByName("WildguardModFramework.Network.GameModeProtocol");
+            var protocol = WmfType("WildguardModFramework.Network.GameModeProtocol");
             if (protocol != null) {
                 _confirmedPlayersField = AccessTools.Field(protocol, "ConfirmedPlayers");
             }
@@ -73,12 +82,13 @@ namespace JoinAnytime {
             var confirmed = _confirmedPlayersField.GetValue(null) as IEnumerable;
             if (confirmed == null) { return; }
 
-            var localRef = PlayerManager.Instance?.LocalPlayerRef ?? default;
+            var localId = PlayerManager.Instance?.LocalPlayerRef.PlayerId ?? -1;
             var payload = EncodeChatPayload(sender, text);
 
+            // Managed HashSet<PlayerRef> inside WMF — PlayerRef is a blittable interop struct, compare by id.
             foreach (var refObj in confirmed) {
                 if (refObj is not PlayerRef target) { continue; }
-                if (target == localRef) { continue; }
+                if (target.PlayerId == localId) { continue; }
                 try {
                     _wmfSend.Invoke(null, new object[] { target, ChatChannel, payload });
                 }

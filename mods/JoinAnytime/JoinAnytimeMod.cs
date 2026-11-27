@@ -1,14 +1,14 @@
 ﻿using System;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
+using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using JoinAnytime.Patch;
 
 namespace JoinAnytime {
     [BepInDependency("io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework")]
     [BepInPlugin(Id, Name, Version)]
-    public class JoinAnytimeMod : BaseUnityPlugin {
+    public class JoinAnytimeMod : BasePlugin {
         private const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.joinanytime";
         public const string Name = "JoinAnytime";
         public const string Version = "0.1.0";
@@ -16,11 +16,6 @@ namespace JoinAnytime {
 
         public static ManualLogSource PublicLogger;
         private readonly Harmony _harmony = new Harmony(Id);
-
-#if DEV_HOTRELOAD
-        public static ConfigEntry<string> CfgDevHotReloadDllPath;
-        private Harmony _devHarmony;
-#endif
 
         // WMF duck-typing — WMF discovers these via reflection; no ModRegistry reference needed.
         public string GetModType() => "Mod";
@@ -32,26 +27,16 @@ namespace JoinAnytime {
         public void Enable() {
             JoinAnytimePatch.Disabled = false;
             JoinAnytimePatch.Patch(_harmony);
-#if DEV_HOTRELOAD
-            Dev.HotReloadController.Enable();
-#endif
         }
 
         public void Disable() {
             JoinAnytimePatch.Disabled = true;
             JoinAnytimePatch.Unpatch();
-#if DEV_HOTRELOAD
-            Dev.HotReloadController.Disable();
-#endif
         }
 
-        private void Awake() {
-            PublicLogger = Logger;
+        public override void Load() {
+            PublicLogger = Log;
             try {
-                if (!JoinAnytimePatch.Init()) {
-                    PublicLogger.LogError($"{Name}: init failed — mod disabled.");
-                    return;
-                }
                 WmfChatBridge.Resolve();
                 Enable();
                 PublicLogger.LogInfo($"{Name} by {Author} (version {Version}) loaded.");
@@ -59,15 +44,6 @@ namespace JoinAnytime {
             catch (Exception ex) {
                 PublicLogger.LogError(ex);
             }
-
-#if DEV_HOTRELOAD
-            CfgDevHotReloadDllPath = Config.Bind(
-                "DevHotReload", "DllPath", "",
-                "Absolute path to the Debug build output DLL for F9 hot-reload. Example: C:/projects/.../mods/JoinAnytime/bin/Debug/JoinAnytime.dll");
-            _devHarmony = new Harmony(Id + ".dev");
-            Dev.HotReloadController.Initialize(_devHarmony, CfgDevHotReloadDllPath.Value);
-            PublicLogger.LogWarning($"[HotReload] DEV BUILD. DLL: {CfgDevHotReloadDllPath.Value}");
-#endif
         }
     }
 }

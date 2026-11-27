@@ -18,11 +18,11 @@ namespace JoinAnytime {
             if (gm == null || pm == null || backend == null) { return; }
             if (NetworkManager.Instance?.FusionGameMode != GameMode.Host) { return; }
             if (gm.State != GameManager.GameState.Dungeon) { return; }          // vanilla covers the lobby; tutorial has no checkpoint
-            if (pm.GetPlayers().Count >= 3) { return; }                         // full — let the listing expire
+            if (pm.GetPlayers().Count >= JoinAdmission.MaxPlayers) { return; }  // full — let the listing expire
             if (PhoenixManager.CurrentRunReconnect == null) { return; }         // nothing to admit into yet
 
             var session = backend.CurrentJoinablePlaySession;
-            if (session == null || session.Id == System.Guid.Empty) { return; }
+            if (session == null || session.Id.ToString() == System.Guid.Empty.ToString()) { return; }
             backend._sessionManager?.BackendSessionContext?.JoinableSessions?.AnnounceToLobbyListAsync(session).Forget();
         }
     }

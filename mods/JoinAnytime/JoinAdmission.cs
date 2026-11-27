@@ -4,6 +4,7 @@ using System.Linq;
 using Fusion;
 using RR;
 using RR.Backend.Phoenix;
+using RR.Game;
 using UnityEngine;
 
 namespace JoinAnytime {
@@ -18,16 +19,18 @@ namespace JoinAnytime {
     /// </para>
     /// </summary>
     internal static class JoinAdmission {
+        internal const int MaxPlayers = 3;
+
         // Drop a fabricated member if its newcomer never shows up as a Fusion player within this delay.
         private const float ConnectTimeoutSeconds = 60f;
 
         private sealed class Pending {
             internal PhoenixPartyMember Member;
             internal float AdmittedAt;
-            internal PlayerRef? PlayerRef; // set once the newcomer's Fusion player joined
+            internal int? PlayerId; // Fusion PlayerRef.PlayerId, set once the newcomer's Fusion player joined
         }
 
-        // Fabricated members not yet consumed by the game's restore. Host-side.
+        // Fabricated members not yet consumed by the game's restore. Host-side, keyed by profile GUID.
         private static readonly Dictionary<Guid, Pending> _pending = new();
 
         internal static void Reset() => _pending.Clear();
@@ -43,9 +46,10 @@ namespace JoinAnytime {
             var gm = GameManager.Instance;
             var pm = PlayerManager.Instance;
             if (gm == null || pm == null || gm.IsLobbyNoRaidStartedYet()) { return; }   // lobby: vanilla accepts
-            if (pm.GetPlayers().Count > 2) { return; }                                  // full: vanilla refuses
+            if (pm.GetPlayers().Count >= MaxPlayers) { return; }                         // full: vanilla refuses
             if (!TryGetTokenPlayerId(token, out var playerId)) { return; }               // no identity: vanilla refuses
-            if (pm.IsRaidMember(playerId) || PhoenixManager.IsRecoverablePartyMember(playerId)) { return; } // returning: vanilla
+            var il2cppId = ToIl2Cpp(playerId);
+            if (pm.IsRaidMember(il2cppId) || PhoenixManager.IsRecoverablePartyMember(il2cppId)) { return; } // returning: vanilla
 
             var checkpoint = PhoenixManager.CurrentRunReconnect;
             if (checkpoint?.SavedParty == null) {
@@ -54,7 +58,13 @@ namespace JoinAnytime {
                 return;
             }
 
-            var member = NewcomerFactory.BuildSkeleton(playerId);
+            var slot = FreeSlotIndex(pm, checkpoint);
+            if (slot < 0) {
+                JoinAnytimeMod.PublicLogger.LogInfo($"JoinAnytime: {playerId} wants to join, but every slot is taken or reserved — refused.");
+                return;
+            }
+
+            var member = NewcomerFactory.BuildSkeleton(il2cppId, slot);
             if (member == null) {
                 JoinAnytimeMod.PublicLogger.LogWarning($"JoinAnytime: could not build a party member for {playerId} — refused.");
                 return;
@@ -63,11 +73,11 @@ namespace JoinAnytime {
             checkpoint.SavedParty.Add(member);
             // After a host crash-recovery CurrentRunReconnect is also PendingRecovery, which re-applies unapplied
             // members at every level start — mark ours applied so it's never re-applied on top of live state.
-            PhoenixManager.MarkMemberApplied(playerId);
+            PhoenixManager.MarkMemberApplied(il2cppId);
             _pending[playerId] = new Pending { Member = member, AdmittedAt = Time.realtimeSinceStartup };
 
             JoinAnytimeMod.PublicLogger.LogInfo(
-                $"JoinAnytime: admitting {playerId} mid-run (xp={member.ChampionXPAmount}, abilityPoints={member.ChampionAbilityPoints}).");
+                $"JoinAnytime: admitting {playerId} mid-run (slot={slot}, xp={member.ChampionXPAmount}, abilityPoints={member.ChampionAbilityPoints}).");
             WmfChatBridge.HostNotify("A new player is joining the run.");
         }
 
@@ -75,12 +85,12 @@ namespace JoinAnytime {
         internal static void OnPlayerJoined(NetworkRunner runner, PlayerRef playerRef) {
             if (!runner.IsServer || _pending.Count == 0) { return; }
             if (!TryGetTokenPlayerId(runner.GetPlayerConnectionToken(playerRef), out var playerId)) { return; }
-            if (_pending.TryGetValue(playerId, out var pending)) { pending.PlayerRef = playerRef; }
+            if (_pending.TryGetValue(playerId, out var pending)) { pending.PlayerId = playerRef.PlayerId; }
         }
 
         /// <summary>Host, before <c>PlayerManager.OnPlayerLeft</c>: a newcomer leaving before being restored is dropped.</summary>
         internal static void OnPlayerLeft(PlayerRef playerRef) {
-            var playerId = _pending.FirstOrDefault(kv => kv.Value.PlayerRef == playerRef).Key;
+            var playerId = _pending.FirstOrDefault(kv => kv.Value.PlayerId == playerRef.PlayerId).Key;
             if (playerId == Guid.Empty) { return; }
             Discard(playerId, "left before spawning");
         }
@@ -89,9 +99,11 @@ namespace JoinAnytime {
         /// Host, after <c>PhoenixManager.TryConsumeReconnectRestore</c>: the game is about to apply the member to the
         /// newcomer's freshly spawned champion — roll their perks now that the champion and slot exist.
         /// </summary>
-        internal static void OnRestoreConsumed(bool consumed, Guid playerId, PhoenixPartyMember member) {
-            if (!consumed || member == null || !_pending.Remove(playerId)) { return; }
-            var player = PlayerManager.Instance?.GetPlayers().FirstOrDefault(p => p.ProfileUUID == playerId);
+        internal static void OnRestoreConsumed(bool consumed, Il2CppSystem.Guid il2cppId, PhoenixPartyMember member) {
+            if (!consumed || member == null) { return; }
+            var playerId = ToManaged(il2cppId);
+            if (!_pending.Remove(playerId)) { return; }
+            var player = FindPlayer(PlayerManager.Instance, playerId);
             if (player == null) { return; }
             try {
                 NewcomerFactory.FillPerks(member, player);
@@ -109,7 +121,7 @@ namespace JoinAnytime {
             if (_pending.Count == 0) { return; }
             var now = Time.realtimeSinceStartup;
             foreach (var playerId in _pending
-                         .Where(kv => kv.Value.PlayerRef == null && now - kv.Value.AdmittedAt > ConnectTimeoutSeconds)
+                         .Where(kv => kv.Value.PlayerId == null && now - kv.Value.AdmittedAt > ConnectTimeoutSeconds)
                          .Select(kv => kv.Key)
                          .ToList()) {
                 Discard(playerId, "never connected");
@@ -118,12 +130,43 @@ namespace JoinAnytime {
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
+        // Since 0.6.5 a returning member gets its saved SlotIndex back (PlayerManager.GetSlotIndexForJoiner); the
+        // default 0 would collide with the host. Pick a slot no live player and no recoverable member holds.
+        private static int FreeSlotIndex(PlayerManager pm, PhoenixRunCheckpoint checkpoint) {
+            var used = new HashSet<int>();
+            var players = pm.GetPlayers();
+            for (var i = 0; i < players.Count; i++) { used.Add(players[i].SlotIndex); }
+            var party = checkpoint.SavedParty;
+            for (var i = 0; i < party.Count; i++) { used.Add(party[i].SlotIndex); }
+            for (var slot = 0; slot < MaxPlayers; slot++) {
+                if (!used.Contains(slot)) { return slot; }
+            }
+            return -1;
+        }
+
+        internal static Player FindPlayer(PlayerManager pm, Guid playerId) {
+            if (pm == null) { return null; }
+            var players = pm.GetPlayers();
+            for (var i = 0; i < players.Count; i++) {
+                if (ToManaged(players[i].ProfileUUID) == playerId) { return players[i]; }
+            }
+            return null;
+        }
+
         // A fabricated entry left in the checkpoint would keep the GUID "recoverable" for the whole run and put a
         // ghost in the roster restored after a host crash. SaveCheckpoint rebuilds the list each level (carrying
         // non-live members over), so remove by id rather than by reference.
         private static void Discard(Guid playerId, string reason) {
             _pending.Remove(playerId);
-            var removed = PhoenixManager.CurrentRunReconnect?.SavedParty?.RemoveAll(m => m.PlayerId == playerId) ?? 0;
+            var removed = 0;
+            var party = PhoenixManager.CurrentRunReconnect?.SavedParty;
+            if (party != null) {
+                for (var i = party.Count - 1; i >= 0; i--) {
+                    if (ToManaged(party[i].PlayerId) != playerId) { continue; }
+                    party.RemoveAt(i);
+                    removed++;
+                }
+            }
             JoinAnytimeMod.PublicLogger.LogInfo($"JoinAnytime: dropped newcomer {playerId} ({reason}, {removed} checkpoint entr{(removed == 1 ? "y" : "ies")} removed).");
         }
 
@@ -134,5 +177,9 @@ namespace JoinAnytime {
             playerId = new Guid(token);
             return playerId != Guid.Empty;
         }
+
+        internal static Guid ToManaged(Il2CppSystem.Guid guid) => Guid.Parse(guid.ToString());
+
+        internal static Il2CppSystem.Guid ToIl2Cpp(Guid guid) => Il2CppSystem.Guid.Parse(guid.ToString());
     }
 }

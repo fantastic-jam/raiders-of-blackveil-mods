@@ -1,6 +1,6 @@
-﻿using System;
-using Fusion;
+﻿using Fusion;
 using HarmonyLib;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using RR;
 using RR.Backend.Phoenix;
 
@@ -13,9 +13,6 @@ namespace JoinAnytime.Patch {
         private static Harmony _harmony;
         private static bool _patched;
         internal static bool Disabled;
-
-        /// <summary>Resolves reflection handles once. False = a required game member is missing; the mod stays off.</summary>
-        internal static bool Init() => NewcomerFactory.Init();
 
         internal static void Patch(Harmony harmony) {
             if (_patched) { return; }
@@ -79,8 +76,9 @@ namespace JoinAnytime.Patch {
         }
 
         // ── Patch methods ─────────────────────────────────────────────────────
+        // IL2CPP: parameter types are the interop ones (Il2CppStructArray, Il2CppSystem.Guid).
 
-        private static void OnConnectRequestPrefix(NetworkRunner runner, byte[] token) =>
+        private static void OnConnectRequestPrefix(NetworkRunner runner, Il2CppStructArray<byte> token) =>
             JoinAdmission.OnConnectRequest(runner, token);
 
         private static void OnPlayerJoinedPostfix(NetworkRunner runner, PlayerRef playerRef) =>
@@ -89,7 +87,7 @@ namespace JoinAnytime.Patch {
         private static void OnPlayerLeftPrefix(PlayerRef playerRef) =>
             JoinAdmission.OnPlayerLeft(playerRef);
 
-        private static void TryConsumeReconnectRestorePostfix(bool __result, Guid playerId, ref PhoenixPartyMember member) =>
+        private static void TryConsumeReconnectRestorePostfix(bool __result, Il2CppSystem.Guid playerId, ref PhoenixPartyMember member) =>
             JoinAdmission.OnRestoreConsumed(__result, playerId, member);
 
         private static void AnnounceToLobbyListPostfix() =>
