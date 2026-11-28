@@ -1,6 +1,6 @@
 # Wildguard Mod Framework (WMF)
 
-> **Works with the Arms Race update (game version 0.6.5).**
+> **Very beta.** WMF 1.0.0 is the first build for the IL2CPP game (0.6.5 and later, BepInEx 6). It was only lightly tested: expect bugs, and report them with your `BepInEx/LogOutput.log`. Everyone in a session should use WMF 1.0.0.
 
 The mod framework for Raiders of Blackveil. WMF gives players in-game control over their mods and gives mod authors a common API for discovery, game modes, and settings menus — with no engine restarts required.
 
@@ -19,7 +19,7 @@ The mod framework for Raiders of Blackveil. WMF gives players in-game control ov
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2246780/Raiders_of_Blackveil/)
-- [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
+- [BepInEx IL2CPP for Raiders of Blackveil](https://www.nexusmods.com/raidersofblackveil/mods/19) (BepInEx 5 no longer works)
 
 ---
 
@@ -27,16 +27,15 @@ The mod framework for Raiders of Blackveil. WMF gives players in-game control ov
 
 ### 1. Install BepInEx
 
-Skip this step if BepInEx is already installed.
+Skip this step if the BepInEx IL2CPP pack is already installed.
 
-1. Download **BepInEx 5** from the [BepInEx releases page](https://github.com/BepInEx/BepInEx/releases) — pick the `BepInEx_win_x64` build.
-2. Extract the contents into your game folder (the one containing `RoB.exe`).
-3. Launch the game once and close it — BepInEx will initialize its folder structure.
+- **With Vortex:** install the *Raiders of Blackveil* game extension, it installs BepInEx for you.
+- **Manually:** follow the instructions of the [BepInEx IL2CPP pack](https://www.nexusmods.com/raidersofblackveil/mods/19). The first launch takes one to two minutes longer.
 
 ### 2. Install the mod
 
 1. Download `WildguardModFramework-x.x.x.zip` from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework).
-2. Extract the ZIP into your game's `BepInEx` folder. `ModRegistry.dll` is bundled inside as a patcher — no separate download needed.
+2. Extract the ZIP into your game's `BepInEx` folder. `ModRegistry.dll` is bundled inside, no separate download needed.
 3. Launch the game.
 
 ---

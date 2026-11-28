@@ -2,6 +2,6 @@
   "nexus_mod_id": 12,
   "nexus_file_id": "7269167",
   "nexus_mod_uid": "36743445217292",
-  "nexus_short_description": "NOT WORKING: incompatible since the game switched to IL2CPP. A port may follow once mod loaders support the new build, but is not guaranteed. Please uninstall for now.",
+  "nexus_short_description": "VERY BETA: first build for the IL2CPP game (0.6.5+), needs the BepInEx IL2CPP pack. In-game Mods menu, game modes, server chat, player management and a networking API for mod authors.",
   "plugin_dlls": ["ModRegistry.dll"]
 }
