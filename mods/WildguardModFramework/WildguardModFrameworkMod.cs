@@ -20,7 +20,7 @@ namespace WildguardModFramework {
     public class WmfMod : BasePlugin, IModRegistrant {
         internal const string Id = "io.github.fantastic-jam.raidersofblackveil.mods.wildguard-mod-framework";
         public const string Name = "WMF";
-        public const string Version = "0.8.2";
+        public const string Version = "1.0.0";
         public const string Author = "christphe";
 
         public static ManualLogSource PublicLogger;
