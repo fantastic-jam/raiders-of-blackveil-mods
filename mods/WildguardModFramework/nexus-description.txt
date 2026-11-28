@@ -1,5 +1,9 @@
 [center][size=5][color=#ffaa00][b]VERY BETA — FIRST BUILD FOR THE IL2CPP GAME[/b][/color][/size]
 
+[size=5][b]REQUIRES BEPINEX IL2CPP FROM GITHUB[/b][/size]
+[size=4][b]Download [url=https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=bepinex]BepInEx-IL2CPP-RoB.zip from GitHub[/url] and extract it into your game folder (next to RoB.exe), or drag it into Vortex.[/b][/size]
+BepInEx 5 and the official BepInEx 6 do not work with this game. The Nexus copy of the pack is still under review.
+
 [b]Works with game 0.6.5 and later, on the BepInEx IL2CPP pack.[/b]
 This version was only lightly tested (solo and hosting). Everyone in a session should use WMF 1.0.0.
 Expect bugs. If something breaks, report it with your [b]BepInEx/LogOutput.log[/b].[/center]

@@ -1,6 +1,9 @@
 # Wildguard Mod Framework (WMF)
 
 > **Very beta.** WMF 1.0.0 is the first build for the IL2CPP game (0.6.5 and later, BepInEx 6). It was only lightly tested: expect bugs, and report them with your `BepInEx/LogOutput.log`. Everyone in a session should use WMF 1.0.0.
+>
+> ## Requires the BepInEx IL2CPP pack: [download it from GitHub](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=bepinex)
+> BepInEx 5 and the official BepInEx 6 do not work with this game.
 
 The mod framework for Raiders of Blackveil. WMF gives players in-game control over their mods and gives mod authors a common API for discovery, game modes, and settings menus — with no engine restarts required.
 
