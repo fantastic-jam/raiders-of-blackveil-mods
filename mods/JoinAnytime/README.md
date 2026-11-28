@@ -1,6 +1,9 @@
 # JoinAnytime
 
 > **Very beta.** JoinAnytime 1.0.0 is the first build for the IL2CPP game (0.6.5 and later, BepInEx 6). It was only lightly tested: mid-run joins may fail or misbehave. Report bugs with your `BepInEx/LogOutput.log`.
+>
+> ## Requires the BepInEx IL2CPP pack: [download it from GitHub](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=bepinex)
+> BepInEx 5 and the official BepInEx 6 do not work with this game.
 
 JoinAnytime lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 
