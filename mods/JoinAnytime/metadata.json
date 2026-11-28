@@ -2,5 +2,5 @@
   "nexus_mod_id": 16,
   "nexus_file_id": "7373279",
   "nexus_mod_uid": "36743445217296",
-  "nexus_short_description": "NOT WORKING: incompatible since the game switched to IL2CPP. A port may follow once mod loaders support the new build, but is not guaranteed. Please uninstall for now."
+  "nexus_short_description": "VERY BETA: first build for the IL2CPP game (0.6.5+). Lets anyone join a run in progress, spawning next to the host with XP and perks matched to the party. Host-only, needs WMF."
 }

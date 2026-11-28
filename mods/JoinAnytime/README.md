@@ -1,6 +1,6 @@
 # JoinAnytime
 
-> **Works with the Arms Race update (game version 0.6.5).** JoinAnytime 0.1.0 is a full rewrite. Older versions don't work with the current game and should be replaced.
+> **Very beta.** JoinAnytime 1.0.0 is the first build for the IL2CPP game (0.6.5 and later, BepInEx 6). It was only lightly tested: mid-run joins may fail or misbehave. Report bugs with your `BepInEx/LogOutput.log`.
 
 JoinAnytime lets anyone join a session whose run is already in progress. The game normally only lets a player back in if they were part of the run and got disconnected. JoinAnytime extends that to new players: they spawn right next to the host, in the current room, with XP, ability levels and perks matched to the rest of the party.
 
@@ -24,13 +24,13 @@ From then on, they are a regular member of the run. If they disconnect, they can
 ## Requirements
 
 - [Raiders of Blackveil](https://store.steampowered.com/app/2440490/Raiders_of_Blackveil/)
-- [BepInEx 5](https://github.com/BepInEx/BepInEx/releases)
-- [Wildguard Mod Framework](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework)
+- [BepInEx IL2CPP for Raiders of Blackveil](https://www.nexusmods.com/raidersofblackveil/mods/19) (BepInEx 5 no longer works)
+- [Wildguard Mod Framework](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) 1.0.0 or later
 
 ## Installation
 
-1. Install BepInEx 5 into your Raiders of Blackveil game folder by following the [BepInEx installation guide](https://docs.bepinex.dev/articles/user_guide/installation/index.html).
+1. Install the [BepInEx IL2CPP pack](https://www.nexusmods.com/raidersofblackveil/mods/19) (or, with Vortex, the *Raiders of Blackveil* game extension, which installs it for you).
 2. Install [Wildguard Mod Framework](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=WildguardModFramework) — required dependency.
 3. Download the latest JoinAnytime ZIP from the [releases page](https://github.com/fantastic-jam/raiders-of-blackveil-mods/releases?q=JoinAnytime).
-4. Extract the ZIP contents directly into your Raiders of Blackveil game folder (so the `BepInEx/plugins/` folder is merged).
+4. Extract the ZIP into your game's `BepInEx` folder (so the `plugins` folder is merged).
 5. Launch the game — JoinAnytime will be active automatically.

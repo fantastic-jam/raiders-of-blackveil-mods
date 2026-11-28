@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased] - minor
+## [Unreleased] - major
 
 ### Changed
 - Ported to the IL2CPP build of the game (BepInEx 6)
+
+### Removed
+- Support for BepInEx 5 and the old (Mono) build of the game: JoinAnytime now needs the BepInEx IL2CPP pack for Raiders of Blackveil and WMF 1.0.0. Very beta: first IL2CPP build, expect bugs
 
 ## [0.1.0] - 2026-11-11
 
